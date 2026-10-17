@@ -17,18 +17,18 @@ FetchContent_MakeAvailable(raylib)
 
 # List of modules in our layered engine
 add_executable(TalosEngine
-    src/main.cpp
-    src/core/window.cpp
-    src/core/input.cpp
-    src/renderer/renderer2d.cpp
-    src/physics/physics2d.cpp
-    src/scene/scene.cpp
-    src/scene/scene_serializer.cpp
-    src/editor/editor.cpp
+    core/window.cpp
+    core/input.cpp
+    renderer/renderer2d.cpp
+    physics/physics2d.cpp
+    scene/scene.cpp
+    scene/scene_serializer.cpp
+    editor/editor.cpp
+    editor/main.cpp
 )
 
 # Allow for clean file inclusion based on layer (e.g., #include "core/window.h")
-target_include_directories(TalosEngine PRIVATE src)
+target_include_directories(TalosEngine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Connect Raylib internally
 target_link_libraries(TalosEngine PRIVATE raylib)

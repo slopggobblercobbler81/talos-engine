@@ -24,7 +24,7 @@ namespace Talos::Editor {
     };
     static constexpr int NUM_PRESET_COLORS = 8;
 
-    // Built-in 1-click texture presets pointing to real .png files in "assets/textures/"
+    // Built-in 1-click texture presets pointing to real .png files in "examples/assets/textures/"
     struct TexturePreset {
         const char* label;
         const char* path;
@@ -32,10 +32,10 @@ namespace Talos::Editor {
 
     static const TexturePreset TEXTURE_PRESETS[] = {
         { "None",  "" },
-        { "Hero",  "assets/textures/hero.png" },
-        { "Crate", "assets/textures/crate.png" },
-        { "Brick", "assets/textures/brick.png" },
-        { "Coin",  "assets/textures/coin.png" }
+        { "Hero",  "examples/assets/textures/hero.png" },
+        { "Crate", "examples/assets/textures/crate.png" },
+        { "Brick", "examples/assets/textures/brick.png" },
+        { "Coin",  "examples/assets/textures/coin.png" }
     };
     static constexpr int NUM_TEXTURE_PRESETS = 5;
 

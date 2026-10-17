@@ -29,7 +29,7 @@ namespace Talos::Renderer {
     // Locates a clean, modern sans-serif TrueType font on the host system.
     static std::string ResolveCleanFontPath() {
         const char* candidatePaths[] = {
-            "assets/fonts/Inter-Regular.ttf",
+            "examples/assets/fonts/Inter-Regular.ttf",
             "C:/Windows/Fonts/segoeui.ttf",   // Windows standard modern UI font (Segoe UI)
             "C:/Windows/Fonts/arial.ttf",     // Windows fallback sans-serif
             "C:/Windows/Fonts/calibri.ttf",   // Windows fallback
@@ -68,16 +68,16 @@ namespace Talos::Renderer {
     // =========================================================================
     // Built-In Starter Texture Generator
     // =========================================================================
-    // Generates four real 64x64 .png files inside "assets/textures/" on first launch
+    // Generates four real 64x64 .png files inside "examples/assets/textures/" on first launch
     // if they are not already present on disk. This guarantees developers can test
     // 2D sprite textures, alpha transparency, and tinting immediately out of the box,
     // while also serving as real editable .png files in the workspace folder.
     static void EnsureStarterTexturesExist() {
         std::error_code ec;
-        std::filesystem::create_directories("assets/textures", ec);
+        std::filesystem::create_directories("examples/assets/textures", ec);
 
-        // 1. Hero Character Sprite ("assets/textures/hero.png")
-        if (!FileExists("assets/textures/hero.png")) {
+        // 1. Hero Character Sprite ("examples/assets/textures/hero.png")
+        if (!FileExists("examples/assets/textures/hero.png")) {
             Image img = GenImageColor(64, 64, { 0, 0, 0, 0 }); // Transparent background
             // Outer armor body
             ImageDrawRectangle(&img, 4, 4, 56, 56, { 35, 95, 165, 255 });
@@ -89,12 +89,12 @@ namespace Talos::Renderer {
             ImageDrawRectangle(&img, 38, 20, 10, 10, { 110, 245, 255, 255 });
             // Chest core emblem
             ImageDrawRectangle(&img, 24, 40, 16, 10, { 255, 210, 80, 255 });
-            ExportImage(img, "assets/textures/hero.png");
+            ExportImage(img, "examples/assets/textures/hero.png");
             UnloadImage(img);
         }
 
-        // 2. Wooden Storage Crate ("assets/textures/crate.png")
-        if (!FileExists("assets/textures/crate.png")) {
+        // 2. Wooden Storage Crate ("examples/assets/textures/crate.png")
+        if (!FileExists("examples/assets/textures/crate.png")) {
             Image img = GenImageColor(64, 64, { 125, 80, 42, 255 });
             // Inner plank fill
             ImageDrawRectangle(&img, 6, 6, 52, 52, { 168, 112, 62, 255 });
@@ -108,12 +108,12 @@ namespace Talos::Renderer {
             ImageDrawRectangle(&img, 51, 8, 5, 5, { 70, 75, 85, 255 });
             ImageDrawRectangle(&img, 8, 51, 5, 5, { 70, 75, 85, 255 });
             ImageDrawRectangle(&img, 51, 51, 5, 5, { 70, 75, 85, 255 });
-            ExportImage(img, "assets/textures/crate.png");
+            ExportImage(img, "examples/assets/textures/crate.png");
             UnloadImage(img);
         }
 
-        // 3. Stone Brick Wall ("assets/textures/brick.png")
-        if (!FileExists("assets/textures/brick.png")) {
+        // 3. Stone Brick Wall ("examples/assets/textures/brick.png")
+        if (!FileExists("examples/assets/textures/brick.png")) {
             Image img = GenImageColor(64, 64, { 60, 62, 72, 255 }); // Mortar background
             // Row 1 bricks
             ImageDrawRectangle(&img, 2, 2, 28, 13, { 175, 78, 72, 255 });
@@ -129,19 +129,19 @@ namespace Talos::Renderer {
             ImageDrawRectangle(&img, 2, 50, 14, 12, { 172, 76, 70, 255 });
             ImageDrawRectangle(&img, 20, 50, 28, 12, { 158, 68, 64, 255 });
             ImageDrawRectangle(&img, 52, 50, 10, 12, { 175, 78, 72, 255 });
-            ExportImage(img, "assets/textures/brick.png");
+            ExportImage(img, "examples/assets/textures/brick.png");
             UnloadImage(img);
         }
 
-        // 4. Golden Coin with Alpha Transparency ("assets/textures/coin.png")
-        if (!FileExists("assets/textures/coin.png")) {
+        // 4. Golden Coin with Alpha Transparency ("examples/assets/textures/coin.png")
+        if (!FileExists("examples/assets/textures/coin.png")) {
             Image img = GenImageColor(64, 64, { 0, 0, 0, 0 }); // Fully transparent background
             ImageDrawCircle(&img, 32, 32, 27, { 235, 165, 30, 255 });
             ImageDrawCircle(&img, 32, 32, 22, { 255, 215, 65, 255 });
             // Inner vertical emblem slot
             ImageDrawRectangle(&img, 28, 18, 8, 28, { 215, 145, 20, 255 });
             ImageDrawRectangle(&img, 29, 19, 4, 24, { 255, 245, 160, 255 });
-            ExportImage(img, "assets/textures/coin.png");
+            ExportImage(img, "examples/assets/textures/coin.png");
             UnloadImage(img);
         }
     }

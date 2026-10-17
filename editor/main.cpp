@@ -17,7 +17,7 @@ int main() {
     // typography cache, and generates starter .png textures in "assets/textures/".
     constexpr int WINDOW_WIDTH = 1360;
     constexpr int WINDOW_HEIGHT = 780;
-    const char* DEFAULT_SCENE_PATH = "scenes/main.talos";
+    const char* DEFAULT_SCENE_PATH = "examples/scenes/main.talos";
 
     Window::Init(WINDOW_WIDTH, WINDOW_HEIGHT, "Talos Engine - Visual Editor & 2D Textures");
     Renderer2D::Init();
@@ -25,9 +25,9 @@ int main() {
     // =========================================================================
     // 2. World Initialization: Load Saved Scene or Create Default (Scene Layer)
     // =========================================================================
-    // Attempt to load "scenes/main.talos" from disk. If no saved scene exists yet
+    // Attempt to load "examples/scenes/main.talos" from disk. If no saved scene exists yet
     // (e.g., on first launch), populate the default starter entities and save them
-    // immediately so "scenes/main.talos" is created on disk.
+    // immediately so "examples/scenes/main.talos" is created on disk.
     Scene world;
 
     if (!SceneSerializer::Load(world, DEFAULT_SCENE_PATH)) {
@@ -43,7 +43,7 @@ int main() {
         Entity& player = world.CreateEntity("Player", 360.0f, 340.0f);
         player.transform.width = 72.0f;
         player.transform.height = 72.0f;
-        player.sprite.texturePath = "assets/textures/hero.png";
+        player.sprite.texturePath = "examples/assets/textures/hero.png";
         player.sprite.color = { 255, 255, 255, 255 };
         player.collider.enabled = true;
         player.movement.enabled = true;
@@ -58,7 +58,7 @@ int main() {
         Entity& crate = world.CreateEntity("WoodenCrate", 530.0f, 430.0f);
         crate.transform.width = 68.0f;
         crate.transform.height = 68.0f;
-        crate.sprite.texturePath = "assets/textures/crate.png";
+        crate.sprite.texturePath = "examples/assets/textures/crate.png";
         crate.sprite.color = { 255, 255, 255, 255 };
         crate.collider.enabled = true;
         crate.collider.isStatic = true;
@@ -71,7 +71,7 @@ int main() {
         Entity& wall = world.CreateEntity("BrickWall", 700.0f, 230.0f);
         wall.transform.width = 110.0f;
         wall.transform.height = 280.0f;
-        wall.sprite.texturePath = "assets/textures/brick.png";
+        wall.sprite.texturePath = "examples/assets/textures/brick.png";
         wall.sprite.color = { 255, 255, 255, 255 };
         wall.collider.enabled = true;
         wall.collider.isStatic = true;
@@ -84,7 +84,7 @@ int main() {
         Entity& coin = world.CreateEntity("GoldCoin", 540.0f, 250.0f);
         coin.transform.width = 56.0f;
         coin.transform.height = 56.0f;
-        coin.sprite.texturePath = "assets/textures/coin.png";
+        coin.sprite.texturePath = "examples/assets/textures/coin.png";
         coin.sprite.color = { 255, 255, 255, 255 };
         coin.text.enabled = true;
         coin.text.content = "Coin";

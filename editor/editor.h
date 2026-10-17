@@ -17,7 +17,7 @@ namespace Talos::Editor {
     // awareness of this class. A standalone game build simply omits the Editor layer.
     class Editor {
     public:
-        explicit Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath = "scenes/main.talos");
+        explicit Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath = "examples/scenes/main.talos");
 
         // Processes Editor UI interactions, viewport entity picking/dragging,
         // and advances the Scene simulation when Play mode is active.
@@ -68,7 +68,7 @@ namespace Talos::Editor {
     private:
         int m_windowWidth = 1360;
         int m_windowHeight = 780;
-        std::string m_sceneFilePath = "scenes/main.talos";
+        std::string m_sceneFilePath = "examples/scenes/main.talos";
 
         // Layout metrics (in screen pixels)
         static constexpr float TOOLBAR_HEIGHT = 46.0f;
