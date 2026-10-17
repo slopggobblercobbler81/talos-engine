@@ -77,6 +77,7 @@ namespace Talos::Editor {
         void RenderSelectionGizmo(const Scene::Scene& scene) const;
         void RenderViewportCameraOverlay(const Scene::Scene& scene);
         void RenderViewportDiagnosticOverlay(const Scene::Scene& scene) const;
+        void RenderInputMapModal();
         void RenderConsolePanel();
         void RenderTopToolbar(Scene::Scene& scene);
         void RenderEntityListPanel(Scene::Scene& scene);
@@ -147,6 +148,13 @@ namespace Talos::Editor {
         int m_textSelectionAnchor = 0; // Selection start index (differs from cursor when selecting)
         bool m_isDraggingText = false; // True while dragging the mouse across a text input box
         int m_newEntityCounter = 1;
+
+        // Godot-style Project Input Map Modal state
+        bool m_inputMapOpen = false;
+        std::string m_inputMapFilePath = "examples/scenes/input_map.talos";
+        std::string m_newActionNameBuffer;
+        std::string m_listeningActionName;
+        int m_inputMapScrollOffset = 0;
 
         // In-Editor Debug Console state (severity filters, collapse toggle, and scroll offset)
         bool m_consoleOpen = true;

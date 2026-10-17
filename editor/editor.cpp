@@ -48,12 +48,13 @@ namespace Talos::Editor {
         return (mx >= x && mx <= x + w && my >= y && my <= y + h);
     }
 
-    // Helper: Returns true if the character belongs to a word (alphanumeric).
+    // Helper: Returns true if the character belongs to a word (alphanumeric or underscore).
     // Used by Ctrl+Left / Ctrl+Right word-by-word navigation.
     static bool IsWordChar(char c) {
         return (c >= 'a' && c <= 'z') ||
                (c >= 'A' && c <= 'Z') ||
-               (c >= '0' && c <= '9');
+               (c >= '0' && c <= '9') ||
+               (c == '_');
     }
     
     // Helper: Finds the next word boundary index when jumping with Ctrl + Left/Right Arrow.
@@ -146,6 +147,9 @@ namespace Talos::Editor {
 
     Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
         : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {
+        if (!InputMap::Load(m_inputMapFilePath)) {
+            InputMap::Save(m_inputMapFilePath);
+        }
         TALOS_LOG_INFO("Visual Editor initialized (scene target: '" + m_sceneFilePath + "')");
     }
 
@@ -255,6 +259,8 @@ namespace Talos::Editor {
         m_isPlaying = true;
         m_isDraggingEntity = false;
         m_focusedTextFieldId = -1;
+        m_inputMapOpen = false;
+        m_listeningActionName.clear();
         TALOS_LOG_INFO("Entered Play Mode (captured snapshot of " +
                        std::to_string(m_sceneSnapshot.size()) + " entities)");
     }
@@ -301,6 +307,33 @@ namespace Talos::Editor {
         }
 
         // =====================================================================
+        // Interactive Key Listening Mode (Input Map Key Assignment)
+        // =====================================================================
+        if (!m_isPlaying && m_inputMapOpen && !m_listeningActionName.empty()) {
+            if (Input::IsMouseButtonPressed(MouseButton::Right)) {
+                m_listeningActionName.clear();
+                ShowStatusMessage("Key binding cancelled");
+                return;
+            }
+
+            Key pressedKey = Key::Unknown;
+            if (Input::PollAnyKeyPressed(pressedKey)) {
+                while (Input::GetCharPressed() > 0) {}
+                std::string targetAction = m_listeningActionName;
+                m_listeningActionName.clear();
+                if (InputMap::BindKey(targetAction, pressedKey)) {
+                    InputMap::Save(m_inputMapFilePath);
+                    ShowStatusMessage("Bound [" + std::string(Input::GetKeyName(pressedKey)) +
+                                      "] -> '" + targetAction + "'");
+                } else {
+                    ShowStatusMessage("Key [" + std::string(Input::GetKeyName(pressedKey)) +
+                                      "] already bound to '" + targetAction + "'");
+                }
+                return;
+            }
+        }
+
+        // =====================================================================
         // Global Undo / Redo Keyboard Shortcuts (Ctrl + Z / Ctrl + Y)
         // =====================================================================
         // Processed before text field typing so Ctrl+Z works universally even
@@ -326,122 +359,150 @@ namespace Talos::Editor {
             }
         }
 
-        // Handle keyboard typing, cursor navigation, and text selection when an Inspector text box is focused
+        // Handle keyboard typing, cursor navigation, and text selection when a text box is focused
         if (m_focusedTextFieldId != -1 && !m_isPlaying) {
             Entity* selected = scene.FindEntityById(m_selectedEntityId);
-            if (selected) {
-                std::string* targetStr = nullptr;
-                if (m_focusedTextFieldId == 1) targetStr = &selected->name;
-                if (m_focusedTextFieldId == 2) targetStr = &selected->text.content;
-                if (m_focusedTextFieldId == 3) targetStr = &selected->sprite.texturePath;
+            std::string* targetStr = nullptr;
+            bool isEntityField = false;
 
-                if (targetStr) {
-                    int len = static_cast<int>(targetStr->size());
-                    m_textCursorPos = std::max(0, std::min(m_textCursorPos, len));
-                    m_textSelectionAnchor = std::max(0, std::min(m_textSelectionAnchor, len));
+            if (m_focusedTextFieldId == 4) {
+                targetStr = &m_newActionNameBuffer;
+                isEntityField = false;
+            } else if (selected) {
+                if (m_focusedTextFieldId == 1) { targetStr = &selected->name; isEntityField = true; }
+                if (m_focusedTextFieldId == 2) { targetStr = &selected->text.content; isEntityField = true; }
+                if (m_focusedTextFieldId == 3) { targetStr = &selected->sprite.texturePath; isEntityField = true; }
+            }
 
-                    auto hasSelection = [&]() { return m_textCursorPos != m_textSelectionAnchor; };
-                    auto getSelStart  = [&]() { return std::min(m_textCursorPos, m_textSelectionAnchor); };
-                    auto getSelEnd    = [&]() { return std::max(m_textCursorPos, m_textSelectionAnchor); };
+            if (targetStr) {
+                int len = static_cast<int>(targetStr->size());
+                m_textCursorPos = std::max(0, std::min(m_textCursorPos, len));
+                m_textSelectionAnchor = std::max(0, std::min(m_textSelectionAnchor, len));
 
-                    // Helper lambda that erases the currently highlighted text range
-                    auto deleteSelection = [&]() {
-                        int s = getSelStart();
-                        int e = getSelEnd();
-                        targetStr->erase(static_cast<size_t>(s), static_cast<size_t>(e - s));
-                        m_textCursorPos = s;
-                        m_textSelectionAnchor = s;
-                    };
+                auto hasSelection = [&]() { return m_textCursorPos != m_textSelectionAnchor; };
+                auto getSelStart  = [&]() { return std::min(m_textCursorPos, m_textSelectionAnchor); };
+                auto getSelEnd    = [&]() { return std::max(m_textCursorPos, m_textSelectionAnchor); };
 
-                    // 0. Select All shortcut (Ctrl + A) inside the active text box
-                    if (ctrlDown && Input::IsKeyPressed(Key::A)) {
-                        m_textSelectionAnchor = 0;
-                        m_textCursorPos = len;
-                    }
+                // Helper lambda that erases the currently highlighted text range
+                auto deleteSelection = [&]() {
+                    int s = getSelStart();
+                    int e = getSelEnd();
+                    targetStr->erase(static_cast<size_t>(s), static_cast<size_t>(e - s));
+                    m_textCursorPos = s;
+                    m_textSelectionAnchor = s;
+                };
 
-                    // 1. Left / Right Arrow Navigation (supports Shift selection & Ctrl word-by-word jump)
-                    bool leftPressed  = Input::IsKeyPressed(Key::Left);
-                    bool rightPressed = Input::IsKeyPressed(Key::Right);
+                // 0. Select All shortcut (Ctrl + A) inside the active text box
+                if (ctrlDown && Input::IsKeyPressed(Key::A)) {
+                    m_textSelectionAnchor = 0;
+                    m_textCursorPos = len;
+                }
 
-                    if (leftPressed || rightPressed) {
-                        int dir = leftPressed ? -1 : 1;
+                // 1. Left / Right Arrow Navigation (supports Shift selection & Ctrl word-by-word jump)
+                bool leftPressed  = Input::IsKeyPressed(Key::Left);
+                bool rightPressed = Input::IsKeyPressed(Key::Right);
 
-                        if (!shiftDown && hasSelection() && !ctrlDown) {
-                            // Pressing Left/Right without Shift collapses an active selection to its left/right boundary
-                            m_textCursorPos = (dir < 0) ? getSelStart() : getSelEnd();
-                            m_textSelectionAnchor = m_textCursorPos;
+                if (leftPressed || rightPressed) {
+                    int dir = leftPressed ? -1 : 1;
+
+                    if (!shiftDown && hasSelection() && !ctrlDown) {
+                        // Pressing Left/Right without Shift collapses an active selection to its left/right boundary
+                        m_textCursorPos = (dir < 0) ? getSelStart() : getSelEnd();
+                        m_textSelectionAnchor = m_textCursorPos;
+                    } else {
+                        if (ctrlDown) {
+                            m_textCursorPos = FindNextWordBoundary(*targetStr, m_textCursorPos, dir);
                         } else {
-                            if (ctrlDown) {
-                                m_textCursorPos = FindNextWordBoundary(*targetStr, m_textCursorPos, dir);
-                            } else {
-                                m_textCursorPos = std::max(0, std::min(m_textCursorPos + dir, len));
+                            m_textCursorPos = std::max(0, std::min(m_textCursorPos + dir, len));
+                        }
+
+                        // Without Shift, the anchor follows the cursor; with Shift, the anchor stays fixed to select
+                        if (!shiftDown) {
+                            m_textSelectionAnchor = m_textCursorPos;
+                        }
+                    }
+                }
+
+                // 2. Printable character insertion at cursor (replaces selection if any)
+                if (!ctrlDown) {
+                    int ch = Input::GetCharPressed();
+                    while (ch > 0) {
+                        if (ch >= 32 && ch <= 126) {
+                            // For Input Map action names (field 4), convert spaces to underscores automatically
+                            char chToInsert = static_cast<char>(ch);
+                            if (m_focusedTextFieldId == 4 && chToInsert == ' ') {
+                                chToInsert = '_';
                             }
 
-                            // Without Shift, the anchor follows the cursor; with Shift, the anchor stays fixed to select
-                            if (!shiftDown) {
+                            if (hasSelection() || targetStr->size() < 64) {
+                                if (isEntityField) PushUndoState(scene);
+                                if (hasSelection()) {
+                                    deleteSelection();
+                                }
+                                targetStr->insert(static_cast<size_t>(m_textCursorPos), 1, chToInsert);
+                                ++m_textCursorPos;
                                 m_textSelectionAnchor = m_textCursorPos;
                             }
                         }
+                        ch = Input::GetCharPressed();
                     }
+                }
 
-                    // 2. Printable character insertion at cursor (replaces selection if any)
-                    if (!ctrlDown) {
-                        int ch = Input::GetCharPressed();
-                        while (ch > 0) {
-                            if (ch >= 32 && ch <= 126) {
-                                if (hasSelection() || targetStr->size() < 64) {
-                                    PushUndoState(scene);
-                                    if (hasSelection()) {
-                                        deleteSelection();
-                                    }
-                                    targetStr->insert(static_cast<size_t>(m_textCursorPos), 1, static_cast<char>(ch));
-                                    ++m_textCursorPos;
-                                    m_textSelectionAnchor = m_textCursorPos;
-                                }
-                            }
-                            ch = Input::GetCharPressed();
+                // 3. Backspace & Delete (deletes active selection, single character, or whole word with Ctrl)
+                if (Input::IsKeyPressed(Key::Backspace)) {
+                    if (hasSelection()) {
+                        if (isEntityField) PushUndoState(scene);
+                        deleteSelection();
+                    } else if (m_textCursorPos > 0) {
+                        if (isEntityField) PushUndoState(scene);
+                        int eraseStart = ctrlDown ? FindNextWordBoundary(*targetStr, m_textCursorPos, -1)
+                                                  : (m_textCursorPos - 1);
+                        targetStr->erase(static_cast<size_t>(eraseStart),
+                                         static_cast<size_t>(m_textCursorPos - eraseStart));
+                        m_textCursorPos = eraseStart;
+                        m_textSelectionAnchor = m_textCursorPos;
+                    }
+                }
+
+                if (Input::IsKeyPressed(Key::Delete)) {
+                    int curLen = static_cast<int>(targetStr->size());
+                    if (hasSelection()) {
+                        if (isEntityField) PushUndoState(scene);
+                        deleteSelection();
+                    } else if (m_textCursorPos < curLen) {
+                        if (isEntityField) PushUndoState(scene);
+                        int eraseEnd = ctrlDown ? FindNextWordBoundary(*targetStr, m_textCursorPos, 1)
+                                                : (m_textCursorPos + 1);
+                        targetStr->erase(static_cast<size_t>(m_textCursorPos),
+                                         static_cast<size_t>(eraseEnd - m_textCursorPos));
+                        m_textSelectionAnchor = m_textCursorPos;
+                    }
+                }
+
+                // 4. Submit or Unfocus on Enter / Escape
+                if (Input::IsKeyPressed(Key::Enter)) {
+                    if (m_focusedTextFieldId == 4 && !m_newActionNameBuffer.empty()) {
+                        std::string actionName = m_newActionNameBuffer;
+                        if (InputMap::AddAction(actionName)) {
+                            InputMap::Save(m_inputMapFilePath);
+                            ShowStatusMessage("Created action '" + actionName + "'");
+                            m_newActionNameBuffer.clear();
+                            m_textCursorPos = 0;
+                            m_textSelectionAnchor = 0;
+                            m_inputMapScrollOffset = 9999; // Scroll to bottom so new action is visible
+                        } else {
+                            ShowStatusMessage("Action '" + actionName + "' already exists!");
                         }
-                    }
-
-                    // 3. Backspace & Delete (deletes active selection, single character, or whole word with Ctrl)
-                    if (Input::IsKeyPressed(Key::Backspace)) {
-                        if (hasSelection()) {
-                            PushUndoState(scene);
-                            deleteSelection();
-                        } else if (m_textCursorPos > 0) {
-                            PushUndoState(scene);
-                            int eraseStart = ctrlDown ? FindNextWordBoundary(*targetStr, m_textCursorPos, -1)
-                                                      : (m_textCursorPos - 1);
-                            targetStr->erase(static_cast<size_t>(eraseStart),
-                                             static_cast<size_t>(m_textCursorPos - eraseStart));
-                            m_textCursorPos = eraseStart;
-                            m_textSelectionAnchor = m_textCursorPos;
-                        }
-                    }
-
-                    if (Input::IsKeyPressed(Key::Delete)) {
-                        int curLen = static_cast<int>(targetStr->size());
-                        if (hasSelection()) {
-                            PushUndoState(scene);
-                            deleteSelection();
-                        } else if (m_textCursorPos < curLen) {
-                            PushUndoState(scene);
-                            int eraseEnd = ctrlDown ? FindNextWordBoundary(*targetStr, m_textCursorPos, 1)
-                                                    : (m_textCursorPos + 1);
-                            targetStr->erase(static_cast<size_t>(m_textCursorPos),
-                                             static_cast<size_t>(eraseEnd - m_textCursorPos));
-                            m_textSelectionAnchor = m_textCursorPos;
-                        }
-                    }
-
-                    // 4. Unfocus on Enter or Escape
-                    if (Input::IsKeyPressed(Key::Enter) || Input::IsKeyPressed(Key::Escape)) {
+                    } else {
                         m_focusedTextFieldId = -1;
                         m_isDraggingText = false;
                     }
+                } else if (Input::IsKeyPressed(Key::Escape)) {
+                    m_focusedTextFieldId = -1;
+                    m_isDraggingText = false;
                 }
             }
-        } else if (!m_isPlaying && m_focusedTextFieldId == -1) {
+        } else if (!m_isPlaying && m_focusedTextFieldId == -1 && !m_inputMapOpen) {
             // Allow deleting the selected entity with the Delete key when no text box is focused
             if (m_selectedEntityId != 0 && Input::IsKeyPressed(Key::Delete)) {
                 PushUndoState(scene);
@@ -474,7 +535,7 @@ namespace Talos::Editor {
                                (m_diagnosticOverlayEnabled ? "ENABLED" : "DISABLED"));
             }
             scene.Update(delta);
-        } else {
+        } else if (!m_inputMapOpen) {
             HandleViewportInput(scene);
         }
     }
@@ -680,10 +741,12 @@ namespace Talos::Editor {
         Renderer2D::EndViewportScissor();
 
         // 4. Draw Viewport HUD Overlays:
-        //    - In Edit Mode: floating 2D Camera zoom/pan overlay
+        //    - In Edit Mode: floating 2D Camera zoom/pan overlay (unless Input Map modal is open)
         //    - In Play Mode: real-time Per-Component Diagnostic Overlay (when toggled via F3)
         if (!m_isPlaying) {
-            RenderViewportCameraOverlay(scene);
+            if (!m_inputMapOpen) {
+                RenderViewportCameraOverlay(scene);
+            }
         } else if (m_diagnosticOverlayEnabled) {
             RenderViewportDiagnosticOverlay(scene);
         }
@@ -693,6 +756,11 @@ namespace Talos::Editor {
         RenderEntityListPanel(scene);
         RenderInspectorPanel(scene);
         RenderTopToolbar(scene);
+
+        // 6. Render the Godot-style Project Input Map Modal Window on top when open
+        if (!m_isPlaying && m_inputMapOpen) {
+            RenderInputMapModal();
+        }
     }
 
     void Editor::RenderViewportGrid() const {
@@ -1025,6 +1093,265 @@ namespace Talos::Editor {
         Renderer2D::EndViewportScissor();
     }
 
+    void Editor::RenderInputMapModal() {
+        float vpX = LEFT_PANEL_WIDTH;
+        float vpY = TOOLBAR_HEIGHT;
+        float vpW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
+        float vpH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - GetConsolePanelHeight();
+
+        // 1. Translucent dark backdrop over the central viewport
+        Renderer2D::DrawRect(vpX, vpY, vpW, vpH, { 10, 11, 16, 200 });
+
+        // Centered modal window dimensions
+        float modalW = std::min(720.0f, static_cast<float>(m_windowWidth) - 80.0f);
+        float modalH = std::min(490.0f, static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - 40.0f);
+        float modalX = (static_cast<float>(m_windowWidth) - modalW) * 0.5f;
+        float modalY = TOOLBAR_HEIGHT + std::max(14.0f, (static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - modalH) * 0.42f);
+
+        // Modal shadow, background card, and accent border
+        Renderer2D::DrawRect(modalX + 4.0f, modalY + 4.0f, modalW, modalH, { 5, 6, 10, 160 });
+        Renderer2D::DrawRect(modalX, modalY, modalW, modalH, { 22, 24, 31, 255 });
+        Renderer2D::DrawRectOutline(modalX, modalY, modalW, modalH, 2.0f, { 75, 140, 215, 255 });
+
+        // 2. Modal Header Bar
+        constexpr float headerH = 34.0f;
+        Renderer2D::DrawRect(modalX + 2.0f, modalY + 2.0f, modalW - 4.0f, headerH, { 28, 32, 42, 255 });
+        Renderer2D::DrawLine2D(modalX, modalY + headerH + 2.0f, modalX + modalW, modalY + headerH + 2.0f, { 55, 65, 85, 255 });
+
+        Renderer2D::DrawLabel(
+            "INPUT MAP  -  PROJECT ACTIONS & KEY BINDINGS",
+            modalX + 14.0f, modalY + 10.0f, 15, { 95, 200, 255, 255 }
+        );
+
+        // Header Right Buttons: Reset Defaults & Close [X]
+        if (DrawButton(modalX + modalW - 208.0f, modalY + 6.0f, 116.0f, 24.0f, "Reset Defaults",
+                       { 55, 60, 78, 255 }, { 75, 82, 106, 255 })) {
+            InputMap::InitDefaults();
+            InputMap::Save(m_inputMapFilePath);
+            m_listeningActionName.clear();
+            m_inputMapScrollOffset = 0;
+            ShowStatusMessage("Reset Input Map to default video game actions");
+        }
+
+        if (DrawButton(modalX + modalW - 84.0f, modalY + 6.0f, 72.0f, 24.0f, "Close [X]",
+                       { 140, 48, 54, 255 }, { 175, 64, 70, 255 })) {
+            m_inputMapOpen = false;
+            m_listeningActionName.clear();
+            if (m_focusedTextFieldId == 4) {
+                m_focusedTextFieldId = -1;
+            }
+            return;
+        }
+
+        // 3. Add New Action Bar (Godot-style top input row)
+        float addRowY = modalY + headerH + 10.0f;
+        DrawTextInputBox(modalX + 14.0f, addRowY, modalW - 154.0f, "Action:", m_newActionNameBuffer, 4);
+
+        if (DrawButton(modalX + modalW - 130.0f, addRowY - 1.0f, 116.0f, 25.0f, "+ Add Action",
+                       { 42, 140, 82, 255 }, { 56, 170, 102, 255 })) {
+            if (!m_newActionNameBuffer.empty()) {
+                std::string actionName = m_newActionNameBuffer;
+                if (InputMap::AddAction(actionName)) {
+                    InputMap::Save(m_inputMapFilePath);
+                    ShowStatusMessage("Created action '" + actionName + "'");
+                    m_newActionNameBuffer.clear();
+                    m_textCursorPos = 0;
+                    m_textSelectionAnchor = 0;
+                    m_inputMapScrollOffset = 9999; // Scroll to bottom so new action is immediately visible
+                } else {
+                    ShowStatusMessage("Action '" + actionName + "' already exists!");
+                }
+            } else {
+                m_focusedTextFieldId = 4;
+                ShowStatusMessage("Type an action name first!");
+            }
+        }
+
+        // 4. Column Header Row
+        float colHdrY = addRowY + 32.0f;
+        Renderer2D::DrawRect(modalX + 2.0f, colHdrY, modalW - 4.0f, 22.0f, { 18, 20, 26, 255 });
+        Renderer2D::DrawLine2D(modalX + 2.0f, colHdrY + 22.0f, modalX + modalW - 2.0f, colHdrY + 22.0f, { 45, 50, 64, 255 });
+
+        float colStateX  = modalX + 14.0f;
+        float colNameX   = modalX + 70.0f;
+        float colKeysX   = modalX + 230.0f;
+        float colManageX = modalX + modalW - 156.0f;
+
+        ColorRGBA hdrColor = { 140, 148, 168, 255 };
+        Renderer2D::DrawLabel("STATE",                            colStateX,  colHdrY + 4.0f, 14, hdrColor);
+        Renderer2D::DrawLabel("ACTION NAME (CODE ID)",            colNameX,   colHdrY + 4.0f, 14, hdrColor);
+        Renderer2D::DrawLabel("BOUND KEYS (CLICK KEY TO UNBIND)", colKeysX,   colHdrY + 4.0f, 14, hdrColor);
+        Renderer2D::DrawLabel("ASSIGN / DELETE",                  colManageX, colHdrY + 4.0f, 14, hdrColor);
+
+        // 5. Scrollable Action List Body
+        constexpr float footerH = 30.0f;
+        float listY = colHdrY + 23.0f;
+        float listH = (modalY + modalH - footerH) - listY;
+        constexpr float rowH = 30.0f;
+
+        const auto& actions = InputMap::GetActions();
+        int totalRows = static_cast<int>(actions.size());
+        int maxVisibleRows = std::max(1, static_cast<int>((listH - 6.0f) / rowH));
+        int maxScroll = std::max(0, totalRows - maxVisibleRows);
+
+        if (IsMouseOver(modalX, listY, modalW, listH)) {
+            float wheel = Input::GetMouseWheelMove();
+            if (wheel > 0.01f) {
+                m_inputMapScrollOffset = std::max(0, m_inputMapScrollOffset - 1);
+            } else if (wheel < -0.01f) {
+                m_inputMapScrollOffset = std::min(maxScroll, m_inputMapScrollOffset + 1);
+            }
+        }
+        m_inputMapScrollOffset = std::max(0, std::min(m_inputMapScrollOffset, maxScroll));
+
+        // Deferred mutations so vector iterators are never invalidated mid-render
+        std::string actionToDelete;
+        std::string actionToUnbind;
+        Key keyToUnbind = Key::Unknown;
+
+        Renderer2D::BeginViewportScissor(
+            static_cast<int>(modalX + 2.0f),
+            static_cast<int>(listY),
+            static_cast<int>(modalW - 4.0f),
+            static_cast<int>(listH)
+        );
+
+        int startIdx = m_inputMapScrollOffset;
+        int endIdx   = std::min(totalRows, startIdx + maxVisibleRows);
+        float rowY   = listY + 3.0f;
+
+        for (int i = startIdx; i < endIdx; ++i) {
+            const InputAction& action = actions[static_cast<size_t>(i)];
+            bool isListeningThis = (m_listeningActionName == action.name);
+            bool isHeldNow       = InputMap::IsActionDown(action.name);
+
+            // Row background stripe (highlighted if currently listening for a key or held down)
+            ColorRGBA rowBg = (i % 2 == 0) ? ColorRGBA{ 26, 28, 36, 255 } : ColorRGBA{ 22, 24, 31, 255 };
+            if (isListeningThis) {
+                rowBg = { 52, 42, 22, 255 };
+            } else if (isHeldNow) {
+                rowBg = { 24, 44, 34, 255 };
+            }
+            Renderer2D::DrawRect(modalX + 6.0f, rowY, modalW - 18.0f, rowH - 2.0f, rowBg);
+
+            // Live State Badge ([ON] when any bound key is held, [OFF] otherwise)
+            ColorRGBA stateBg = isHeldNow ? ColorRGBA{ 42, 175, 95, 255 } : ColorRGBA{ 38, 41, 52, 255 };
+            Renderer2D::DrawRect(colStateX, rowY + 4.0f, 44.0f, 20.0f, stateBg);
+            Renderer2D::DrawRectOutline(colStateX, rowY + 4.0f, 44.0f, 20.0f, 1.0f,
+                                        isHeldNow ? ColorRGBA{ 95, 235, 145, 255 } : ColorRGBA{ 62, 68, 84, 255 });
+            Renderer2D::DrawLabel(isHeldNow ? "ON" : "OFF",
+                                  colStateX + (isHeldNow ? 13.0f : 9.0f), rowY + 7.0f, 14,
+                                  isHeldNow ? ColorRGBA{ 255, 255, 255, 255 } : ColorRGBA{ 130, 136, 152, 255 });
+
+            // Action Identifier Name
+            Renderer2D::DrawLabel(action.name.c_str(), colNameX, rowY + 7.0f, 15,
+                                  isHeldNow ? ColorRGBA{ 115, 245, 160, 255 } : ColorRGBA{ 235, 238, 248, 255 });
+
+            // Bound Physical Keys (clickable chips to unbind)
+            float keyCursorX = colKeysX;
+            float maxKeysRightX = colManageX - 10.0f;
+
+            if (action.keys.empty()) {
+                Renderer2D::DrawLabel("(no keys assigned)", keyCursorX, rowY + 7.0f, 14, { 115, 120, 136, 255 });
+            } else {
+                for (Key k : action.keys) {
+                    std::string chipLabel = std::string(Input::GetKeyName(k)) + "  x";
+                    int chipTextW = Renderer2D::MeasureTextWidth(chipLabel.c_str(), 14);
+                    float chipW = static_cast<float>(chipTextW) + 16.0f;
+
+                    if (keyCursorX + chipW > maxKeysRightX) {
+                        Renderer2D::DrawLabel("...", keyCursorX, rowY + 7.0f, 14, { 160, 165, 180, 255 });
+                        break;
+                    }
+
+                    bool keyHeld = Input::IsKeyDown(k);
+                    ColorRGBA chipBg = keyHeld ? ColorRGBA{ 45, 145, 85, 255 } : ColorRGBA{ 44, 52, 70, 255 };
+                    ColorRGBA chipHover = { 155, 52, 58, 255 }; // Turns red on hover to indicate unbind
+
+                    if (DrawButton(keyCursorX, rowY + 3.0f, chipW, 22.0f, chipLabel.c_str(), chipBg, chipHover)) {
+                        actionToUnbind = action.name;
+                        keyToUnbind = k;
+                    }
+                    keyCursorX += chipW + 6.0f;
+                }
+            }
+
+            // Right-side Manage Buttons: "+ Key" (or "Press Key...") and "Del"
+            if (isListeningThis) {
+                if (DrawButton(colManageX, rowY + 3.0f, 92.0f, 22.0f, "Press Key...",
+                               { 205, 135, 32, 255 }, { 225, 155, 48, 255 })) {
+                    m_listeningActionName.clear();
+                }
+            } else {
+                if (DrawButton(colManageX, rowY + 3.0f, 92.0f, 22.0f, "+ Bind Key",
+                               { 48, 105, 185, 255 }, { 65, 130, 220, 255 })) {
+                    m_listeningActionName = action.name;
+                    m_focusedTextFieldId = -1;
+                }
+            }
+
+            if (DrawButton(colManageX + 98.0f, rowY + 3.0f, 44.0f, 22.0f, "Del",
+                           { 125, 45, 50, 255 }, { 165, 60, 66, 255 })) {
+                actionToDelete = action.name;
+            }
+
+            rowY += rowH;
+        }
+
+        // Scrollbar thumb on the right edge of the modal list
+        if (totalRows > maxVisibleRows) {
+            float trackX = modalX + modalW - 9.0f;
+            float trackY = listY + 3.0f;
+            float trackH = listH - 6.0f;
+            Renderer2D::DrawRect(trackX, trackY, 4.0f, trackH, { 32, 35, 44, 255 });
+
+            float thumbRatio = static_cast<float>(maxVisibleRows) / static_cast<float>(totalRows);
+            float thumbH = std::max(18.0f, trackH * thumbRatio);
+            float scrollFraction = static_cast<float>( m_inputMapScrollOffset ) / static_cast<float>(maxScroll);
+            float thumbY = trackY + (trackH - thumbH) * scrollFraction;
+            Renderer2D::DrawRect(trackX, thumbY, 4.0f, thumbH, { 95, 145, 215, 255 });
+        }
+
+        Renderer2D::EndViewportScissor();
+
+        // Execute deferred unbind / delete actions after iterating
+        if (!actionToUnbind.empty() && keyToUnbind != Key::Unknown) {
+            if (InputMap::UnbindKey(actionToUnbind, keyToUnbind)) {
+                InputMap::Save(m_inputMapFilePath);
+                ShowStatusMessage("Unbound [" + std::string(Input::GetKeyName(keyToUnbind)) +
+                                  "] from '" + actionToUnbind + "'");
+            }
+        }
+        if (!actionToDelete.empty()) {
+            if (m_listeningActionName == actionToDelete) {
+                m_listeningActionName.clear();
+            }
+            if (InputMap::RemoveAction(actionToDelete)) {
+                InputMap::Save(m_inputMapFilePath);
+                ShowStatusMessage("Removed action '" + actionToDelete + "'");
+            }
+        }
+
+        // 6. Modal Footer Bar (shows listening prompt or C++ query hint)
+        float footerY = modalY + modalH - footerH;
+        Renderer2D::DrawRect(modalX + 2.0f, footerY, modalW - 4.0f, footerH - 2.0f, { 18, 20, 26, 255 });
+        Renderer2D::DrawLine2D(modalX + 2.0f, footerY, modalX + modalW - 2.0f, footerY, { 45, 50, 64, 255 });
+
+        if (!m_listeningActionName.empty()) {
+            std::string prompt = "LISTENING FOR KEY -> Press any keyboard key to bind to '" +
+                                 m_listeningActionName + "' (Right-Click to cancel)";
+            Renderer2D::DrawLabel(prompt.c_str(), modalX + 14.0f, footerY + 7.0f, 14, { 255, 210, 80, 255 });
+        } else {
+            char footerBuf[180];
+            std::snprintf(
+                footerBuf, sizeof(footerBuf),
+                "Actions: %zu  |  Saved to: %s  |  Code API: InputMap::IsActionDown(\"jump\")",
+                actions.size(), m_inputMapFilePath.c_str()
+            );
+            Renderer2D::DrawLabel(footerBuf, modalX + 14.0f, footerY + 7.0f, 14, { 145, 155, 178, 255 });
+        }
+    }
+
     void Editor::RenderConsolePanel() {
         float consoleX = LEFT_PANEL_WIDTH;
         float consoleW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
@@ -1225,7 +1552,7 @@ namespace Talos::Editor {
         Renderer2D::DrawLabel("v0.1", 168.0f, 16.0f, 16, { 130, 135, 150, 255 });
 
         // Instant Play / Stop Simulation Toggle Button
-        float centerBtnX = (w * 0.5f) - 160.0f;
+        float centerBtnX = (w * 0.5f) - 210.0f;
         if (!m_isPlaying) {
             if (DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "PLAY GAME",
                            { 40, 155, 85, 255 }, { 55, 185, 105, 255 })) {
@@ -1250,7 +1577,7 @@ namespace Talos::Editor {
             );
         }
 
-        // Entity Management & Scene Serialization Buttons (only active in Edit Mode)
+        // Entity Management, Input Map & Scene Serialization Buttons (only active in Edit Mode)
         if (!m_isPlaying) {
             if (DrawButton(LEFT_PANEL_WIDTH + 12.0f, 8.0f, 115.0f, 30.0f, "+ New Entity",
                            { 55, 115, 200, 255 }, { 75, 140, 230, 255 })) {
@@ -1282,9 +1609,19 @@ namespace Talos::Editor {
                 }
             }
 
-            // Right-side Scene Save & Load buttons
+            // Right-side Input Map, Scene Save & Load buttons
             float rightActionsX = w - RIGHT_PANEL_WIDTH - 228.0f;
-            if (DrawButton(rightActionsX, 8.0f, 104.0f, 30.0f, "Save Scene",
+            if (DrawButton(rightActionsX, 8.0f, 104.0f, 30.0f, "Input Map",
+                           m_inputMapOpen ? ColorRGBA{ 55, 130, 220, 255 } : ColorRGBA{ 92, 68, 160, 255 },
+                           m_inputMapOpen ? ColorRGBA{ 75, 155, 245, 255 } : ColorRGBA{ 115, 88, 192, 255 })) {
+                m_inputMapOpen = !m_inputMapOpen;
+                m_listeningActionName.clear();
+                if (!m_inputMapOpen && m_focusedTextFieldId == 4) {
+                    m_focusedTextFieldId = -1;
+                }
+            }
+
+            if (DrawButton(rightActionsX + 112.0f, 8.0f, 104.0f, 30.0f, "Save Scene",
                            { 48, 125, 115, 255 }, { 65, 155, 142, 255 })) {
                 if (SceneSerializer::Save(scene, m_sceneFilePath)) {
                     ShowStatusMessage("Saved -> " + m_sceneFilePath);
@@ -1293,7 +1630,7 @@ namespace Talos::Editor {
                 }
             }
 
-            if (DrawButton(rightActionsX + 112.0f, 8.0f, 104.0f, 30.0f, "Load Scene",
+            if (DrawButton(rightActionsX + 224.0f, 8.0f, 104.0f, 30.0f, "Load Scene",
                            { 70, 75, 95, 255 }, { 92, 98, 122, 255 })) {
                 PushUndoState(scene);
                 if (SceneSerializer::Load(scene, m_sceneFilePath)) {
@@ -1645,6 +1982,10 @@ namespace Talos::Editor {
 
         if (!isFocused && textBuffer.empty() && fieldId == 3) {
             Renderer2D::DrawLabel("(none - solid color box)", textStartX, y + 4.0f, fontSize, { 110, 115, 130, 255 });
+            return;
+        }
+        if (!isFocused && textBuffer.empty() && fieldId == 4) {
+            Renderer2D::DrawLabel("(type new action name, e.g. shoot, heal, special_attack...)", textStartX, y + 4.0f, fontSize, { 110, 115, 130, 255 });
             return;
         }
 
