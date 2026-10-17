@@ -23,6 +23,7 @@ add_executable(TalosEngine
     src/renderer/renderer2d.cpp
     src/physics/physics2d.cpp
     src/scene/scene.cpp
+    src/scene/scene_serializer.cpp
     src/editor/editor.cpp
 )
 

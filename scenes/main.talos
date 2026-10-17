@@ -1,0 +1,78 @@
+# Talos Engine Scene File (v1)
+# Human-readable, deterministic flat entity serialization
+
+[Entity]
+id = 1
+name = TitleBanner
+active = 1
+transform.x = 260.00
+transform.y = 75.00
+transform.width = 64.00
+transform.height = 64.00
+sprite.enabled = 0
+sprite.color = 80,180,250,255
+text.enabled = 1
+text.content = Welcome to Talos Engine!
+text.fontSize = 28
+text.color = 240,240,245,255
+text.offsetX = 0.00
+text.offsetY = 0.00
+collider.enabled = 0
+collider.isSolid = 1
+collider.isStatic = 0
+movement.enabled = 0
+movement.playerControlled = 0
+movement.speed = 300.00
+movement.velocityX = 0.00
+movement.velocityY = 0.00
+
+[Entity]
+id = 2
+name = Player
+active = 1
+transform.x = 380.00
+transform.y = 340.00
+transform.width = 70.00
+transform.height = 70.00
+sprite.enabled = 1
+sprite.color = 80,180,250,255
+text.enabled = 1
+text.content = Player
+text.fontSize = 18
+text.color = 240,240,240,255
+text.offsetX = 0.00
+text.offsetY = -24.00
+collider.enabled = 1
+collider.isSolid = 1
+collider.isStatic = 0
+movement.enabled = 1
+movement.playerControlled = 1
+movement.speed = 320.00
+movement.velocityX = 0.00
+movement.velocityY = 0.00
+
+[Entity]
+id = 3
+name = SolidWall
+active = 1
+transform.x = 680.00
+transform.y = 240.00
+transform.width = 110.00
+transform.height = 280.00
+sprite.enabled = 1
+sprite.color = 235,95,95,255
+text.enabled = 1
+text.content = Wall
+text.fontSize = 18
+text.color = 240,240,240,255
+text.offsetX = 0.00
+text.offsetY = -24.00
+collider.enabled = 1
+collider.isSolid = 1
+collider.isStatic = 1
+movement.enabled = 0
+movement.playerControlled = 0
+movement.speed = 300.00
+movement.velocityX = 0.00
+movement.velocityY = 0.00
+

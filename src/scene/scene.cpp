@@ -18,6 +18,21 @@ namespace Talos::Scene {
         return m_entities.back();
     }
 
+    Entity& Scene::AddEntity(const Entity& entity) {
+        Entity copy = entity;
+
+        // Ensure the entity has a valid non-zero ID and keep m_nextId strictly ahead
+        // of all loaded entity IDs to prevent duplicate IDs on subsequent creations.
+        if (copy.id == 0) {
+            copy.id = m_nextId++;
+        } else if (copy.id >= m_nextId) {
+            m_nextId = copy.id + 1;
+        }
+
+        m_entities.push_back(copy);
+        return m_entities.back();
+    }
+
     void Scene::RemoveEntity(EntityID id) {
         // Erase-remove idiom: shifts remaining entities forward and shrinks the vector
         // without leaving holes in contiguous memory.
@@ -26,6 +41,11 @@ namespace Talos::Scene {
                 [id](const Entity& e) { return e.id == id; }),
             m_entities.end()
         );
+    }
+
+    void Scene::Clear() {
+        m_entities.clear();
+        m_nextId = 1;
     }
 
     Entity* Scene::FindEntity(const std::string& name) {

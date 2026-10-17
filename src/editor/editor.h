@@ -10,14 +10,14 @@ namespace Talos::Editor {
     // Visual Editor Subsystem (Layer 5: Editor Layer)
     // =========================================================================
     // Sits at the very top of the engine architecture. The Editor inspects and
-    // mutates a Scene instance, handles viewport mouse picking/dragging, and manages
-    // Play/Stop simulation state snapshots.
+    // mutates a Scene instance, handles viewport mouse picking/dragging, manages
+    // Play/Stop simulation state snapshots, and triggers Scene Save/Load operations.
     //
     // Architectural Note: Lower layers (Core, Renderer, Physics, Scene) have zero
     // awareness of this class. A standalone game build simply omits the Editor layer.
     class Editor {
     public:
-        explicit Editor(int windowWidth, int windowHeight);
+        explicit Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath = "scenes/main.talos");
 
         // Processes Editor UI interactions, viewport entity picking/dragging,
         // and advances the Scene simulation when Play mode is active.
@@ -37,6 +37,9 @@ namespace Talos::Editor {
         // State transition helpers for instant Play/Stop iteration without compilation
         void StartPlayMode(const Scene::Scene& scene);
         void StopPlayMode(Scene::Scene& scene);
+
+        // Displays a temporary notification message in the Top Toolbar (e.g., after Save/Load)
+        void ShowStatusMessage(const std::string& message, float durationSeconds = 2.5f);
 
         // Viewport interaction (mouse picking & entity dragging in Edit Mode)
         void HandleViewportInput(Scene::Scene& scene);
@@ -64,6 +67,7 @@ namespace Talos::Editor {
     private:
         int m_windowWidth = 1360;
         int m_windowHeight = 780;
+        std::string m_sceneFilePath = "scenes/main.talos";
 
         // Layout metrics (in screen pixels)
         static constexpr float TOOLBAR_HEIGHT = 46.0f;
@@ -84,7 +88,10 @@ namespace Talos::Editor {
         int m_activeSliderId = -1;
         int m_focusedTextFieldId = -1;
         int m_newEntityCounter = 1;
+
+        // Temporary feedback notification state for Save/Load operations
+        std::string m_statusMessage;
+        float m_statusTimer = 0.0f;
     };
 
 }
-

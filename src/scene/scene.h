@@ -16,8 +16,16 @@ namespace Talos::Scene {
         // and returns a reference so the caller can configure its components immediately.
         Entity& CreateEntity(const std::string& name, float x = 0.0f, float y = 0.0f);
 
+        // Inserts a fully constructed Entity (e.g., deserialized from a .talos scene file)
+        // and advances the internal ID counter so future entities never collide in ID.
+        Entity& AddEntity(const Entity& entity);
+
         // Removes an entity matching the given ID from the scene container.
         void RemoveEntity(EntityID id);
+
+        // Removes all entities from the scene and resets the ID counter to 1.
+        // Used prior to loading a scene file from disk.
+        void Clear();
 
         // Path-independent lookup by name. Unlike hierarchical NodePath systems,
         // finding an entity by name never breaks if the scene order is reorganized.

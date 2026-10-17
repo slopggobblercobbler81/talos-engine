@@ -1,4 +1,5 @@
 #include "editor/editor.h"
+#include "scene/scene_serializer.h"
 #include "core/input.h"
 #include <cstdio>
 #include <algorithm>
@@ -29,8 +30,8 @@ namespace Talos::Editor {
         return (mx >= x && mx <= x + w && my >= y && my <= y + h);
     }
 
-    Editor::Editor(int windowWidth, int windowHeight)
-        : m_windowWidth(windowWidth), m_windowHeight(windowHeight) {}
+    Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
+        : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {}
 
     void Editor::StartPlayMode(const Scene::Scene& scene) {
         if (m_isPlaying) return;
@@ -51,7 +52,20 @@ namespace Talos::Editor {
         m_isPlaying = false;
     }
 
+    void Editor::ShowStatusMessage(const std::string& message, float durationSeconds) {
+        m_statusMessage = message;
+        m_statusTimer = durationSeconds;
+    }
+
     void Editor::Update(Scene::Scene& scene, float delta) {
+        // Count down active status banner timer
+        if (m_statusTimer > 0.0f) {
+            m_statusTimer -= delta;
+            if (m_statusTimer < 0.0f) {
+                m_statusTimer = 0.0f;
+            }
+        }
+
         // Release active slider drag when mouse button is released anywhere
         if (Input::IsMouseButtonReleased(MouseButton::Left)) {
             m_activeSliderId = -1;
@@ -235,26 +249,31 @@ namespace Talos::Editor {
         Renderer2D::DrawLine2D(0.0f, TOOLBAR_HEIGHT, w, TOOLBAR_HEIGHT, { 55, 58, 70, 255 });
 
         // Engine Brand Title
-        Renderer2D::DrawLabel("TALOS ENGINE", 16.0f, 14.0f, 20, { 95, 195, 255, 255 });
-        Renderer2D::DrawLabel("v0.1", 172.0f, 17.0f, 16, { 130, 135, 150, 255 });
+        Renderer2D::DrawLabel("TALOS ENGINE", 16.0f, 13.0f, 20, { 95, 195, 255, 255 });
+        Renderer2D::DrawLabel("v0.1", 168.0f, 16.0f, 16, { 130, 135, 150, 255 });
 
         // Instant Play / Stop Simulation Toggle Button
-        float centerBtnX = (w * 0.5f) - 120.0f;
+        float centerBtnX = (w * 0.5f) - 160.0f;
         if (!m_isPlaying) {
             if (DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "PLAY GAME",
                            { 40, 155, 85, 255 }, { 55, 185, 105, 255 })) {
                 StartPlayMode(scene);
             }
-            Renderer2D::DrawLabel("MODE: EDITOR (Click or drag objects)", centerBtnX + 135.0f, 16.0f, 16, { 160, 165, 180, 255 });
+
+            if (m_statusTimer > 0.0f) {
+                Renderer2D::DrawLabel(m_statusMessage.c_str(), centerBtnX + 132.0f, 15.0f, 16, { 95, 230, 135, 255 });
+            } else {
+                Renderer2D::DrawLabel("MODE: EDITOR", centerBtnX + 132.0f, 15.0f, 16, { 160, 165, 180, 255 });
+            }
         } else {
             if (DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "STOP GAME",
                            { 210, 65, 65, 255 }, { 235, 85, 85, 255 })) {
                 StopPlayMode(scene);
             }
-            Renderer2D::DrawLabel("MODE: PLAYING LIVE (0.0s reload)", centerBtnX + 135.0f, 16.0f, 16, { 95, 230, 135, 255 });
+            Renderer2D::DrawLabel("MODE: PLAYING LIVE (0.0s reload)", centerBtnX + 132.0f, 15.0f, 16, { 95, 230, 135, 255 });
         }
 
-        // "+ New Entity" & "Delete" quick-action buttons (only active in Edit Mode)
+        // Entity Management & Scene Serialization Buttons (only active in Edit Mode)
         if (!m_isPlaying) {
             if (DrawButton(LEFT_PANEL_WIDTH + 12.0f, 8.0f, 115.0f, 30.0f, "+ New Entity",
                            { 55, 115, 200, 255 }, { 75, 140, 230, 255 })) {
@@ -270,6 +289,27 @@ namespace Talos::Editor {
                                { 140, 50, 55, 255 }, { 180, 65, 70, 255 })) {
                     scene.RemoveEntity(m_selectedEntityId);
                     m_selectedEntityId = 0;
+                }
+            }
+
+            // Right-side Scene Save & Load buttons
+            float rightActionsX = w - RIGHT_PANEL_WIDTH - 228.0f;
+            if (DrawButton(rightActionsX, 8.0f, 104.0f, 30.0f, "Save Scene",
+                           { 48, 125, 115, 255 }, { 65, 155, 142, 255 })) {
+                if (SceneSerializer::Save(scene, m_sceneFilePath)) {
+                    ShowStatusMessage("Saved -> " + m_sceneFilePath);
+                } else {
+                    ShowStatusMessage("Save failed!");
+                }
+            }
+
+            if (DrawButton(rightActionsX + 112.0f, 8.0f, 104.0f, 30.0f, "Load Scene",
+                           { 70, 75, 95, 255 }, { 92, 98, 122, 255 })) {
+                if (SceneSerializer::Load(scene, m_sceneFilePath)) {
+                    m_selectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
+                    ShowStatusMessage("Loaded <- " + m_sceneFilePath);
+                } else {
+                    ShowStatusMessage("No saved scene found!");
                 }
             }
         }
@@ -526,4 +566,3 @@ namespace Talos::Editor {
     }
 
 }
-

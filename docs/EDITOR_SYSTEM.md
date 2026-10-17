@@ -44,3 +44,10 @@ To eliminate the frustration of unfolding three or four nested sub-menus just to
 4. **Text Label Component:** Toggleable checkbox + live keyboard text input box + `Font Size` slider + `Offset Y` slider + **8 one-click preset color swatches** + direct `R`, `G`, `B` sliders.
 5. **Collider 2D & Movement 2D:** Direct single-click checkboxes to make any object solid or controllable via `WASD` / Arrow Keys, with a direct `Speed` slider.
 
+---
+
+## 5. Top Toolbar & Scene Serialization Integration
+
+In **Edit Mode**, the Top Toolbar provides one-click persistence controls on the right side of the viewport bar:
+* **`Save Scene`:** Invokes `Scene::SceneSerializer::Save` to write the active scene to disk in the human-readable `.talos` format (`scenes/main.talos`) and displays a temporary confirmation badge (`Saved -> scenes/main.talos`) in the toolbar.
+* **`Load Scene`:** Invokes `Scene::SceneSerializer::Load` to hot-reload the saved `.talos` scene from disk into the active editor session without restarting the executable.
