@@ -1,0 +1,48 @@
+# Build directories
+build/
+out/
+bin/
+cmake-build-*/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Compiled binaries and object files
+*.exe
+*.dll
+*.so
+*.dylib
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+*.ilk
+*.exp
+
+# Python cache and virtual environments (for Scripting layer)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# IDE and editor directories
+.vs/
+.vscode/
+.idea/
+.cache/
+*.suo
+*.user
+*.sln
+*.vcxproj*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
