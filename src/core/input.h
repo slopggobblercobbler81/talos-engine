@@ -18,13 +18,25 @@ namespace Talos::Core {
         Left,
         Right,
         Space,
-        Escape
+        Escape,
+        Backspace,
+        Delete,
+        Enter
+    };
+
+    // =========================================================================
+    // Engine Mouse Buttons (Layer 1: Core & Platform)
+    // =========================================================================
+    enum class MouseButton {
+        Left,
+        Right,
+        Middle
     };
 
     // =========================================================================
     // Input Subsystem (Layer 1: Core & Platform)
     // =========================================================================
-    // Provides a unified, stateless query interface for hardware input devices.
+    // Provides a unified, stateless query interface for keyboard and mouse devices.
     class Input {
     public:
         // Returns true every frame while the physical key is held down.
@@ -34,6 +46,27 @@ namespace Talos::Core {
         // Returns true only on the single frame the key transitions from up to down.
         // Best suited for discrete actions such as jumping, shooting, or toggling UI.
         static bool IsKeyPressed(Key key);
+
+        // Polls the next typed character from the OS keyboard queue (ASCII/Unicode).
+        // Returns 0 when no more characters were typed during the current frame.
+        // Used by Editor text input fields for live typing.
+        static int GetCharPressed();
+
+        // Returns the current horizontal and vertical cursor coordinates in window pixels.
+        static float GetMouseX();
+        static float GetMouseY();
+
+        // Returns true every frame while the specified mouse button is held down.
+        // Used for dragging entities in the viewport or sliding Inspector bars.
+        static bool IsMouseButtonDown(MouseButton button);
+
+        // Returns true only on the single frame the mouse button is initially clicked.
+        // Used for clicking UI buttons or selecting entities in the viewport.
+        static bool IsMouseButtonPressed(MouseButton button);
+
+        // Returns true only on the single frame the mouse button is released.
+        // Used to end drag-and-drop operations cleanly.
+        static bool IsMouseButtonReleased(MouseButton button);
     };
 
 }

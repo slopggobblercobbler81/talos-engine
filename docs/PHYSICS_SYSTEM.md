@@ -41,3 +41,4 @@ When moving a solid entity in `Scene::Update`, movement is resolved in **two ind
 If a player holds both **Right (`D`)** and **Up (`W`)** while pushing against a vertical wall on their right:
 * A combined diagonal check would detect a collision and cancel **both** $X$ and $Y$ movement, causing the character to "stick" to the wall.
 * Separating $X$ and $Y$ blocks only the horizontal $X$ step while allowing the vertical $Y$ step to succeed, producing smooth, natural wall-sliding behavior out of the box.
+

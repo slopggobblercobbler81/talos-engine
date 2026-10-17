@@ -30,3 +30,4 @@ flowchart LR
    Upper layers (such as `Scene::Render` or `Editor`) submit 2D rectangles, sprites, and text labels in deterministic order (back-to-front). Floating-point world coordinates are converted internally into pixel-aligned screen positions.
 3. **End Frame (`Renderer2D::EndFrame`):**
    Flushes all queued draw commands to the GPU and swaps the hidden backbuffer with the visible frontbuffer (Double Buffering), ensuring tear-free presentation on the monitor.
+

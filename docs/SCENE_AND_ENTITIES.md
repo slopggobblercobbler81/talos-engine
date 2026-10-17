@@ -46,3 +46,4 @@ During each iteration of the main loop, `Scene` executes two strictly separated 
    Iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
 2. **`Scene::Render()`:**
    Iterates sequentially through all active entities and submits enabled `SpriteComponent` and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
+

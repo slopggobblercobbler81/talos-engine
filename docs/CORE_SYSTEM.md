@@ -34,3 +34,4 @@ Directly referencing third-party key macros throughout an engine tightly couples
 3. **Continuous vs. Discrete Queries:**
    * `Input::IsKeyDown(Key)`: Returns `true` on every frame the physical key remains held down. Used for continuous states such as walking or flying.
    * `Input::IsKeyPressed(Key)`: Returns `true` only on the single frame the key transitions from released to pressed. Used for one-shot actions such as jumping, firing a projectile, or toggling an editor mode.
+

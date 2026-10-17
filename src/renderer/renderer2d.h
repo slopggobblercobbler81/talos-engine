@@ -34,8 +34,20 @@ namespace Talos::Renderer {
         // Renders a solid 2D axis-aligned rectangle in screen/world coordinates.
         static void DrawRect(float x, float y, float width, float height, ColorRGBA color);
 
+        // Renders a hollow 2D rectangle border with configurable line thickness.
+        // Used for selection gizmos, collider visualization, and Editor panel borders.
+        static void DrawRectOutline(float x, float y, float width, float height, float thickness, ColorRGBA color);
+
+        // Renders a 1-pixel geometric line segment between two 2D points.
+        // Used for viewport reference grids and alignment guides.
+        static void DrawLine2D(float startX, float startY, float endX, float endY, ColorRGBA color);
+
         // Renders a 2D text string at the given top-left coordinates and pixel height.
         static void DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color);
+
+        // Computes the rendered pixel width of a text string at a given font size.
+        // Used for centering labels inside buttons and positioning text cursors.
+        static int MeasureTextWidth(const char* text, int fontSize);
     };
 
 }
