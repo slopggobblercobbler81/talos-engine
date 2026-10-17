@@ -4,6 +4,9 @@
 namespace Talos::Core {
 
     void Window::Init(int width, int height, const char* title) {
+        // Suppress verbose backend info logs so the developer console stays clean.
+        SetTraceLogLevel(LOG_WARNING);
+
         // Initialize the underlying OpenGL context and OS window surface.
         InitWindow(width, height, title);
 

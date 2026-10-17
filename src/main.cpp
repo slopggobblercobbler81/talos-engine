@@ -10,13 +10,14 @@ int main() {
     using namespace Talos::Editor;
 
     // =========================================================================
-    // 1. Engine Initialization (Core Layer)
+    // 1. Engine & Renderer Initialization (Core & Renderer Layers)
     // =========================================================================
-    // Opens the OS display window at 1360x780 to accommodate the 3-column Editor layout
-    // (Left: Entity List, Center: 2D Viewport, Right: First-Level Inspector).
+    // Opens the OS display window at 1360x780 and initializes the TrueType
+    // typography cache inside Renderer2D.
     constexpr int WINDOW_WIDTH = 1360;
     constexpr int WINDOW_HEIGHT = 780;
     Window::Init(WINDOW_WIDTH, WINDOW_HEIGHT, "Talos Engine - Visual Editor & First-Level Inspector");
+    Renderer2D::Init();
 
     // =========================================================================
     // 2. World & Default Scene Setup (Scene Layer)
@@ -80,8 +81,9 @@ int main() {
     }
 
     // =========================================================================
-    // 5. Engine Shutdown (Core Layer)
+    // 5. Engine Shutdown (Renderer & Core Layers)
     // =========================================================================
+    Renderer2D::Shutdown();
     Window::Close();
     return 0;
 }

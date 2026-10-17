@@ -20,9 +20,18 @@ namespace Talos::Renderer {
     // 2D Rendering Subsystem (Layer 2: Domain Subsystems)
     // =========================================================================
     // The exclusive gateway for issuing 2D draw commands to the GPU.
-    // No other module in Talos Engine is permitted to invoke raw graphics APIs.
+    // Manages vector/TrueType typography caching so all Editor and Scene text
+    // renders with a clean, modern sans-serif typeface instead of bitmap pixel fonts.
     class Renderer2D {
     public:
+        // Initializes the 2D renderer and loads the clean TrueType typography system.
+        // Must be called once after Window::Init().
+        static void Init();
+
+        // Releases all cached GPU font atlases and rendering resources.
+        // Must be called before Window::Close().
+        static void Shutdown();
+
         // Prepares the GPU backbuffer for a new frame and fills the screen
         // with the specified background color. Must be called before any Draw* calls.
         static void BeginFrame(ColorRGBA clearColor);
@@ -42,10 +51,10 @@ namespace Talos::Renderer {
         // Used for viewport reference grids and alignment guides.
         static void DrawLine2D(float startX, float startY, float endX, float endY, ColorRGBA color);
 
-        // Renders a 2D text string at the given top-left coordinates and pixel height.
+        // Renders anti-aliased TrueType text at the given top-left coordinates and pixel height.
         static void DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color);
 
-        // Computes the rendered pixel width of a text string at a given font size.
+        // Computes the rendered pixel width of a TrueType text string at a given font size.
         // Used for centering labels inside buttons and positioning text cursors.
         static int MeasureTextWidth(const char* text, int fontSize);
     };
