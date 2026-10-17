@@ -7,13 +7,21 @@ int main() {
     using namespace Talos::Renderer;
     using namespace Talos::Scene;
 
-    // 1. Initialize the Window layer
+    // =========================================================================
+    // 1. Engine Initialization (Core Layer)
+    // =========================================================================
+    // Opens the OS display window and configures the frame timing loop to 60 FPS.
     Window::Init(1280, 720, "Talos Engine - Scene & Physics Layers");
 
-    // 2. Create our Scene and populate it with flat, zero-inheritance Entities
+    // =========================================================================
+    // 2. World & Entity Composition (Scene Layer)
+    // =========================================================================
+    // Instantiate the active Scene container. All game objects are created as
+    // flat Entity structs and configured by toggling their built-in components.
     Scene world;
 
-    // Title UI Entity (Text component right at the first level, no nested containers)
+    // Header UI Entity: Demonstrates first-level text styling (content, size, color)
+    // directly on the entity without requiring nested UI container hierarchies.
     Entity& title = world.CreateEntity("TitleText", 30.0f, 25.0f);
     title.sprite.enabled = false;
     title.text.enabled = true;
@@ -21,7 +29,7 @@ int main() {
     title.text.fontSize = 26;
     title.text.color = { 240, 240, 240, 255 };
 
-    // Subtitle Entity
+    // Subtitle UI Entity: Provides on-screen control instructions.
     Entity& subtitle = world.CreateEntity("SubtitleText", 30.0f, 60.0f);
     subtitle.sprite.enabled = false;
     subtitle.text.enabled = true;
@@ -29,7 +37,8 @@ int main() {
     subtitle.text.fontSize = 18;
     subtitle.text.color = { 150, 150, 165, 255 };
 
-    // Player Entity (Sprite + Collider + Movement + Label all in one flat object!)
+    // Player Entity: Combines visual rendering, solid AABB collision, directional
+    // input movement, and an overhead label inside a single flat entity.
     Entity& player = world.CreateEntity("Player", 250.0f, 320.0f);
     player.transform.width = 70.0f;
     player.transform.height = 70.0f;
@@ -43,7 +52,7 @@ int main() {
     player.text.fontSize = 18;
     player.text.offsetY = -24.0f;
 
-    // Solid Wall Obstacle Entity
+    // Solid Wall Entity: Static obstacle with an active collider that blocks movement.
     Entity& wall = world.CreateEntity("Wall", 600.0f, 220.0f);
     wall.transform.width = 120.0f;
     wall.transform.height = 280.0f;
@@ -55,20 +64,26 @@ int main() {
     wall.text.fontSize = 18;
     wall.text.offsetY = -24.0f;
 
-    // 3. Engine main loop
+    // =========================================================================
+    // 3. Main Engine Frame Loop
+    // =========================================================================
+    // Executes continuously at the target frame rate until the user closes the window.
     while (!Window::ShouldClose()) {
+        // Measure the time elapsed since the last frame (in seconds) for frame-independent physics.
         float delta = Window::GetDeltaTime();
 
-        // Update Scene (handles movement and Physics2D collisions)
+        // Step 1 & 2 (Input & Update): Advance entity movement and resolve Physics2D collisions.
         world.Update(delta);
 
-        // Render Scene through Renderer2D
+        // Step 3 (Render): Clear the backbuffer, submit all visible scene entities, and swap buffers.
         Renderer2D::BeginFrame({ 30, 30, 36, 255 });
             world.Render();
         Renderer2D::EndFrame();
     }
 
-    // 4. Close the Window layer
+    // =========================================================================
+    // 4. Engine Shutdown (Core Layer)
+    // =========================================================================
     Window::Close();
     return 0;
 }

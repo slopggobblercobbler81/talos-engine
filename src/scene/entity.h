@@ -5,14 +5,20 @@
 
 namespace Talos::Scene {
 
+    // Unique 32-bit numeric identifier assigned to every entity upon creation.
     using EntityID = uint32_t;
 
-    // Flat entity composition: An entity is an ID, a unique name, and toggleable data components.
-    // Zero class inheritance is used.
+    // =========================================================================
+    // Flat Entity Composition (Layer 3: Scene & Entity)
+    // =========================================================================
+    // Instead of using C++ class inheritance (e.g., Player : PhysicsBody : Node2D),
+    // every Entity is a uniform, contiguous data container identified by a unique ID
+    // and human-readable name. Behavior is determined strictly by which components
+    // have their 'enabled' flag active.
     struct Entity {
         EntityID id = 0;
         std::string name = "Entity";
-        bool active = true;
+        bool active = true; // Master toggle: inactive entities skip both Update and Render passes
 
         TransformComponent transform;
         SpriteComponent sprite;
@@ -22,4 +28,3 @@ namespace Talos::Scene {
     };
 
 }
-

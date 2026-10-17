@@ -1,10 +1,11 @@
 #include "core/input.h"
 #include "raylib.h"
 
-
 namespace Talos::Core {
 
-    // Internal helper to translate Talos Key to backend key code
+    // Internal translation function kept private to this translation unit ('static').
+    // Maps Talos::Core::Key values to the underlying backend's integer key constants.
+    // If the input backend ever changes (e.g., to SDL or GLFW), only this table changes.
     static int ToBackendKey(Key key) {
         switch (key) {
             case Key::W:      return KEY_W;
@@ -22,10 +23,14 @@ namespace Talos::Core {
     }
 
     bool Input::IsKeyDown(Key key) {
+        // The leading '::' scope resolution operator explicitly invokes the global
+        // backend function ::IsKeyDown(int) rather than recursively calling Input::IsKeyDown.
         return ::IsKeyDown(ToBackendKey(key));
     }
 
     bool Input::IsKeyPressed(Key key) {
+        // Queries single-frame key press transition from the global backend function.
         return ::IsKeyPressed(ToBackendKey(key));
     }
+
 }

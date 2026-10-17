@@ -2,7 +2,12 @@
 
 namespace Talos::Physics {
 
-    // Pure mathematical 2D bounding box (independent of Scene layer)
+    // =========================================================================
+    // Pure Mathematical 2D Bounding Box (AABB)
+    // =========================================================================
+    // Represents an unrotated 2D rectangle defined by its top-left corner (x, y)
+    // and dimensions (width, height). Kept decoupled from Scene::Entity so that
+    // the Physics layer (Layer 2) never depends on the Scene layer (Layer 3).
     struct Rect2D {
         float x = 0.0f;
         float y = 0.0f;
@@ -10,12 +15,15 @@ namespace Talos::Physics {
         float height = 0.0f;
     };
 
-    // Dedicated 2D Physics and Collision subsystem (Layer 2)
-    // Has zero knowledge of the Scene or Editor layers above it.
+    // =========================================================================
+    // 2D Physics & Collision Subsystem (Layer 2: Domain Subsystems)
+    // =========================================================================
+    // Provides stateless geometric intersection tests for 2D collision detection.
     class Physics2D {
     public:
+        // Evaluates whether two axis-aligned bounding boxes (AABBs) overlap in 2D space.
+        // Returns true if and only if projections on both the X and Y axes intersect.
         static bool CheckOverlap(const Rect2D& a, const Rect2D& b);
     };
 
 }
-

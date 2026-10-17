@@ -13,11 +13,14 @@ namespace Talos::Scene {
         entity.transform.x = x;
         entity.transform.y = y;
 
+        // Store the entity contiguously in the vector and return a reference to it.
         m_entities.push_back(entity);
         return m_entities.back();
     }
 
     void Scene::RemoveEntity(EntityID id) {
+        // Erase-remove idiom: shifts remaining entities forward and shrinks the vector
+        // without leaving holes in contiguous memory.
         m_entities.erase(
             std::remove_if(m_entities.begin(), m_entities.end(),
                 [id](const Entity& e) { return e.id == id; }),
@@ -56,6 +59,7 @@ namespace Talos::Scene {
         using namespace Talos::Physics;
 
         for (auto& entity : m_entities) {
+            // Skip inactive entities or entities without movement enabled.
             if (!entity.active || !entity.movement.enabled) {
                 continue;
             }
@@ -63,7 +67,7 @@ namespace Talos::Scene {
             float moveX = entity.movement.velocityX;
             float moveY = entity.movement.velocityY;
 
-            // Optional built-in 2D player controller
+            // If built-in player control is enabled, sample directional input from the Core Input layer.
             if (entity.movement.playerControlled) {
                 moveX = 0.0f;
                 moveY = 0.0f;
@@ -73,7 +77,15 @@ namespace Talos::Scene {
                 if (Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
             }
 
-            // Apply horizontal movement and check solid collisions
+            // =================================================================
+            // Separated-Axis Collision Resolution (X then Y)
+            // =================================================================
+            // Why resolve X and Y separately instead of diagonally at once?
+            // If a player moves diagonally into a vertical wall, resolving X and Y
+            // independently blocks only the X movement while allowing the Y movement
+            // to continue smoothly—producing natural wall sliding without getting stuck.
+
+            // 1. Horizontal (X) Axis Step
             float nextX = entity.transform.x + moveX * delta;
             bool blockedX = false;
             if (entity.collider.enabled && entity.collider.isSolid) {
@@ -93,7 +105,7 @@ namespace Talos::Scene {
                 entity.transform.x = nextX;
             }
 
-            // Apply vertical movement and check solid collisions
+            // 2. Vertical (Y) Axis Step
             float nextY = entity.transform.y + moveY * delta;
             bool blockedY = false;
             if (entity.collider.enabled && entity.collider.isSolid) {
@@ -118,11 +130,14 @@ namespace Talos::Scene {
     void Scene::Render() const {
         using namespace Talos::Renderer;
 
+        // Iterate through all active entities and submit their enabled visual
+        // components to the Renderer2D subsystem in deterministic order.
         for (const auto& entity : m_entities) {
             if (!entity.active) {
                 continue;
             }
 
+            // Draw the visual body if SpriteComponent is enabled
             if (entity.sprite.enabled) {
                 Renderer2D::DrawRect(
                     entity.transform.x,
@@ -133,6 +148,7 @@ namespace Talos::Scene {
                 );
             }
 
+            // Draw the text overlay/label if TextComponent is enabled
             if (entity.text.enabled && !entity.text.content.empty()) {
                 Renderer2D::DrawLabel(
                     entity.text.content.c_str(),
@@ -146,4 +162,3 @@ namespace Talos::Scene {
     }
 
 }
-
