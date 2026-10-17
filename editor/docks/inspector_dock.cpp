@@ -93,7 +93,12 @@ namespace Talos::Editor {
         y += 24.0f;
 
         // 6. Movement 2D Component
-        gui.DrawCheckbox(x, y, "MOVEMENT (WASD Control)", selected->movement.enabled);
+        bool wasMoveEnabled = selected->movement.enabled;
+        if (gui.DrawCheckbox(x, y, "MOVEMENT (WASD Control)", selected->movement.enabled)) {
+            if (!wasMoveEnabled && selected->movement.enabled) {
+                selected->movement.playerControlled = true;
+            }
+        }
         y += 22.0f;
         if (selected->movement.enabled) {
             gui.DrawCheckbox(x + 14.0f, y, "Player Controlled", selected->movement.playerControlled);

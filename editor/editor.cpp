@@ -96,16 +96,6 @@ namespace Talos::Editor {
         m_diagnosticOverlay.UpdateFrameDelta(delta);
         m_gui.SetFrameContext(&scene, &m_undoRedo, m_selectedEntityId, m_isPlaying);
 
-        // [F3] Diagnostic Overlay Toggle — strictly active ONLY while simulation is running.
-        // Its enabled state persists across Stop -> Play sessions unless toggled off during Play.
-        if (m_isPlaying && Core::Input::IsKeyPressedOnce(Core::Key::F3)) {
-            bool nowEnabled = m_diagnosticOverlay.Toggle();
-            m_toolbar.ShowStatusMessage(
-                nowEnabled ? "Diagnostic Overlay Enabled [F3]" : "Diagnostic Overlay Disabled [F3]",
-                1.5f
-            );
-        }
-
         // Release active continuous drags on mouse button release
         if (!Core::Input::IsMouseButtonDown(Core::MouseButton::Left)) {
             if (m_undoRedo.HasPendingSnapshot()) {
@@ -120,13 +110,29 @@ namespace Talos::Editor {
             m_viewport.OnMouseReleased(false, true);
         }
 
+        // In Play Mode, advance the live game simulation (Movement + Collisions)
+        // and allow [F3] to toggle the Diagnostic Overlay.
+        if (m_isPlaying) {
+            if (Core::Input::IsKeyPressedOnce(Core::Key::F3)) {
+                bool nowEnabled = m_diagnosticOverlay.Toggle();
+                m_toolbar.ShowStatusMessage(
+                    nowEnabled ? "Diagnostic Overlay Enabled [F3]" : "Diagnostic Overlay Disabled [F3]",
+                    1.5f
+                );
+            }
+            scene.Update(delta);
+            return;
+        }
+
         // Universal Undo / Redo keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) in Edit Mode
         bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
                         Core::Input::IsKeyDown(Core::Key::RightControl);
         bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
                          Core::Input::IsKeyDown(Core::Key::RightShift);
 
-        if (!m_isPlaying && ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
+        if (ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
+            while (Core::Input::GetCharPressed() > 0) {}
+
             if (Core::Input::IsKeyPressed(Core::Key::Z)) {
                 if (shiftDown) {
                     Redo(scene);
@@ -178,10 +184,19 @@ namespace Talos::Editor {
             return;
         }
 
-        // 2D Canvas Viewport shortcuts & mouse interaction
+        // 2D Canvas Viewport shortcuts & mouse interaction in Edit Mode
         float consoleH = m_consoleDock.GetPanelHeight();
-        if (!m_isPlaying && m_gui.GetFocusedTextFieldId() == -1 && !ctrlDown) {
-            if (Core::Input::IsKeyPressedOnce(Core::Key::F)) {
+        if (m_gui.GetFocusedTextFieldId() == -1 && !ctrlDown) {
+            if (m_selectedEntityId != 0 && Core::Input::IsKeyPressedOnce(Core::Key::Delete)) {
+                m_undoRedo.PushUndoState(scene, m_selectedEntityId,
+                                         m_gui.GetTextCursorPos(), m_gui.GetTextSelectionAnchor(), m_isPlaying);
+                const Scene::Entity* target = scene.FindEntityById(m_selectedEntityId);
+                std::string deletedName = target ? target->name : std::to_string(m_selectedEntityId);
+                scene.RemoveEntity(m_selectedEntityId);
+                m_selectedEntityId = 0;
+                m_toolbar.ShowStatusMessage("Deleted '" + deletedName + "'", 1.5f);
+                TALOS_LOG_INFO("Deleted entity '" + deletedName + "' via keyboard shortcut.");
+            } else if (Core::Input::IsKeyPressedOnce(Core::Key::F)) {
                 m_toolbar.ShowStatusMessage(
                     m_viewport.FocusSelectedEntity(scene, m_selectedEntityId, m_windowWidth, m_windowHeight, consoleH),
                     1.2f

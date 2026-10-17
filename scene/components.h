@@ -51,7 +51,7 @@ namespace Talos::Scene {
     // Stores velocity and optional built-in directional input control for rapid prototyping.
     struct MovementComponent {
         bool enabled = false;
-        bool playerControlled = false; // Automatically binds WASD / Arrow Keys when true
+        bool playerControlled = true;  // Automatically binds WASD / Arrow Keys / InputMap move_* when true
         float speed = 300.0f;          // Movement speed in pixels per second
         float velocityX = 0.0f;        // Programmatic horizontal velocity (pixels/sec)
         float velocityY = 0.0f;        // Programmatic vertical velocity (pixels/sec)

@@ -124,14 +124,14 @@ namespace Talos::Scene {
             float moveX = entity.movement.velocityX;
             float moveY = entity.movement.velocityY;
 
-            // If built-in player control is enabled, sample directional input from the Core Input layer.
+            // If built-in player control is enabled, sample directional input from Core::Input / InputMap.
             if (entity.movement.playerControlled) {
                 moveX = 0.0f;
                 moveY = 0.0f;
-                if (Input::IsKeyDown(Key::D) || Input::IsKeyDown(Key::Right)) moveX += entity.movement.speed;
-                if (Input::IsKeyDown(Key::A) || Input::IsKeyDown(Key::Left))  moveX -= entity.movement.speed;
-                if (Input::IsKeyDown(Key::S) || Input::IsKeyDown(Key::Down))  moveY += entity.movement.speed;
-                if (Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
+                if (Input::IsActionDown("move_right") || Input::IsKeyDown(Key::D) || Input::IsKeyDown(Key::Right)) moveX += entity.movement.speed;
+                if (Input::IsActionDown("move_left")  || Input::IsKeyDown(Key::A) || Input::IsKeyDown(Key::Left))  moveX -= entity.movement.speed;
+                if (Input::IsActionDown("move_down")  || Input::IsKeyDown(Key::S) || Input::IsKeyDown(Key::Down))  moveY += entity.movement.speed;
+                if (Input::IsActionDown("move_up")    || Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
             }
 
             float nextX = entity.transform.x + moveX * delta;
