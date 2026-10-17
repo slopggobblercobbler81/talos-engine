@@ -1,4 +1,5 @@
 #include "scene/scene_serializer.h"
+#include "core/logger.h"
 #include <fstream>
 #include <sstream>
 #include <filesystem>
@@ -50,6 +51,7 @@ namespace Talos::Scene {
 
         std::ofstream out(filePath, std::ios::out | std::ios::trunc);
         if (!out.is_open()) {
+            TALOS_LOG_ERROR("Failed to open scene file for writing: '" + filePath + "'");
             return false;
         }
 
@@ -103,12 +105,15 @@ namespace Talos::Scene {
             out << "movement.velocityY = " << e.movement.velocityY << "\n\n";
         }
 
+        TALOS_LOG_INFO("Scene saved to '" + filePath + "' (" +
+                       std::to_string(scene.GetEntities().size()) + " entities)");
         return true;
     }
 
     bool SceneSerializer::Load(Scene& scene, const std::string& filePath) {
         std::ifstream in(filePath, std::ios::in);
         if (!in.is_open()) {
+            TALOS_LOG_WARN("Scene file not found or could not be opened: '" + filePath + "'");
             return false;
         }
 
@@ -117,8 +122,10 @@ namespace Talos::Scene {
         Entity currentEntity;
         bool hasActiveEntity = false;
         std::string line;
+        int fileLineNumber = 0;
 
         while (std::getline(in, line)) {
+            ++fileLineNumber;
             std::string trimmed = Trim(line);
 
             // Skip blank lines and comment lines starting with '#'
@@ -137,12 +144,18 @@ namespace Talos::Scene {
             }
 
             if (!hasActiveEntity) {
+                Core::Logger::Write(Core::LogLevel::Warning,
+                                    "Ignored statement outside [Entity] block: \"" + trimmed + "\"",
+                                    filePath.c_str(), fileLineNumber);
                 continue;
             }
 
             // Parse "key = value" pair
             size_t eqPos = trimmed.find('=');
             if (eqPos == std::string::npos) {
+                Core::Logger::Write(Core::LogLevel::Error,
+                                    "Malformed scene entry (missing '='): \"" + trimmed + "\"",
+                                    filePath.c_str(), fileLineNumber);
                 continue;
             }
 
@@ -173,6 +186,11 @@ namespace Talos::Scene {
             else if (key == "movement.speed")       currentEntity.movement.speed = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityX")   currentEntity.movement.velocityX = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityY")   currentEntity.movement.velocityY = std::strtof(val.c_str(), nullptr);
+            else {
+                Core::Logger::Write(Core::LogLevel::Warning,
+                                    "Unknown entity property key '" + key + "'",
+                                    filePath.c_str(), fileLineNumber);
+            }
         }
 
         // Commit the final entity block at EOF
@@ -180,6 +198,8 @@ namespace Talos::Scene {
             scene.AddEntity(currentEntity);
         }
 
+        TALOS_LOG_INFO("Scene loaded from '" + filePath + "' (" +
+                       std::to_string(scene.GetEntities().size()) + " entities)");
         return true;
     }
 

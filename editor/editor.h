@@ -76,9 +76,13 @@ namespace Talos::Editor {
         void RenderViewportGrid() const;
         void RenderSelectionGizmo(const Scene::Scene& scene) const;
         void RenderViewportCameraOverlay(const Scene::Scene& scene);
+        void RenderConsolePanel();
         void RenderTopToolbar(Scene::Scene& scene);
         void RenderEntityListPanel(Scene::Scene& scene);
         void RenderInspectorPanel(Scene::Scene& scene);
+
+        // Returns the active height in pixels occupied by the bottom Debug Console panel
+        float GetConsolePanelHeight() const;
 
         // Lightweight immediate-mode UI widget primitives built strictly on Core::Input & Renderer2D
         bool DrawButton(float x, float y, float w, float h, const char* label,
@@ -103,6 +107,8 @@ namespace Talos::Editor {
         static constexpr float TOOLBAR_HEIGHT = 46.0f;
         static constexpr float LEFT_PANEL_WIDTH = 230.0f;
         static constexpr float RIGHT_PANEL_WIDTH = 350.0f;
+        static constexpr float CONSOLE_HEIGHT = 185.0f;
+        static constexpr float CONSOLE_HEADER_HEIGHT = 28.0f;
         static constexpr size_t MAX_UNDO_STEPS = 128;
 
         // Play / Edit simulation state
@@ -135,6 +141,14 @@ namespace Talos::Editor {
         int m_textSelectionAnchor = 0; // Selection start index (differs from cursor when selecting)
         bool m_isDraggingText = false; // True while dragging the mouse across a text input box
         int m_newEntityCounter = 1;
+
+        // In-Editor Debug Console state (severity filters, collapse toggle, and scroll offset)
+        bool m_consoleOpen = true;
+        bool m_showLogInfo = true;
+        bool m_showLogWarn = true;
+        bool m_showLogError = true;
+        int m_consoleScrollOffset = 0;
+        size_t m_lastLogCount = 0;
 
         // Temporary feedback notification state for Save/Load/Undo/Redo operations
         std::string m_statusMessage;

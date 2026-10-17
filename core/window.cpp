@@ -1,5 +1,7 @@
 #include "core/window.h"
+#include "core/logger.h"
 #include "raylib.h"
+#include <string>
 
 namespace Talos::Core {
 
@@ -13,9 +15,13 @@ namespace Talos::Core {
         // Enforce a 60 FPS cap so the main loop yields CPU time between frames
         // and maintains consistent frame pacing.
         SetTargetFPS(60);
+
+        TALOS_LOG_INFO("Window initialized (" + std::to_string(width) + "x" +
+                       std::to_string(height) + ") locked at 60 FPS");
     }
 
     void Window::Close() {
+        TALOS_LOG_INFO("Closing window and releasing OpenGL context");
         // Cleanly destroy the OpenGL context and release OS window handles.
         CloseWindow();
     }

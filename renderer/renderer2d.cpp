@@ -1,4 +1,5 @@
 #include "renderer/renderer2d.h"
+#include "core/logger.h"
 #include "raylib.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -168,18 +169,22 @@ namespace Talos::Renderer {
         // 3. Check disk and upload to GPU if valid
         if (!FileExists(texturePath)) {
             s_missingTexturePaths.insert(key);
+            TALOS_LOG_ERROR("Texture file not found on disk: '" + key + "'");
             return nullptr;
         }
 
         Texture2D tex = LoadTexture(texturePath);
         if (tex.id == 0) {
             s_missingTexturePaths.insert(key);
+            TALOS_LOG_ERROR("Failed to decode or upload texture to GPU: '" + key + "'");
             return nullptr;
         }
 
         // Use nearest-neighbor (point) filtering so crisp pixel/2D sprites never blur when scaled.
         SetTextureFilter(tex, TEXTURE_FILTER_POINT);
         auto inserted = s_textureCache.emplace(key, tex);
+        TALOS_LOG_INFO("Loaded 2D texture into VRAM: '" + key + "' (" +
+                       std::to_string(tex.width) + "x" + std::to_string(tex.height) + ")");
         return &inserted.first->second;
     }
 
@@ -192,10 +197,14 @@ namespace Talos::Renderer {
             for (int sz : commonSizes) {
                 GetFontForSize(sz);
             }
+            TALOS_LOG_INFO("Typography initialized with TrueType font: '" + s_activeFontPath + "'");
+        } else {
+            TALOS_LOG_WARN("No system TrueType font found; falling back to default bitmap font");
         }
 
-        // Generate built-in starter .png textures in "assets/textures/" if not present.
+        // Generate built-in starter .png textures in "examples/assets/textures/" if not present.
         EnsureStarterTexturesExist();
+        TALOS_LOG_INFO("Renderer2D subsystem initialized and starter textures verified");
     }
 
     void Renderer2D::Shutdown() {

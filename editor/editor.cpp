@@ -1,6 +1,7 @@
 #include "editor/editor.h"
 #include "scene/scene_serializer.h"
 #include "core/input.h"
+#include "core/logger.h"
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
@@ -144,7 +145,9 @@ namespace Talos::Editor {
     }
 
     Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
-        : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {}
+        : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {
+        TALOS_LOG_INFO("Visual Editor initialized (scene target: '" + m_sceneFilePath + "')");
+    }
 
     // =========================================================================
     // Universal Undo / Redo History Implementation
@@ -199,6 +202,7 @@ namespace Talos::Editor {
 
         if (m_undoStack.empty()) {
             ShowStatusMessage("Nothing to undo");
+            TALOS_LOG_WARN("Undo requested (Ctrl+Z), but the Undo history stack is empty");
             return;
         }
 
@@ -213,6 +217,7 @@ namespace Talos::Editor {
         m_textCursorPos = restored.textCursorPos;
         m_textSelectionAnchor = restored.textSelectionAnchor;
         ShowStatusMessage("Undo (Ctrl+Z)");
+        TALOS_LOG_INFO("Undo applied (Ctrl+Z) — restored previous scene snapshot");
     }
 
     void Editor::Redo(Scene::Scene& scene) {
@@ -220,6 +225,7 @@ namespace Talos::Editor {
 
         if (m_redoStack.empty()) {
             ShowStatusMessage("Nothing to redo");
+            TALOS_LOG_WARN("Redo requested (Ctrl+Y), but the Redo history stack is empty");
             return;
         }
 
@@ -234,6 +240,7 @@ namespace Talos::Editor {
         m_textCursorPos = restored.textCursorPos;
         m_textSelectionAnchor = restored.textSelectionAnchor;
         ShowStatusMessage("Redo (Ctrl+Y)");
+        TALOS_LOG_INFO("Redo applied (Ctrl+Y) — re-applied scene snapshot");
     }
 
     void Editor::StartPlayMode(const Scene::Scene& scene) {
@@ -248,6 +255,8 @@ namespace Talos::Editor {
         m_isPlaying = true;
         m_isDraggingEntity = false;
         m_focusedTextFieldId = -1;
+        TALOS_LOG_INFO("Entered Play Mode (captured snapshot of " +
+                       std::to_string(m_sceneSnapshot.size()) + " entities)");
     }
 
     void Editor::StopPlayMode(Scene::Scene& scene) {
@@ -256,6 +265,7 @@ namespace Talos::Editor {
         // Instantly restore the pre-Play entity state (zero reload time).
         scene.GetEntities() = m_sceneSnapshot;
         m_isPlaying = false;
+        TALOS_LOG_INFO("Stopped Play Mode (restored pre-Play scene snapshot)");
     }
 
     void Editor::ShowStatusMessage(const std::string& message, float durationSeconds) {
@@ -435,8 +445,11 @@ namespace Talos::Editor {
             // Allow deleting the selected entity with the Delete key when no text box is focused
             if (m_selectedEntityId != 0 && Input::IsKeyPressed(Key::Delete)) {
                 PushUndoState(scene);
+                const Entity* target = scene.FindEntityById(m_selectedEntityId);
+                std::string deletedName = target ? target->name : std::to_string(m_selectedEntityId);
                 scene.RemoveEntity(m_selectedEntityId);
                 m_selectedEntityId = 0;
+                TALOS_LOG_INFO("Deleted entity '" + deletedName + "' via keyboard shortcut.");
             }
             // Frame / Focus the selected entity in the center of the 2D camera when pressing 'F'
             if (!ctrlDown && Input::IsKeyPressed(Key::F)) {
@@ -450,6 +463,10 @@ namespace Talos::Editor {
         } else {
             HandleViewportInput(scene);
         }
+    }
+
+    float Editor::GetConsolePanelHeight() const {
+        return m_consoleOpen ? CONSOLE_HEIGHT : CONSOLE_HEADER_HEIGHT;
     }
 
     void Editor::ResetCamera() {
@@ -471,7 +488,7 @@ namespace Talos::Editor {
         float viewportX = LEFT_PANEL_WIDTH;
         float viewportY = TOOLBAR_HEIGHT;
         float viewportW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
-        float viewportH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT;
+        float viewportH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - GetConsolePanelHeight();
 
         float viewportCenterX = viewportX + viewportW * 0.5f;
         float viewportCenterY = viewportY + viewportH * 0.5f;
@@ -490,7 +507,7 @@ namespace Talos::Editor {
         float viewportX = LEFT_PANEL_WIDTH;
         float viewportY = TOOLBAR_HEIGHT;
         float viewportW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
-        float viewportH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT;
+        float viewportH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - GetConsolePanelHeight();
 
         float mx = Input::GetMouseX();
         float my = Input::GetMouseY();
@@ -498,7 +515,7 @@ namespace Talos::Editor {
 
         // Protect the bottom-left Camera Overlay HUD bar from triggering viewport entity clicks
         float hudX = viewportX + 12.0f;
-        float hudY = static_cast<float>(m_windowHeight) - 38.0f;
+        float hudY = static_cast<float>(m_windowHeight) - GetConsolePanelHeight() - 38.0f;
         float hudW = 240.0f;
         float hudH = 28.0f;
         bool mouseOverCameraHud = IsMouseOver(hudX, hudY, hudW, hudH);
@@ -626,7 +643,7 @@ namespace Talos::Editor {
         int vpX = static_cast<int>(LEFT_PANEL_WIDTH);
         int vpY = static_cast<int>(TOOLBAR_HEIGHT);
         int vpW = m_windowWidth - static_cast<int>(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH);
-        int vpH = m_windowHeight - static_cast<int>(TOOLBAR_HEIGHT);
+        int vpH = m_windowHeight - static_cast<int>(TOOLBAR_HEIGHT + GetConsolePanelHeight());
 
         // Clip all 2D world rendering strictly to the central viewport region
         Renderer2D::BeginViewportScissor(vpX, vpY, vpW, vpH);
@@ -654,6 +671,7 @@ namespace Talos::Editor {
         }
 
         // 5. Render the Editor UI panels on top of the window
+        RenderConsolePanel();
         RenderEntityListPanel(scene);
         RenderInspectorPanel(scene);
         RenderTopToolbar(scene);
@@ -663,7 +681,7 @@ namespace Talos::Editor {
         float vpLeft   = LEFT_PANEL_WIDTH;
         float vpRight  = static_cast<float>(m_windowWidth) - RIGHT_PANEL_WIDTH;
         float vpTop    = TOOLBAR_HEIGHT;
-        float vpBottom = static_cast<float>(m_windowHeight);
+        float vpBottom = static_cast<float>(m_windowHeight) - GetConsolePanelHeight();
 
         // Convert screen viewport corners into visible 2D world coordinates
         float worldLeft = 0.0f, worldTop = 0.0f;
@@ -728,7 +746,7 @@ namespace Talos::Editor {
 
     void Editor::RenderViewportCameraOverlay(const Scene::Scene& scene) {
         float hudX = LEFT_PANEL_WIDTH + 12.0f;
-        float hudY = static_cast<float>(m_windowHeight) - 38.0f;
+        float hudY = static_cast<float>(m_windowHeight) - GetConsolePanelHeight() - 38.0f;
 
         // Semi-transparent pill background for zoom controls
         Renderer2D::DrawRect(hudX, hudY, 232.0f, 28.0f, { 20, 22, 28, 220 });
@@ -752,6 +770,194 @@ namespace Talos::Editor {
             "Pan: Right/Middle Drag or Space+Drag   |   Zoom: Mouse Wheel",
             hudX + 244.0f, hudY + 7.0f, 14, { 125, 130, 148, 220 }
         );
+    }
+
+    void Editor::RenderConsolePanel() {
+        float consoleX = LEFT_PANEL_WIDTH;
+        float consoleW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
+        float consoleH = GetConsolePanelHeight();
+        float consoleY = static_cast<float>(m_windowHeight) - consoleH;
+
+        // Console panel background & top divider border
+        Renderer2D::DrawRect(consoleX, consoleY, consoleW, consoleH, { 18, 19, 24, 255 });
+        Renderer2D::DrawLine2D(consoleX, consoleY, consoleX + consoleW, consoleY, { 58, 62, 76, 255 });
+
+        // Header bar background
+        Renderer2D::DrawRect(consoleX, consoleY, consoleW, CONSOLE_HEADER_HEIGHT, { 24, 26, 33, 255 });
+        Renderer2D::DrawLine2D(consoleX, consoleY + CONSOLE_HEADER_HEIGHT,
+                               consoleX + consoleW, consoleY + CONSOLE_HEADER_HEIGHT, { 42, 45, 56, 255 });
+
+        // Title label
+        Renderer2D::DrawLabel("DEBUG CONSOLE", consoleX + 12.0f, consoleY + 6.0f, 15, { 155, 165, 185, 255 });
+
+        // Counts by message classification type
+        size_t infoCount  = Core::Logger::GetCountByLevel(Core::LogLevel::Info);
+        size_t warnCount  = Core::Logger::GetCountByLevel(Core::LogLevel::Warning);
+        size_t errorCount = Core::Logger::GetCountByLevel(Core::LogLevel::Error);
+
+        char infoBtnLabel[32];
+        char warnBtnLabel[32];
+        char errBtnLabel[32];
+        std::snprintf(infoBtnLabel, sizeof(infoBtnLabel), "INFO: %zu", infoCount);
+        std::snprintf(warnBtnLabel, sizeof(warnBtnLabel), "WARN: %zu", warnCount);
+        std::snprintf(errBtnLabel,  sizeof(errBtnLabel),  "ERROR: %zu", errorCount);
+
+        float filterX = consoleX + 148.0f;
+        if (DrawButton(filterX, consoleY + 3.0f, 82.0f, 22.0f, infoBtnLabel,
+                       m_showLogInfo ? ColorRGBA{ 38, 88, 138, 255 } : ColorRGBA{ 32, 35, 44, 255 },
+                       { 52, 112, 172, 255 })) {
+            m_showLogInfo = !m_showLogInfo;
+        }
+
+        if (DrawButton(filterX + 88.0f, consoleY + 3.0f, 86.0f, 22.0f, warnBtnLabel,
+                       m_showLogWarn ? ColorRGBA{ 135, 95, 28, 255 } : ColorRGBA{ 32, 35, 44, 255 },
+                       { 168, 120, 38, 255 })) {
+            m_showLogWarn = !m_showLogWarn;
+        }
+
+        if (DrawButton(filterX + 180.0f, consoleY + 3.0f, 92.0f, 22.0f, errBtnLabel,
+                       m_showLogError ? ColorRGBA{ 148, 42, 48, 255 } : ColorRGBA{ 32, 35, 44, 255 },
+                       { 182, 56, 62, 255 })) {
+            m_showLogError = !m_showLogError;
+        }
+
+        // Right-aligned Clear and Collapse/Expand buttons
+        float rightBtnX = consoleX + consoleW - 142.0f;
+        if (DrawButton(rightBtnX, consoleY + 3.0f, 64.0f, 22.0f, "Clear",
+                       { 45, 48, 60, 255 }, { 65, 70, 88, 255 })) {
+            Core::Logger::Clear();
+            m_consoleScrollOffset = 0;
+            m_lastLogCount = 0;
+        }
+
+        if (DrawButton(rightBtnX + 70.0f, consoleY + 3.0f, 62.0f, 22.0f,
+                       m_consoleOpen ? "Hide" : "Show",
+                       { 45, 48, 60, 255 }, { 65, 70, 88, 255 })) {
+            m_consoleOpen = !m_consoleOpen;
+        }
+
+        if (!m_consoleOpen) {
+            return;
+        }
+
+        // Gather filtered entries
+        const auto& allEntries = Core::Logger::GetEntries();
+        std::vector<const Core::LogEntry*> filtered;
+        filtered.reserve(allEntries.size());
+        for (const auto& entry : allEntries) {
+            if (entry.level == Core::LogLevel::Info    && !m_showLogInfo)  continue;
+            if (entry.level == Core::LogLevel::Warning && !m_showLogWarn)  continue;
+            if (entry.level == Core::LogLevel::Error   && !m_showLogError) continue;
+            filtered.push_back(&entry);
+        }
+
+        // Auto-scroll to the newest message at the bottom when new logs arrive
+        if (allEntries.size() != m_lastLogCount) {
+            m_consoleScrollOffset = 0;
+            m_lastLogCount = allEntries.size();
+        }
+
+        float bodyY = consoleY + CONSOLE_HEADER_HEIGHT;
+        float bodyH = consoleH - CONSOLE_HEADER_HEIGHT;
+        constexpr float rowHeight = 22.0f;
+        int maxVisibleRows = std::max(1, static_cast<int>((bodyH - 6.0f) / rowHeight));
+        int totalRows = static_cast<int>(filtered.size());
+        int maxScroll = std::max(0, totalRows - maxVisibleRows);
+
+        // Mouse wheel scrolling when hovering over the console log body
+        if (IsMouseOver(consoleX, bodyY, consoleW, bodyH)) {
+            float wheel = Input::GetMouseWheelMove();
+            if (wheel > 0.01f) {
+                m_consoleScrollOffset = std::min(maxScroll, m_consoleScrollOffset + 1);
+            } else if (wheel < -0.01f) {
+                m_consoleScrollOffset = std::max(0, m_consoleScrollOffset - 1);
+            }
+        }
+        m_consoleScrollOffset = std::max(0, std::min(m_consoleScrollOffset, maxScroll));
+
+        // Clip log rows strictly to the console body area
+        Renderer2D::BeginViewportScissor(
+            static_cast<int>(consoleX),
+            static_cast<int>(bodyY),
+            static_cast<int>(consoleW),
+            static_cast<int>(bodyH)
+        );
+
+        if (filtered.empty()) {
+            Renderer2D::DrawLabel(
+                "No messages matching current filter.",
+                consoleX + 14.0f, bodyY + 10.0f, 14, { 110, 115, 130, 255 }
+            );
+        } else {
+            int endIdx   = totalRows - m_consoleScrollOffset;
+            int startIdx = std::max(0, endIdx - maxVisibleRows);
+
+            float rowY = bodyY + 3.0f;
+            for (int i = startIdx; i < endIdx; ++i) {
+                const Core::LogEntry& entry = *filtered[i];
+
+                // Alternating subtle row background + red/amber tint for Errors and Warnings
+                ColorRGBA rowBg = (i % 2 == 0) ? ColorRGBA{ 22, 24, 30, 255 } : ColorRGBA{ 18, 19, 24, 255 };
+                if (entry.level == Core::LogLevel::Error) {
+                    rowBg = { 48, 20, 24, 255 };
+                } else if (entry.level == Core::LogLevel::Warning) {
+                    rowBg = { 44, 34, 18, 255 };
+                }
+                Renderer2D::DrawRect(consoleX + 2.0f, rowY, consoleW - 10.0f, rowHeight - 1.0f, rowBg);
+
+                // 1. Classification Badge ([INFO], [WARN], [ERROR])
+                ColorRGBA badgeColor = { 85, 190, 255, 255 };
+                const char* badgeText = "[INFO]";
+                if (entry.level == Core::LogLevel::Warning) {
+                    badgeColor = { 255, 195, 65, 255 };
+                    badgeText  = "[WARN]";
+                } else if (entry.level == Core::LogLevel::Error) {
+                    badgeColor = { 255, 95, 95, 255 };
+                    badgeText  = "[ERROR]";
+                }
+
+                float curX = consoleX + 10.0f;
+                Renderer2D::DrawLabel(badgeText, curX, rowY + 3.0f, 14, badgeColor);
+                curX += 64.0f;
+
+                // 2. Timestamp (HH:MM:SS)
+                Renderer2D::DrawLabel(entry.timestamp.c_str(), curX, rowY + 3.0f, 14, { 120, 126, 142, 255 });
+                curX += 66.0f;
+
+                // 3. Source File & Line Number ([file:line])
+                std::string locationTag = "[" + entry.file + ":" + std::to_string(entry.line) + "]";
+                Renderer2D::DrawLabel(locationTag.c_str(), curX, rowY + 3.0f, 14, { 165, 180, 215, 255 });
+                int locWidth = Renderer2D::MeasureTextWidth(locationTag.c_str(), 14);
+                curX += static_cast<float>(locWidth) + 10.0f;
+
+                // 4. Diagnostic Message Content
+                ColorRGBA msgColor = { 230, 232, 240, 255 };
+                if (entry.level == Core::LogLevel::Error) {
+                    msgColor = { 255, 185, 185, 255 };
+                } else if (entry.level == Core::LogLevel::Warning) {
+                    msgColor = { 255, 228, 165, 255 };
+                }
+                Renderer2D::DrawLabel(entry.message.c_str(), curX, rowY + 3.0f, 14, msgColor);
+
+                rowY += rowHeight;
+            }
+
+            // Draw vertical scrollbar indicator on the right edge if there are more rows than fit
+            if (totalRows > maxVisibleRows) {
+                float trackX = consoleX + consoleW - 6.0f;
+                float trackY = bodyY + 2.0f;
+                float trackH = bodyH - 4.0f;
+                Renderer2D::DrawRect(trackX, trackY, 4.0f, trackH, { 30, 32, 40, 255 });
+
+                float thumbRatio = static_cast<float>(maxVisibleRows) / static_cast<float>(totalRows);
+                float thumbH = std::max(16.0f, trackH * thumbRatio);
+                float scrollFraction = static_cast<float>(maxScroll - m_consoleScrollOffset) / static_cast<float>(maxScroll);
+                float thumbY = trackY + (trackH - thumbH) * scrollFraction;
+                Renderer2D::DrawRect(trackX, thumbY, 4.0f, thumbH, { 95, 105, 130, 255 });
+            }
+        }
+
+        Renderer2D::EndViewportScissor();
     }
 
     void Editor::RenderTopToolbar(Scene::Scene& scene) {
@@ -796,21 +1002,25 @@ namespace Talos::Editor {
 
                 // Spawn the new entity right at the center of the currently visible 2D camera viewport
                 float vpCenterX = LEFT_PANEL_WIDTH + (w - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH) * 0.5f;
-                float vpCenterY = TOOLBAR_HEIGHT + (static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT) * 0.5f;
+                float vpCenterY = TOOLBAR_HEIGHT + (static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT - GetConsolePanelHeight()) * 0.5f;
                 float spawnWorldX = 480.0f, spawnWorldY = 320.0f;
                 m_camera.ScreenToWorld(vpCenterX, vpCenterY, spawnWorldX, spawnWorldY);
 
                 Entity& created = scene.CreateEntity(nameBuf, spawnWorldX - 32.0f, spawnWorldY - 32.0f);
                 created.sprite.color = PRESET_COLORS[m_newEntityCounter % NUM_PRESET_COLORS];
                 m_selectedEntityId = created.id;
+                TALOS_LOG_INFO("Created new entity '" + created.name + "' (id=" + std::to_string(created.id) + ").");
             }
 
             if (m_selectedEntityId != 0) {
                 if (DrawButton(LEFT_PANEL_WIDTH + 136.0f, 8.0f, 85.0f, 30.0f, "Delete",
                                { 140, 50, 55, 255 }, { 180, 65, 70, 255 })) {
                     PushUndoState(scene);
+                    const Entity* target = scene.FindEntityById(m_selectedEntityId);
+                    std::string deletedName = target ? target->name : std::to_string(m_selectedEntityId);
                     scene.RemoveEntity(m_selectedEntityId);
                     m_selectedEntityId = 0;
+                    TALOS_LOG_INFO("Deleted entity '" + deletedName + "'.");
                 }
             }
 
