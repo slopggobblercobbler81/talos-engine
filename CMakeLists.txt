@@ -21,6 +21,8 @@ add_executable(TalosEngine
     src/core/window.cpp
     src/core/input.cpp
     src/renderer/renderer2d.cpp
+    src/physics/physics2d.cpp
+    src/scene/scene.cpp
 )
 
 # Allow for clean file inclusion based on layer (e.g., #include "core/window.h")
