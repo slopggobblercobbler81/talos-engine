@@ -7,11 +7,24 @@
 namespace Talos::Editor {
 
     // =========================================================================
+    // Editor History Snapshot (Undo / Redo State)
+    // =========================================================================
+    // Captures a complete, self-contained snapshot of all entities in the Scene
+    // along with the currently selected EntityID. Because Talos Entities are flat
+    // value structs without heap pointers or deep inheritance trees, storing and
+    // restoring full snapshots is instantaneous and immune to dangling references.
+    struct EditorHistoryState {
+        std::vector<Scene::Entity> entities;
+        Scene::EntityID selectedEntityId = 0;
+    };
+
+    // =========================================================================
     // Visual Editor Subsystem (Layer 5: Editor Layer)
     // =========================================================================
     // Sits at the very top of the engine architecture. The Editor inspects and
     // mutates a Scene instance, handles viewport mouse picking/dragging, manages
-    // Play/Stop simulation state snapshots, and triggers Scene Save/Load operations.
+    // Play/Stop simulation state snapshots, provides universal Undo/Redo (Ctrl+Z / Ctrl+Y),
+    // and triggers Scene Save/Load operations.
     //
     // Architectural Note: Lower layers (Core, Renderer, Physics, Scene) have zero
     // awareness of this class. A standalone game build simply omits the Editor layer.
@@ -19,8 +32,8 @@ namespace Talos::Editor {
     public:
         explicit Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath = "examples/scenes/main.talos");
 
-        // Processes Editor UI interactions, viewport entity picking/dragging,
-        // and advances the Scene simulation when Play mode is active.
+        // Processes keyboard shortcuts (Ctrl+Z / Ctrl+Y), Editor UI interactions,
+        // viewport entity picking/dragging, and advances the Scene simulation in Play Mode.
         void Update(Scene::Scene& scene, float delta);
 
         // Renders the 2D viewport grid, the Scene entities, selection gizmos,
@@ -33,13 +46,24 @@ namespace Talos::Editor {
         // Selects an entity by ID so its properties appear in the Inspector.
         void SelectEntity(Scene::EntityID id) { m_selectedEntityId = id; }
 
+        // Reverts the Scene and selection to the previous state on the Undo stack (Ctrl+Z).
+        void Undo(Scene::Scene& scene);
+
+        // Re-applies a previously undone state from the Redo stack (Ctrl+Y / Ctrl+Shift+Z).
+        void Redo(Scene::Scene& scene);
+
     private:
         // State transition helpers for instant Play/Stop iteration without compilation
         void StartPlayMode(const Scene::Scene& scene);
         void StopPlayMode(Scene::Scene& scene);
 
-        // Displays a temporary notification message in the Top Toolbar (e.g., after Save/Load)
-        void ShowStatusMessage(const std::string& message, float durationSeconds = 2.5f);
+        // Undo / Redo history management helpers
+        void PushUndoState(const Scene::Scene& scene);
+        void BeginContinuousEdit(const Scene::Scene& scene);
+        void CommitContinuousEdit(const Scene::Scene& scene);
+
+        // Displays a temporary notification message in the Top Toolbar (e.g., after Save/Load/Undo)
+        void ShowStatusMessage(const std::string& message, float durationSeconds = 2.0f);
 
         // Viewport interaction (mouse picking & entity dragging in Edit Mode)
         void HandleViewportInput(Scene::Scene& scene);
@@ -74,10 +98,18 @@ namespace Talos::Editor {
         static constexpr float TOOLBAR_HEIGHT = 46.0f;
         static constexpr float LEFT_PANEL_WIDTH = 230.0f;
         static constexpr float RIGHT_PANEL_WIDTH = 350.0f;
+        static constexpr size_t MAX_UNDO_STEPS = 128;
 
         // Play / Edit simulation state
         bool m_isPlaying = false;
         std::vector<Scene::Entity> m_sceneSnapshot; // Saved before Play, restored on Stop
+
+        // Universal Undo / Redo History Stacks
+        std::vector<EditorHistoryState> m_undoStack;
+        std::vector<EditorHistoryState> m_redoStack;
+        EditorHistoryState m_pendingSnapshot;
+        bool m_hasPendingSnapshot = false;
+        Scene::Scene* m_activeScene = nullptr; // Non-owning pointer set during Render/Update for UI widgets
 
         // Selection and Viewport dragging state
         Scene::EntityID m_selectedEntityId = 0;
@@ -90,7 +122,7 @@ namespace Talos::Editor {
         int m_focusedTextFieldId = -1;
         int m_newEntityCounter = 1;
 
-        // Temporary feedback notification state for Save/Load operations
+        // Temporary feedback notification state for Save/Load/Undo/Redo operations
         std::string m_statusMessage;
         float m_statusTimer = 0.0f;
     };

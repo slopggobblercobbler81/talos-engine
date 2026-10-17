@@ -7,20 +7,26 @@ namespace Talos::Core {
     // Maps Talos::Core::Key values to the underlying backend's integer key constants.
     static int ToBackendKey(Key key) {
         switch (key) {
-            case Key::W:         return KEY_W;
-            case Key::A:         return KEY_A;
-            case Key::S:         return KEY_S;
-            case Key::D:         return KEY_D;
-            case Key::Up:        return KEY_UP;
-            case Key::Down:      return KEY_DOWN;
-            case Key::Left:      return KEY_LEFT;
-            case Key::Right:     return KEY_RIGHT;
-            case Key::Space:     return KEY_SPACE;
-            case Key::Escape:    return KEY_ESCAPE;
-            case Key::Backspace: return KEY_BACKSPACE;
-            case Key::Delete:    return KEY_DELETE;
-            case Key::Enter:     return KEY_ENTER;
-            default:             return KEY_NULL;
+            case Key::W:            return KEY_W;
+            case Key::A:            return KEY_A;
+            case Key::S:            return KEY_S;
+            case Key::D:            return KEY_D;
+            case Key::Z:            return KEY_Z;
+            case Key::Y:            return KEY_Y;
+            case Key::Up:           return KEY_UP;
+            case Key::Down:         return KEY_DOWN;
+            case Key::Left:         return KEY_LEFT;
+            case Key::Right:        return KEY_RIGHT;
+            case Key::Space:        return KEY_SPACE;
+            case Key::Escape:       return KEY_ESCAPE;
+            case Key::Backspace:    return KEY_BACKSPACE;
+            case Key::Delete:       return KEY_DELETE;
+            case Key::Enter:        return KEY_ENTER;
+            case Key::LeftControl:  return KEY_LEFT_CONTROL;
+            case Key::RightControl: return KEY_RIGHT_CONTROL;
+            case Key::LeftShift:    return KEY_LEFT_SHIFT;
+            case Key::RightShift:   return KEY_RIGHT_SHIFT;
+            default:                return KEY_NULL;
         }
     }
 
@@ -41,7 +47,8 @@ namespace Talos::Core {
     }
 
     bool Input::IsKeyPressed(Key key) {
-        return ::IsKeyPressed(ToBackendKey(key));
+        int backendKey = ToBackendKey(key);
+        return ::IsKeyPressed(backendKey) || ::IsKeyPressedRepeat(backendKey);
     }
 
     int Input::GetCharPressed() {

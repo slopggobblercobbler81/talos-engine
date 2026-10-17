@@ -3,6 +3,7 @@
 #include "core/input.h"
 #include <cstdio>
 #include <algorithm>
+#include <cmath>
 
 namespace Talos::Editor {
 
@@ -46,11 +47,138 @@ namespace Talos::Editor {
         return (mx >= x && mx <= x + w && my >= y && my <= y + h);
     }
 
+    // Internal comparison helper: Returns true if two ColorRGBA values are identical.
+    static bool AreColorsEqual(const ColorRGBA& a, const ColorRGBA& b) {
+        return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+    }
+
+    // Internal comparison helper: Returns true if two Entity instances have identical state.
+    // Used by CommitContinuousEdit() to verify that a viewport drag or slider drag actually
+    // modified the scene before pushing a new entry onto the Undo stack.
+    static bool AreEntityListsEqual(const std::vector<Entity>& a, const std::vector<Entity>& b) {
+        if (a.size() != b.size()) return false;
+
+        for (size_t i = 0; i < a.size(); ++i) {
+            const Entity& ea = a[i];
+            const Entity& eb = b[i];
+            if (ea.id != eb.id || ea.name != eb.name || ea.active != eb.active) return false;
+            if (std::fabs(ea.transform.x - eb.transform.x) > 0.01f ||
+                std::fabs(ea.transform.y - eb.transform.y) > 0.01f ||
+                std::fabs(ea.transform.width - eb.transform.width) > 0.01f ||
+                std::fabs(ea.transform.height - eb.transform.height) > 0.01f) return false;
+            if (ea.sprite.enabled != eb.sprite.enabled ||
+                ea.sprite.texturePath != eb.sprite.texturePath ||
+                !AreColorsEqual(ea.sprite.color, eb.sprite.color)) return false;
+            if (ea.text.enabled != eb.text.enabled ||
+                ea.text.content != eb.text.content ||
+                ea.text.fontSize != eb.text.fontSize ||
+                !AreColorsEqual(ea.text.color, eb.text.color) ||
+                std::fabs(ea.text.offsetX - eb.text.offsetX) > 0.01f ||
+                std::fabs(ea.text.offsetY - eb.text.offsetY) > 0.01f) return false;
+            if (ea.collider.enabled != eb.collider.enabled ||
+                ea.collider.isSolid != eb.collider.isSolid ||
+                ea.collider.isStatic != eb.collider.isStatic) return false;
+            if (ea.movement.enabled != eb.movement.enabled ||
+                ea.movement.playerControlled != eb.movement.playerControlled ||
+                std::fabs(ea.movement.speed - eb.movement.speed) > 0.01f) return false;
+        }
+        return true;
+    }
+
     Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
         : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {}
 
+    // =========================================================================
+    // Universal Undo / Redo History Implementation
+    // =========================================================================
+
+    void Editor::PushUndoState(const Scene::Scene& scene) {
+        if (m_isPlaying) return;
+
+        // Avoid pushing duplicate consecutive states if nothing changed since the top of the stack
+        if (!m_undoStack.empty() && AreEntityListsEqual(m_undoStack.back().entities, scene.GetEntities())) {
+            return;
+        }
+
+        if (m_undoStack.size() >= MAX_UNDO_STEPS) {
+            m_undoStack.erase(m_undoStack.begin());
+        }
+
+        m_undoStack.push_back({ scene.GetEntities(), m_selectedEntityId });
+        m_redoStack.clear();
+    }
+
+    void Editor::BeginContinuousEdit(const Scene::Scene& scene) {
+        if (m_isPlaying || m_hasPendingSnapshot) return;
+        m_pendingSnapshot = { scene.GetEntities(), m_selectedEntityId };
+        m_hasPendingSnapshot = true;
+    }
+
+    void Editor::CommitContinuousEdit(const Scene::Scene& scene) {
+        if (!m_hasPendingSnapshot) return;
+        m_hasPendingSnapshot = false;
+
+        // Only push onto the Undo stack if the user's drag actually changed an entity property
+        if (!AreEntityListsEqual(m_pendingSnapshot.entities, scene.GetEntities())) {
+            if (m_undoStack.size() >= MAX_UNDO_STEPS) {
+                m_undoStack.erase(m_undoStack.begin());
+            }
+            m_undoStack.push_back(m_pendingSnapshot);
+            m_redoStack.clear();
+        }
+    }
+
+    void Editor::Undo(Scene::Scene& scene) {
+        if (m_isPlaying) return;
+
+        // If the user triggers Ctrl+Z while still holding the mouse button mid-drag,
+        // commit the pending drag start snapshot first and cancel the active drag.
+        if (m_hasPendingSnapshot) {
+            CommitContinuousEdit(scene);
+            m_isDraggingEntity = false;
+            m_activeSliderId = -1;
+        }
+
+        if (m_undoStack.empty()) {
+            ShowStatusMessage("Nothing to undo");
+            return;
+        }
+
+        // Save current state to Redo stack before restoring the previous Undo snapshot
+        m_redoStack.push_back({ scene.GetEntities(), m_selectedEntityId });
+
+        EditorHistoryState restored = m_undoStack.back();
+        m_undoStack.pop_back();
+
+        scene.GetEntities() = restored.entities;
+        m_selectedEntityId = restored.selectedEntityId;
+        ShowStatusMessage("Undo (Ctrl+Z)");
+    }
+
+    void Editor::Redo(Scene::Scene& scene) {
+        if (m_isPlaying) return;
+
+        if (m_redoStack.empty()) {
+            ShowStatusMessage("Nothing to redo");
+            return;
+        }
+
+        // Save current state back onto the Undo stack before applying Redo
+        m_undoStack.push_back({ scene.GetEntities(), m_selectedEntityId });
+
+        EditorHistoryState restored = m_redoStack.back();
+        m_redoStack.pop_back();
+
+        scene.GetEntities() = restored.entities;
+        m_selectedEntityId = restored.selectedEntityId;
+        ShowStatusMessage("Redo (Ctrl+Y)");
+    }
+
     void Editor::StartPlayMode(const Scene::Scene& scene) {
         if (m_isPlaying) return;
+
+        // Commit any in-progress drag before entering Play Mode
+        CommitContinuousEdit(scene);
 
         // Capture a complete copy of all entities in memory before starting simulation.
         // Because Entities are flat POD-like structs, copying the vector takes microseconds.
@@ -74,6 +202,8 @@ namespace Talos::Editor {
     }
 
     void Editor::Update(Scene::Scene& scene, float delta) {
+        m_activeScene = &scene;
+
         // Count down active status banner timer
         if (m_statusTimer > 0.0f) {
             m_statusTimer -= delta;
@@ -82,14 +212,42 @@ namespace Talos::Editor {
             }
         }
 
-        // Release active slider drag when mouse button is released anywhere
+        // Release active slider or viewport drag when mouse button is released anywhere,
+        // and commit the continuous edit snapshot if any property was modified.
         if (Input::IsMouseButtonReleased(MouseButton::Left)) {
+            CommitContinuousEdit(scene);
             m_activeSliderId = -1;
             m_isDraggingEntity = false;
         }
 
+        // =====================================================================
+        // Global Undo / Redo Keyboard Shortcuts (Ctrl + Z / Ctrl + Y)
+        // =====================================================================
+        // Processed before text field typing so Ctrl+Z works universally even
+        // while a text input box (Name, Text, or Image path) is actively focused.
+        bool ctrlDown = Input::IsKeyDown(Key::LeftControl) || Input::IsKeyDown(Key::RightControl);
+        bool shiftDown = Input::IsKeyDown(Key::LeftShift) || Input::IsKeyDown(Key::RightShift);
+
+        if (!m_isPlaying && ctrlDown) {
+            // Drain character queue while Ctrl is held so shortcut keys never type into text boxes
+            while (Input::GetCharPressed() > 0) {}
+
+            if (Input::IsKeyPressed(Key::Z)) {
+                if (shiftDown) {
+                    Redo(scene);
+                } else {
+                    Undo(scene);
+                }
+                return;
+            }
+            if (Input::IsKeyPressed(Key::Y)) {
+                Redo(scene);
+                return;
+            }
+        }
+
         // Handle keyboard typing when a text input field in the Inspector is focused
-        if (m_focusedTextFieldId != -1 && !m_isPlaying) {
+        if (m_focusedTextFieldId != -1 && !m_isPlaying && !ctrlDown) {
             Entity* selected = scene.FindEntityById(m_selectedEntityId);
             if (selected) {
                 std::string* targetStr = nullptr;
@@ -98,17 +256,19 @@ namespace Talos::Editor {
                 if (m_focusedTextFieldId == 3) targetStr = &selected->sprite.texturePath;
 
                 if (targetStr) {
-                    // Append all printable characters typed during this frame
+                    // Append all printable characters typed during this frame, recording Undo state first
                     int ch = Input::GetCharPressed();
                     while (ch > 0) {
                         if (ch >= 32 && ch <= 126 && targetStr->size() < 64) {
+                            PushUndoState(scene);
                             targetStr->push_back(static_cast<char>(ch));
                         }
                         ch = Input::GetCharPressed();
                     }
 
-                    // Handle Backspace deletion
+                    // Handle Backspace deletion, recording Undo state before removing the character
                     if (Input::IsKeyPressed(Key::Backspace) && !targetStr->empty()) {
+                        PushUndoState(scene);
                         targetStr->pop_back();
                     }
 
@@ -117,6 +277,13 @@ namespace Talos::Editor {
                         m_focusedTextFieldId = -1;
                     }
                 }
+            }
+        } else if (!m_isPlaying && m_focusedTextFieldId == -1) {
+            // Allow deleting the selected entity with the Delete key when no text box is focused
+            if (m_selectedEntityId != 0 && Input::IsKeyPressed(Key::Delete)) {
+                PushUndoState(scene);
+                scene.RemoveEntity(m_selectedEntityId);
+                m_selectedEntityId = 0;
             }
         }
 
@@ -165,6 +332,8 @@ namespace Talos::Editor {
                 }
 
                 if (mx >= hitX && mx <= hitX + hitW && my >= hitY && my <= hitY + hitH) {
+                    // Capture pre-drag scene snapshot before starting the drag operation
+                    BeginContinuousEdit(scene);
                     m_selectedEntityId = e.id;
                     m_isDraggingEntity = true;
                     m_dragOffsetX = mx - e.transform.x;
@@ -190,6 +359,8 @@ namespace Talos::Editor {
     }
 
     void Editor::Render(Scene::Scene& scene) {
+        m_activeScene = &scene;
+
         // 1. Draw the subtle background reference grid in Edit Mode
         if (!m_isPlaying) {
             RenderViewportGrid();
@@ -294,6 +465,7 @@ namespace Talos::Editor {
         if (!m_isPlaying) {
             if (DrawButton(LEFT_PANEL_WIDTH + 12.0f, 8.0f, 115.0f, 30.0f, "+ New Entity",
                            { 55, 115, 200, 255 }, { 75, 140, 230, 255 })) {
+                PushUndoState(scene);
                 char nameBuf[32];
                 std::snprintf(nameBuf, sizeof(nameBuf), "Object_%d", m_newEntityCounter++);
                 Entity& created = scene.CreateEntity(nameBuf, 480.0f, 320.0f);
@@ -304,6 +476,7 @@ namespace Talos::Editor {
             if (m_selectedEntityId != 0) {
                 if (DrawButton(LEFT_PANEL_WIDTH + 136.0f, 8.0f, 85.0f, 30.0f, "Delete",
                                { 140, 50, 55, 255 }, { 180, 65, 70, 255 })) {
+                    PushUndoState(scene);
                     scene.RemoveEntity(m_selectedEntityId);
                     m_selectedEntityId = 0;
                 }
@@ -322,6 +495,7 @@ namespace Talos::Editor {
 
             if (DrawButton(rightActionsX + 112.0f, 8.0f, 104.0f, 30.0f, "Load Scene",
                            { 70, 75, 95, 255 }, { 92, 98, 122, 255 })) {
+                PushUndoState(scene);
                 if (SceneSerializer::Load(scene, m_sceneFilePath)) {
                     m_selectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
                     ShowStatusMessage("Loaded <- " + m_sceneFilePath);
@@ -499,6 +673,9 @@ namespace Talos::Editor {
                               value ? ColorRGBA{ 240, 240, 245, 255 } : ColorRGBA{ 150, 155, 170, 255 });
 
         if (hovered && Input::IsMouseButtonPressed(MouseButton::Left)) {
+            if (m_activeScene) {
+                PushUndoState(*m_activeScene);
+            }
             value = !value;
             m_focusedTextFieldId = -1;
             return true;
@@ -515,6 +692,9 @@ namespace Talos::Editor {
         float barH = 17.0f;
 
         if (IsMouseOver(barX, y, barW, barH) && Input::IsMouseButtonPressed(MouseButton::Left)) {
+            if (m_activeScene) {
+                BeginContinuousEdit(*m_activeScene);
+            }
             m_activeSliderId = sliderId;
             m_focusedTextFieldId = -1;
         }
@@ -561,6 +741,10 @@ namespace Talos::Editor {
             ColorRGBA hover = isCurrent ? ColorRGBA{ 68, 135, 220, 255 } : ColorRGBA{ 54, 58, 74, 255 };
 
             if (DrawButton(bx, y, btnW, 22.0f, TEXTURE_PRESETS[i].label, bg, hover)) {
+                if (!isCurrent && m_activeScene) {
+                    PushUndoState(*m_activeScene);
+                }
+
                 bool wasSolidBox = sprite.texturePath.empty();
                 sprite.texturePath = TEXTURE_PRESETS[i].path;
                 m_focusedTextFieldId = -1;
@@ -597,6 +781,9 @@ namespace Talos::Editor {
             if (hovered) {
                 Renderer2D::DrawRectOutline(swatchX, y, swatchSize, 19.0f, 2.0f, { 255, 255, 255, 255 });
                 if (Input::IsMouseButtonPressed(MouseButton::Left)) {
+                    if (!AreColorsEqual(color, PRESET_COLORS[i]) && m_activeScene) {
+                        PushUndoState(*m_activeScene);
+                    }
                     color = PRESET_COLORS[i];
                 }
             }

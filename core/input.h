@@ -13,6 +13,8 @@ namespace Talos::Core {
         A,
         S,
         D,
+        Z,
+        Y,
         Up,
         Down,
         Left,
@@ -21,7 +23,11 @@ namespace Talos::Core {
         Escape,
         Backspace,
         Delete,
-        Enter
+        Enter,
+        LeftControl,
+        RightControl,
+        LeftShift,
+        RightShift
     };
 
     // =========================================================================
@@ -40,11 +46,12 @@ namespace Talos::Core {
     class Input {
     public:
         // Returns true every frame while the physical key is held down.
-        // Best suited for continuous actions such as character movement.
+        // Best suited for continuous actions such as character movement or modifier keys (Ctrl/Shift).
         static bool IsKeyDown(Key key);
 
-        // Returns true only on the single frame the key transitions from up to down.
-        // Best suited for discrete actions such as jumping, shooting, or toggling UI.
+        // Returns true only on the single frame the key transitions from up to down
+        // (or on OS key-repeat events when held down).
+        // Best suited for discrete actions such as jumping, shortcuts (Ctrl+Z), or toggling UI.
         static bool IsKeyPressed(Key key);
 
         // Polls the next typed character from the OS keyboard queue (ASCII/Unicode).
@@ -65,7 +72,7 @@ namespace Talos::Core {
         static bool IsMouseButtonPressed(MouseButton button);
 
         // Returns true only on the single frame the mouse button is released.
-        // Used to end drag-and-drop operations cleanly.
+        // Used to end drag-and-drop operations cleanly and commit Undo snapshots.
         static bool IsMouseButtonReleased(MouseButton button);
     };
 
