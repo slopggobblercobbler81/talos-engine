@@ -19,6 +19,7 @@ FetchContent_MakeAvailable(raylib)
 add_executable(TalosEngine
     src/main.cpp
     src/core/window.cpp
+    src/core/input.cpp
     src/renderer/renderer2d.cpp
 )
 
