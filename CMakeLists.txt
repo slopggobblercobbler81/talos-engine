@@ -15,17 +15,34 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-# List of modules in our layered engine
+# List of modules in our layered engine (Godot-style modular tree)
 add_executable(TalosEngine
+    # Layer 1: Core
     core/window.cpp
     core/input.cpp
+    core/input_map.cpp
     core/logger.cpp
+
+    # Layer 2: Renderer & Physics
     renderer/renderer2d.cpp
     physics/physics2d.cpp
+
+    # Layer 3: Scene
     scene/scene.cpp
     scene/scene_serializer.cpp
+
+    # Layer 5: Editor (Central Orchestrator + Specialized Branches)
     editor/editor.cpp
     editor/main.cpp
+    editor/gui/editor_gui.cpp
+    editor/history/editor_undo_redo.cpp
+    editor/toolbar/editor_toolbar.cpp
+    editor/viewport/canvas_viewport.cpp
+    editor/viewport/diagnostic_overlay.cpp
+    editor/docks/scene_tree_dock.cpp
+    editor/docks/inspector_dock.cpp
+    editor/docks/console_dock.cpp
+    editor/dialogs/input_map_dialog.cpp
 )
 
 # Allow for clean file inclusion based on layer (e.g., #include "core/window.h")

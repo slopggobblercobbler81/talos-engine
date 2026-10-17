@@ -84,3 +84,45 @@ Every frame executes a deterministic, strictly ordered pipeline across layers:
 2. **Logic & Scripting Update (Scripting & Scene Layers):** Execute active scripts and update entity states using the current `delta` time.
 3. **Physics Resolution (Physics Layer):** Step spatial movement and resolve collisions across active collider components.
 4. **Render Submission (Renderer & Editor Layers):** Begin the frame, submit visible scene components to the Renderer, overlay Editor tooling (when running in Editor mode), and present the frame to the display.
+
+---
+
+## 4. Modular Tree Structure (Central Orchestrator + Branches)
+
+Within each architectural layer, subsystems follow a **Godot-style modular tree organization** (`Central Orchestrator -> Specialized Branches`) to prevent monolithic files:
+
+```text
+talos-engine/
+├── core/                         # Layer 1: Core & Platform
+│   ├── window.h / .cpp           # OS window lifecycle & frame timing
+│   ├── input.h / .cpp            # Hardware keyboard & mouse polling
+│   ├── input_map.h / .cpp        # Logical actions & .talos InputMap persistence
+│   └── logger.h / .cpp           # Classified debug logger ([INFO], [WARN], [ERROR])
+├── renderer/                     # Layer 2: Rendering Subsystem
+│   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture cache
+├── physics/                      # Layer 2: Physics Subsystem
+│   └── physics2d.h / .cpp        # 2D AABB overlap & movement resolution
+├── scene/                        # Layer 3: Scene & Entity Layer
+│   ├── entity.h                  # Flat zero-inheritance Entity & Component structs
+│   ├── scene.h / .cpp            # World state & per-component telemetry counters
+│   └── scene_serializer.h / .cpp # Human-readable .talos scene persistence
+└── editor/                       # Layer 5: Visual Editor (EditorNode + Branches)
+    ├── main.cpp                  # Engine bootstrap & main loop
+    ├── editor.h / .cpp           # Central Editor Orchestrator (EditorNode)
+    ├── gui/                      # Branch: Immediate-mode UI widgets & text controller
+    │   └── editor_gui.h / .cpp
+    ├── history/                  # Branch: Universal Undo/Redo & drag snapshot manager
+    │   └── editor_undo_redo.h / .cpp
+    ├── toolbar/                  # Branch: Top command bar & status notification banner
+    │   └── editor_toolbar.h / .cpp
+    ├── viewport/                 # Branch: 2D Canvas Viewport & [F3] Diagnostic Overlay
+    │   ├── canvas_viewport.h / .cpp
+    │   └── diagnostic_overlay.h / .cpp
+    ├── docks/                    # Branch: Docked Editor Panels
+    │   ├── scene_tree_dock.h / .cpp
+    │   ├── inspector_dock.h / .cpp
+    │   └── console_dock.h / .cpp
+    └── dialogs/                  # Branch: Project Modal Windows
+        └── input_map_dialog.h / .cpp
+```
+
