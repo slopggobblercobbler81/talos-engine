@@ -226,6 +226,27 @@ namespace Talos::Renderer {
         EndDrawing();
     }
 
+    void Renderer2D::BeginCamera2D(const Camera2DView& camera) {
+        Camera2D rlCam = {};
+        rlCam.target   = { camera.targetX, camera.targetY };
+        rlCam.offset   = { camera.offsetX, camera.offsetY };
+        rlCam.rotation = 0.0f;
+        rlCam.zoom     = (camera.zoom > 0.0001f) ? camera.zoom : 1.0f;
+        BeginMode2D(rlCam);
+    }
+
+    void Renderer2D::EndCamera2D() {
+        EndMode2D();
+    }
+
+    void Renderer2D::BeginViewportScissor(int x, int y, int width, int height) {
+        BeginScissorMode(x, y, width, height);
+    }
+
+    void Renderer2D::EndViewportScissor() {
+        EndScissorMode();
+    }
+
     void Renderer2D::DrawRect(float x, float y, float width, float height, ColorRGBA color) {
         DrawRectangle(
             static_cast<int>(x),

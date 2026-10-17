@@ -274,13 +274,20 @@ namespace Talos::Editor {
             }
         }
 
-        // Release active slider or viewport drag when mouse button is released anywhere,
-        // and commit the continuous edit snapshot if any property was modified.
+        // Release active slider, viewport entity drag, or camera pan when mouse button is released
         if (Input::IsMouseButtonReleased(MouseButton::Left)) {
             CommitContinuousEdit(scene);
             m_activeSliderId = -1;
             m_isDraggingEntity = false;
             m_isDraggingText = false;
+            if (!Input::IsMouseButtonDown(MouseButton::Middle) && !Input::IsMouseButtonDown(MouseButton::Right)) {
+                m_isPanningCamera = false;
+            }
+        }
+        if (Input::IsMouseButtonReleased(MouseButton::Middle) || Input::IsMouseButtonReleased(MouseButton::Right)) {
+            if (!Input::IsMouseButtonDown(MouseButton::Middle) && !Input::IsMouseButtonDown(MouseButton::Right)) {
+                m_isPanningCamera = false;
+            }
         }
 
         // =====================================================================
@@ -431,14 +438,52 @@ namespace Talos::Editor {
                 scene.RemoveEntity(m_selectedEntityId);
                 m_selectedEntityId = 0;
             }
+            // Frame / Focus the selected entity in the center of the 2D camera when pressing 'F'
+            if (!ctrlDown && Input::IsKeyPressed(Key::F)) {
+                FocusSelectedEntity(scene);
+            }
         }
 
-        // In Play Mode, advance the real game simulation; in Edit Mode, allow mouse picking/dragging
+        // In Play Mode, advance the real game simulation; in Edit Mode, allow camera Pan/Zoom & mouse picking
         if (m_isPlaying) {
             scene.Update(delta);
         } else {
             HandleViewportInput(scene);
         }
+    }
+
+    void Editor::ResetCamera() {
+        m_camera.targetX = 0.0f;
+        m_camera.targetY = 0.0f;
+        m_camera.offsetX = 0.0f;
+        m_camera.offsetY = 0.0f;
+        m_camera.zoom    = 1.0f;
+        ShowStatusMessage("Camera Reset (100%)");
+    }
+
+    void Editor::FocusSelectedEntity(const Scene::Scene& scene) {
+        const Entity* selected = const_cast<Scene::Scene&>(scene).FindEntityById(m_selectedEntityId);
+        if (!selected) {
+            ResetCamera();
+            return;
+        }
+
+        float viewportX = LEFT_PANEL_WIDTH;
+        float viewportY = TOOLBAR_HEIGHT;
+        float viewportW = static_cast<float>(m_windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
+        float viewportH = static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT;
+
+        float viewportCenterX = viewportX + viewportW * 0.5f;
+        float viewportCenterY = viewportY + viewportH * 0.5f;
+
+        float entityCenterX = selected->transform.x + selected->transform.width * 0.5f;
+        float entityCenterY = selected->transform.y + selected->transform.height * 0.5f;
+
+        m_camera.offsetX = 0.0f;
+        m_camera.offsetY = 0.0f;
+        m_camera.targetX = entityCenterX - (viewportCenterX / m_camera.zoom);
+        m_camera.targetY = entityCenterY - (viewportCenterY / m_camera.zoom);
+        ShowStatusMessage("Focused on " + selected->name);
     }
 
     void Editor::HandleViewportInput(Scene::Scene& scene) {
@@ -449,10 +494,80 @@ namespace Talos::Editor {
 
         float mx = Input::GetMouseX();
         float my = Input::GetMouseY();
+        bool mouseInViewport = IsMouseOver(viewportX, viewportY, viewportW, viewportH);
 
-        // Only pick entities if the click occurred inside the central 2D viewport
+        // Protect the bottom-left Camera Overlay HUD bar from triggering viewport entity clicks
+        float hudX = viewportX + 12.0f;
+        float hudY = static_cast<float>(m_windowHeight) - 38.0f;
+        float hudW = 240.0f;
+        float hudH = 28.0f;
+        bool mouseOverCameraHud = IsMouseOver(hudX, hudY, hudW, hudH);
+
+        // =====================================================================
+        // 1. Interactive 2D Camera Zoom (Mouse Wheel, Zoom-to-Cursor)
+        // =====================================================================
+        if (mouseInViewport) {
+            float wheel = Input::GetMouseWheelMove();
+            if (std::fabs(wheel) > 0.001f) {
+                // Capture the exact world coordinate beneath the mouse cursor BEFORE zooming
+                float worldBeforeX = 0.0f;
+                float worldBeforeY = 0.0f;
+                m_camera.ScreenToWorld(mx, my, worldBeforeX, worldBeforeY);
+
+                // Apply multiplicative zoom step and clamp between 20% (0.20x) and 500% (5.00x)
+                float zoomFactor = (wheel > 0.0f) ? 1.12f : (1.0f / 1.12f);
+                m_camera.zoom = std::max(0.20f, std::min(5.00f, m_camera.zoom * zoomFactor));
+
+                // Adjust targetX/targetY so the world point under the mouse cursor stays stationary
+                m_camera.targetX = worldBeforeX - (mx - m_camera.offsetX) / m_camera.zoom;
+                m_camera.targetY = worldBeforeY - (my - m_camera.offsetY) / m_camera.zoom;
+            }
+        }
+
+        // =====================================================================
+        // 2. Interactive 2D Camera Pan (Middle-Click, Right-Click, or Space+Left-Click)
+        // =====================================================================
+        bool spacePanInitiated = (m_focusedTextFieldId == -1) &&
+                                 Input::IsKeyDown(Key::Space) &&
+                                 Input::IsMouseButtonPressed(MouseButton::Left);
+
+        if (mouseInViewport && !mouseOverCameraHud &&
+            (Input::IsMouseButtonPressed(MouseButton::Middle) ||
+             Input::IsMouseButtonPressed(MouseButton::Right) ||
+             spacePanInitiated)) {
+            m_isPanningCamera = true;
+            m_panLastMouseX = mx;
+            m_panLastMouseY = my;
+            m_focusedTextFieldId = -1;
+        }
+
+        if (m_isPanningCamera) {
+            bool panHeld = Input::IsMouseButtonDown(MouseButton::Middle) ||
+                           Input::IsMouseButtonDown(MouseButton::Right) ||
+                           (Input::IsKeyDown(Key::Space) && Input::IsMouseButtonDown(MouseButton::Left));
+            if (panHeld) {
+                float dx = mx - m_panLastMouseX;
+                float dy = my - m_panLastMouseY;
+                m_camera.targetX -= dx / m_camera.zoom;
+                m_camera.targetY -= dy / m_camera.zoom;
+                m_panLastMouseX = mx;
+                m_panLastMouseY = my;
+                return;
+            } else {
+                m_isPanningCamera = false;
+            }
+        }
+
+        // Convert mouse screen coordinates to 2D world coordinates for entity picking & dragging
+        float worldMx = 0.0f;
+        float worldMy = 0.0f;
+        m_camera.ScreenToWorld(mx, my, worldMx, worldMy);
+
+        // =====================================================================
+        // 3. World-Space Entity Picking & Dragging (Left-Click in Viewport)
+        // =====================================================================
         if (Input::IsMouseButtonPressed(MouseButton::Left) &&
-            IsMouseOver(viewportX, viewportY, viewportW, viewportH)) {
+            mouseInViewport && !mouseOverCameraHud && !Input::IsKeyDown(Key::Space)) {
 
             // Unfocus any active Inspector text field when clicking the viewport
             m_focusedTextFieldId = -1;
@@ -464,7 +579,7 @@ namespace Talos::Editor {
                 Entity& e = entities[i];
                 if (!e.active) continue;
 
-                // Compute clickable bounds (uses text dimensions if Sprite is disabled)
+                // Compute clickable bounds in world coordinates (uses text dimensions if Sprite is disabled)
                 float hitX = e.transform.x;
                 float hitY = e.transform.y;
                 float hitW = e.transform.width;
@@ -477,13 +592,14 @@ namespace Talos::Editor {
                     hitH = static_cast<float>(e.text.fontSize);
                 }
 
-                if (mx >= hitX && mx <= hitX + hitW && my >= hitY && my <= hitY + hitH) {
+                if (worldMx >= hitX && worldMx <= hitX + hitW &&
+                    worldMy >= hitY && worldMy <= hitY + hitH) {
                     // Capture pre-drag scene snapshot before starting the drag operation
                     BeginContinuousEdit(scene);
                     m_selectedEntityId = e.id;
                     m_isDraggingEntity = true;
-                    m_dragOffsetX = mx - e.transform.x;
-                    m_dragOffsetY = my - e.transform.y;
+                    m_dragOffsetX = worldMx - e.transform.x;
+                    m_dragOffsetY = worldMy - e.transform.y;
                     hitAny = true;
                     break;
                 }
@@ -494,12 +610,12 @@ namespace Talos::Editor {
             }
         }
 
-        // Update position of the dragged entity while holding the left mouse button
+        // Update world position of the dragged entity while holding the left mouse button
         if (m_isDraggingEntity && Input::IsMouseButtonDown(MouseButton::Left)) {
             Entity* selected = scene.FindEntityById(m_selectedEntityId);
             if (selected) {
-                selected->transform.x = mx - m_dragOffsetX;
-                selected->transform.y = my - m_dragOffsetY;
+                selected->transform.x = worldMx - m_dragOffsetX;
+                selected->transform.y = worldMy - m_dragOffsetY;
             }
         }
     }
@@ -507,12 +623,21 @@ namespace Talos::Editor {
     void Editor::Render(Scene::Scene& scene) {
         m_activeScene = &scene;
 
-        // 1. Draw the subtle background reference grid in Edit Mode
+        int vpX = static_cast<int>(LEFT_PANEL_WIDTH);
+        int vpY = static_cast<int>(TOOLBAR_HEIGHT);
+        int vpW = m_windowWidth - static_cast<int>(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH);
+        int vpH = m_windowHeight - static_cast<int>(TOOLBAR_HEIGHT);
+
+        // Clip all 2D world rendering strictly to the central viewport region
+        Renderer2D::BeginViewportScissor(vpX, vpY, vpW, vpH);
+        Renderer2D::BeginCamera2D(m_camera);
+
+        // 1. Draw the infinite world-space reference grid and origin axes in Edit Mode
         if (!m_isPlaying) {
             RenderViewportGrid();
         }
 
-        // 2. Render all entities in the Scene
+        // 2. Render all entities in the Scene transformed by the 2D Camera
         scene.Render();
 
         // 3. Draw visual selection gizmo and collider indicators in Edit Mode
@@ -520,30 +645,52 @@ namespace Talos::Editor {
             RenderSelectionGizmo(scene);
         }
 
-        // 4. Render the Editor UI panels on top of the viewport
+        Renderer2D::EndCamera2D();
+        Renderer2D::EndViewportScissor();
+
+        // 4. Draw the floating 2D Camera HUD overlay inside the bottom-left of the viewport
+        if (!m_isPlaying) {
+            RenderViewportCameraOverlay(scene);
+        }
+
+        // 5. Render the Editor UI panels on top of the window
         RenderEntityListPanel(scene);
         RenderInspectorPanel(scene);
         RenderTopToolbar(scene);
     }
 
     void Editor::RenderViewportGrid() const {
-        float startX = LEFT_PANEL_WIDTH;
-        float endX = static_cast<float>(m_windowWidth) - RIGHT_PANEL_WIDTH;
-        float startY = TOOLBAR_HEIGHT;
-        float endY = static_cast<float>(m_windowHeight);
+        float vpLeft   = LEFT_PANEL_WIDTH;
+        float vpRight  = static_cast<float>(m_windowWidth) - RIGHT_PANEL_WIDTH;
+        float vpTop    = TOOLBAR_HEIGHT;
+        float vpBottom = static_cast<float>(m_windowHeight);
 
-        ColorRGBA gridColor = { 38, 39, 46, 255 };
+        // Convert screen viewport corners into visible 2D world coordinates
+        float worldLeft = 0.0f, worldTop = 0.0f;
+        float worldRight = 0.0f, worldBottom = 0.0f;
+        m_camera.ScreenToWorld(vpLeft, vpTop, worldLeft, worldTop);
+        m_camera.ScreenToWorld(vpRight, vpBottom, worldRight, worldBottom);
+
         const float gridStep = 40.0f;
+        float startX = std::floor(worldLeft / gridStep) * gridStep;
+        float startY = std::floor(worldTop / gridStep) * gridStep;
 
-        for (float x = startX; x < endX; x += gridStep) {
-            Renderer2D::DrawLine2D(x, startY, x, endY, gridColor);
+        ColorRGBA gridColor      = { 38, 39, 46, 255 };
+        ColorRGBA majorAxisColor = { 68, 74, 92, 255 };
+
+        for (float x = startX; x <= worldRight; x += gridStep) {
+            bool isOriginAxis = (std::fabs(x) < 0.5f);
+            Renderer2D::DrawLine2D(x, worldTop, x, worldBottom, isOriginAxis ? majorAxisColor : gridColor);
         }
-        for (float y = startY; y < endY; y += gridStep) {
-            Renderer2D::DrawLine2D(startX, y, endX, y, gridColor);
+        for (float y = startY; y <= worldBottom; y += gridStep) {
+            bool isOriginAxis = (std::fabs(y) < 0.5f);
+            Renderer2D::DrawLine2D(worldLeft, y, worldRight, y, isOriginAxis ? majorAxisColor : gridColor);
         }
     }
 
     void Editor::RenderSelectionGizmo(const Scene::Scene& scene) const {
+        float invZoom = (m_camera.zoom > 0.01f) ? (1.0f / m_camera.zoom) : 1.0f;
+
         // Draw green collision bounds for entities with active colliders
         for (const auto& e : scene.GetEntities()) {
             if (!e.active) continue;
@@ -551,7 +698,7 @@ namespace Talos::Editor {
                 Renderer2D::DrawRectOutline(
                     e.transform.x, e.transform.y,
                     e.transform.width, e.transform.height,
-                    1.0f, { 75, 220, 120, 140 }
+                    std::max(1.0f, 1.0f * invZoom), { 75, 220, 120, 140 }
                 );
             }
         }
@@ -572,7 +719,39 @@ namespace Talos::Editor {
             bh = static_cast<float>(selected->text.fontSize);
         }
 
-        Renderer2D::DrawRectOutline(bx - 3.0f, by - 3.0f, bw + 6.0f, bh + 6.0f, 2.0f, { 255, 215, 60, 255 });
+        float pad = 3.0f * invZoom;
+        Renderer2D::DrawRectOutline(
+            bx - pad, by - pad, bw + pad * 2.0f, bh + pad * 2.0f,
+            std::max(1.5f, 2.0f * invZoom), { 255, 215, 60, 255 }
+        );
+    }
+
+    void Editor::RenderViewportCameraOverlay(const Scene::Scene& scene) {
+        float hudX = LEFT_PANEL_WIDTH + 12.0f;
+        float hudY = static_cast<float>(m_windowHeight) - 38.0f;
+
+        // Semi-transparent pill background for zoom controls
+        Renderer2D::DrawRect(hudX, hudY, 232.0f, 28.0f, { 20, 22, 28, 220 });
+        Renderer2D::DrawRectOutline(hudX, hudY, 232.0f, 28.0f, 1.0f, { 65, 70, 88, 220 });
+
+        char zoomBuf[32];
+        std::snprintf(zoomBuf, sizeof(zoomBuf), "Zoom: %.0f%%", m_camera.zoom * 100.0f);
+        Renderer2D::DrawLabel(zoomBuf, hudX + 10.0f, hudY + 6.0f, 14, { 210, 220, 240, 255 });
+
+        if (DrawButton(hudX + 98.0f, hudY + 3.0f, 60.0f, 22.0f, "Reset",
+                       { 45, 50, 65, 255 }, { 65, 72, 94, 255 })) {
+            ResetCamera();
+        }
+        if (DrawButton(hudX + 164.0f, hudY + 3.0f, 62.0f, 22.0f, "Focus [F]",
+                       { 45, 85, 135, 255 }, { 60, 110, 175, 255 })) {
+            FocusSelectedEntity(scene);
+        }
+
+        // Subtle navigation hint along the bottom of the viewport
+        Renderer2D::DrawLabel(
+            "Pan: Right/Middle Drag or Space+Drag   |   Zoom: Mouse Wheel",
+            hudX + 244.0f, hudY + 7.0f, 14, { 125, 130, 148, 220 }
+        );
     }
 
     void Editor::RenderTopToolbar(Scene::Scene& scene) {
@@ -614,7 +793,14 @@ namespace Talos::Editor {
                 PushUndoState(scene);
                 char nameBuf[32];
                 std::snprintf(nameBuf, sizeof(nameBuf), "Object_%d", m_newEntityCounter++);
-                Entity& created = scene.CreateEntity(nameBuf, 480.0f, 320.0f);
+
+                // Spawn the new entity right at the center of the currently visible 2D camera viewport
+                float vpCenterX = LEFT_PANEL_WIDTH + (w - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH) * 0.5f;
+                float vpCenterY = TOOLBAR_HEIGHT + (static_cast<float>(m_windowHeight) - TOOLBAR_HEIGHT) * 0.5f;
+                float spawnWorldX = 480.0f, spawnWorldY = 320.0f;
+                m_camera.ScreenToWorld(vpCenterX, vpCenterY, spawnWorldX, spawnWorldY);
+
+                Entity& created = scene.CreateEntity(nameBuf, spawnWorldX - 32.0f, spawnWorldY - 32.0f);
                 created.sprite.color = PRESET_COLORS[m_newEntityCounter % NUM_PRESET_COLORS];
                 m_selectedEntityId = created.id;
             }

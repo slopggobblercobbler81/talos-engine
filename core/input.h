@@ -13,6 +13,7 @@ namespace Talos::Core {
         A,
         S,
         D,
+        F,
         Z,
         Y,
         Up,
@@ -62,6 +63,10 @@ namespace Talos::Core {
         // Returns the current horizontal and vertical cursor coordinates in window pixels.
         static float GetMouseX();
         static float GetMouseY();
+
+        // Returns vertical mouse wheel scroll delta for the current frame
+        // (> 0 when scrolling up / zooming in, < 0 when scrolling down / zooming out).
+        static float GetMouseWheelMove();
 
         // Returns true every frame while the specified mouse button is held down.
         // Used for dragging entities in the viewport or sliding Inspector bars.

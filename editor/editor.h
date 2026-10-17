@@ -67,12 +67,15 @@ namespace Talos::Editor {
         // Displays a temporary notification message in the Top Toolbar (e.g., after Save/Load/Undo)
         void ShowStatusMessage(const std::string& message, float durationSeconds = 2.0f);
 
-        // Viewport interaction (mouse picking & entity dragging in Edit Mode)
+        // Viewport interaction (2D Camera Pan/Zoom, mouse picking & entity dragging in Edit Mode)
         void HandleViewportInput(Scene::Scene& scene);
+        void ResetCamera();
+        void FocusSelectedEntity(const Scene::Scene& scene);
 
         // Immediate-mode UI panel rendering helpers
         void RenderViewportGrid() const;
         void RenderSelectionGizmo(const Scene::Scene& scene) const;
+        void RenderViewportCameraOverlay(const Scene::Scene& scene);
         void RenderTopToolbar(Scene::Scene& scene);
         void RenderEntityListPanel(Scene::Scene& scene);
         void RenderInspectorPanel(Scene::Scene& scene);
@@ -112,6 +115,12 @@ namespace Talos::Editor {
         EditorHistoryState m_pendingSnapshot;
         bool m_hasPendingSnapshot = false;
         Scene::Scene* m_activeScene = nullptr; // Non-owning pointer set during Render/Update for UI widgets
+
+        // Interactive 2D Viewport Camera (Pan & Zoom state)
+        Renderer::Camera2DView m_camera;
+        bool m_isPanningCamera = false;
+        float m_panLastMouseX = 0.0f;
+        float m_panLastMouseY = 0.0f;
 
         // Selection and Viewport dragging state
         Scene::EntityID m_selectedEntityId = 0;

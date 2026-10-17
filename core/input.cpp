@@ -11,6 +11,7 @@ namespace Talos::Core {
             case Key::A:            return KEY_A;
             case Key::S:            return KEY_S;
             case Key::D:            return KEY_D;
+            case Key::F:            return KEY_F;
             case Key::Z:            return KEY_Z;
             case Key::Y:            return KEY_Y;
             case Key::Up:           return KEY_UP;
@@ -61,6 +62,10 @@ namespace Talos::Core {
 
     float Input::GetMouseY() {
         return static_cast<float>(::GetMouseY());
+    }
+
+    float Input::GetMouseWheelMove() {
+        return ::GetMouseWheelMove();
     }
 
     bool Input::IsMouseButtonDown(MouseButton button) {

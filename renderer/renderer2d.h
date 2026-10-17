@@ -17,6 +17,32 @@ namespace Talos::Renderer {
     };
 
     // =========================================================================
+    // Engine-Native 2D Camera View Primitive
+    // =========================================================================
+    // Defines a 2D orthographic view transformation (Pan & Zoom) for rendering
+    // world-space scenes and converting between screen pixels and world coordinates.
+    struct Camera2DView {
+        float targetX = 0.0f; // World-space X coordinate anchored at 'offset'
+        float targetY = 0.0f; // World-space Y coordinate anchored at 'offset'
+        float offsetX = 0.0f; // Screen-space X pixel coordinate of the camera anchor
+        float offsetY = 0.0f; // Screen-space Y pixel coordinate of the camera anchor
+        float zoom    = 1.0f; // Magnification scale (1.0f = 100%, 2.0f = 200%, 0.5f = 50%)
+
+        // Converts a screen-space pixel coordinate (e.g., mouse cursor) into 2D world coordinates.
+        void ScreenToWorld(float screenX, float screenY, float& outWorldX, float& outWorldY) const {
+            float safeZoom = (zoom > 0.0001f) ? zoom : 1.0f;
+            outWorldX = (screenX - offsetX) / safeZoom + targetX;
+            outWorldY = (screenY - offsetY) / safeZoom + targetY;
+        }
+
+        // Converts a 2D world coordinate into screen-space pixel coordinates.
+        void WorldToScreen(float worldX, float worldY, float& outScreenX, float& outScreenY) const {
+            outScreenX = (worldX - targetX) * zoom + offsetX;
+            outScreenY = (worldY - targetY) * zoom + offsetY;
+        }
+    };
+
+    // =========================================================================
     // 2D Rendering Subsystem (Layer 2: Domain Subsystems)
     // =========================================================================
     // The exclusive gateway for issuing 2D draw commands to the GPU.
@@ -41,6 +67,20 @@ namespace Talos::Renderer {
         // Flushes all queued draw commands and swaps the backbuffer to the screen.
         // Must be called once at the end of every frame.
         static void EndFrame();
+
+        // Activates a 2D camera transformation matrix (Pan & Zoom) for all subsequent
+        // world-space Draw* calls until EndCamera2D() is invoked.
+        static void BeginCamera2D(const Camera2DView& camera);
+
+        // Restores the default 1:1 screen-space coordinate matrix (used for UI overlays).
+        static void EndCamera2D();
+
+        // Restricts GPU rendering to a rectangular pixel region on screen (Scissor Clipping).
+        // Prevents zoomed/panned world entities from bleeding outside the central viewport.
+        static void BeginViewportScissor(int x, int y, int width, int height);
+
+        // Disables rectangular scissor clipping so UI panels can draw across the full window.
+        static void EndViewportScissor();
 
         // Renders a solid 2D axis-aligned rectangle in screen/world coordinates.
         static void DrawRect(float x, float y, float width, float height, ColorRGBA color);
