@@ -61,6 +61,7 @@ namespace Talos::Editor {
                            int& value, int minVal, int maxVal, int sliderId);
         void DrawColorPickerRow(float x, float y, float w, const char* label,
                                 Renderer::ColorRGBA& color, int baseSliderId);
+        void DrawTextureSelector(float x, float y, float w, Scene::SpriteComponent& sprite);
         void DrawTextInputBox(float x, float y, float w, const char* label,
                               std::string& textBuffer, int fieldId);
 

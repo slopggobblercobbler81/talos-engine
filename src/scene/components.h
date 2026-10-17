@@ -19,9 +19,13 @@ namespace Talos::Scene {
         float height = 64.0f;
     };
 
-    // Controls visual shape/sprite rendering for the entity.
+    // Controls visual shape or 2D image/texture rendering for the entity.
+    // When 'texturePath' is empty, renders a solid 2D rectangle filled with 'color'.
+    // When 'texturePath' points to a .png file (e.g., "assets/textures/hero.png"),
+    // renders the GPU-cached texture scaled to TransformComponent and tinted by 'color'.
     struct SpriteComponent {
         bool enabled = true;
+        std::string texturePath = "";
         Renderer::ColorRGBA color = { 80, 180, 250, 255 };
     };
 

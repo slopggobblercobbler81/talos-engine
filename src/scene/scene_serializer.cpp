@@ -71,6 +71,7 @@ namespace Talos::Scene {
 
             // SpriteComponent
             out << "sprite.enabled = " << (e.sprite.enabled ? 1 : 0) << "\n";
+            out << "sprite.texturePath = " << e.sprite.texturePath << "\n";
             out << "sprite.color = "
                 << static_cast<int>(e.sprite.color.r) << ","
                 << static_cast<int>(e.sprite.color.g) << ","
@@ -156,6 +157,7 @@ namespace Talos::Scene {
             else if (key == "transform.width")      currentEntity.transform.width = std::strtof(val.c_str(), nullptr);
             else if (key == "transform.height")     currentEntity.transform.height = std::strtof(val.c_str(), nullptr);
             else if (key == "sprite.enabled")       currentEntity.sprite.enabled = (std::atoi(val.c_str()) != 0);
+            else if (key == "sprite.texturePath")   currentEntity.sprite.texturePath = val;
             else if (key == "sprite.color")         currentEntity.sprite.color = ParseColor(val);
             else if (key == "text.enabled")         currentEntity.text.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "text.content")         currentEntity.text.content = val;

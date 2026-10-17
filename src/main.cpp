@@ -13,13 +13,13 @@ int main() {
     // =========================================================================
     // 1. Engine & Renderer Initialization (Core & Renderer Layers)
     // =========================================================================
-    // Opens the OS display window at 1360x780 and initializes the TrueType
-    // typography cache inside Renderer2D.
+    // Opens the OS display window at 1360x780, initializes the TrueType
+    // typography cache, and generates starter .png textures in "assets/textures/".
     constexpr int WINDOW_WIDTH = 1360;
     constexpr int WINDOW_HEIGHT = 780;
     const char* DEFAULT_SCENE_PATH = "scenes/main.talos";
 
-    Window::Init(WINDOW_WIDTH, WINDOW_HEIGHT, "Talos Engine - Visual Editor & Scene Serialization");
+    Window::Init(WINDOW_WIDTH, WINDOW_HEIGHT, "Talos Engine - Visual Editor & 2D Textures");
     Renderer2D::Init();
 
     // =========================================================================
@@ -39,11 +39,12 @@ int main() {
         title.text.fontSize = 28;
         title.text.color = { 240, 240, 245, 255 };
 
-        // Player Entity: Controllable with WASD/Arrows when PLAY GAME is active
-        Entity& player = world.CreateEntity("Player", 380.0f, 340.0f);
-        player.transform.width = 70.0f;
-        player.transform.height = 70.0f;
-        player.sprite.color = { 80, 180, 250, 255 };
+        // Player Entity: Uses 2D Hero texture and is controllable with WASD/Arrows in Play Mode
+        Entity& player = world.CreateEntity("Player", 360.0f, 340.0f);
+        player.transform.width = 72.0f;
+        player.transform.height = 72.0f;
+        player.sprite.texturePath = "assets/textures/hero.png";
+        player.sprite.color = { 255, 255, 255, 255 };
         player.collider.enabled = true;
         player.movement.enabled = true;
         player.movement.playerControlled = true;
@@ -53,17 +54,42 @@ int main() {
         player.text.fontSize = 18;
         player.text.offsetY = -24.0f;
 
-        // Solid Wall Entity: Blocks the Player during Play Mode
-        Entity& wall = world.CreateEntity("SolidWall", 680.0f, 240.0f);
+        // Wooden Crate Entity: Uses 2D Crate texture and acts as a solid obstacle
+        Entity& crate = world.CreateEntity("WoodenCrate", 530.0f, 430.0f);
+        crate.transform.width = 68.0f;
+        crate.transform.height = 68.0f;
+        crate.sprite.texturePath = "assets/textures/crate.png";
+        crate.sprite.color = { 255, 255, 255, 255 };
+        crate.collider.enabled = true;
+        crate.collider.isStatic = true;
+        crate.text.enabled = true;
+        crate.text.content = "Crate";
+        crate.text.fontSize = 16;
+        crate.text.offsetY = -22.0f;
+
+        // Solid Wall Entity: Uses 2D Brick texture and blocks movement
+        Entity& wall = world.CreateEntity("BrickWall", 700.0f, 230.0f);
         wall.transform.width = 110.0f;
         wall.transform.height = 280.0f;
-        wall.sprite.color = { 235, 95, 95, 255 };
+        wall.sprite.texturePath = "assets/textures/brick.png";
+        wall.sprite.color = { 255, 255, 255, 255 };
         wall.collider.enabled = true;
         wall.collider.isStatic = true;
         wall.text.enabled = true;
-        wall.text.content = "Wall";
+        wall.text.content = "Brick Wall";
         wall.text.fontSize = 18;
         wall.text.offsetY = -24.0f;
+
+        // Gold Coin Entity: Demonstrates PNG alpha transparency
+        Entity& coin = world.CreateEntity("GoldCoin", 540.0f, 250.0f);
+        coin.transform.width = 56.0f;
+        coin.transform.height = 56.0f;
+        coin.sprite.texturePath = "assets/textures/coin.png";
+        coin.sprite.color = { 255, 255, 255, 255 };
+        coin.text.enabled = true;
+        coin.text.content = "Coin";
+        coin.text.fontSize = 16;
+        coin.text.offsetY = -22.0f;
 
         // Persist the initial scene to disk
         SceneSerializer::Save(world, DEFAULT_SCENE_PATH);

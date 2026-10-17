@@ -1,7 +1,9 @@
 #include "renderer/renderer2d.h"
 #include "raylib.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
+#include <filesystem>
 
 namespace Talos::Renderer {
 
@@ -14,6 +16,15 @@ namespace Talos::Renderer {
     // and caches the resulting GPU texture atlas in s_fontCache.
     static std::unordered_map<int, Font> s_fontCache;
     static std::string s_activeFontPath;
+
+    // =========================================================================
+    // Internal 2D Texture Cache (Private to Renderer2D)
+    // =========================================================================
+    // Maps a relative or absolute file path (e.g., "assets/textures/hero.png") to its
+    // GPU-resident Texture2D handle. Ensures each image file is decoded from disk and
+    // uploaded to VRAM only once, even when shared across hundreds of scene entities.
+    static std::unordered_map<std::string, Texture2D> s_textureCache;
+    static std::unordered_set<std::string> s_missingTexturePaths;
 
     // Locates a clean, modern sans-serif TrueType font on the host system.
     static std::string ResolveCleanFontPath() {
@@ -54,6 +65,124 @@ namespace Talos::Renderer {
         return loadedFont;
     }
 
+    // =========================================================================
+    // Built-In Starter Texture Generator
+    // =========================================================================
+    // Generates four real 64x64 .png files inside "assets/textures/" on first launch
+    // if they are not already present on disk. This guarantees developers can test
+    // 2D sprite textures, alpha transparency, and tinting immediately out of the box,
+    // while also serving as real editable .png files in the workspace folder.
+    static void EnsureStarterTexturesExist() {
+        std::error_code ec;
+        std::filesystem::create_directories("assets/textures", ec);
+
+        // 1. Hero Character Sprite ("assets/textures/hero.png")
+        if (!FileExists("assets/textures/hero.png")) {
+            Image img = GenImageColor(64, 64, { 0, 0, 0, 0 }); // Transparent background
+            // Outer armor body
+            ImageDrawRectangle(&img, 4, 4, 56, 56, { 35, 95, 165, 255 });
+            ImageDrawRectangle(&img, 8, 8, 48, 48, { 65, 150, 235, 255 });
+            // Dark visor band
+            ImageDrawRectangle(&img, 12, 16, 40, 18, { 22, 28, 42, 255 });
+            // Glowing cyan eyes
+            ImageDrawRectangle(&img, 16, 20, 10, 10, { 110, 245, 255, 255 });
+            ImageDrawRectangle(&img, 38, 20, 10, 10, { 110, 245, 255, 255 });
+            // Chest core emblem
+            ImageDrawRectangle(&img, 24, 40, 16, 10, { 255, 210, 80, 255 });
+            ExportImage(img, "assets/textures/hero.png");
+            UnloadImage(img);
+        }
+
+        // 2. Wooden Storage Crate ("assets/textures/crate.png")
+        if (!FileExists("assets/textures/crate.png")) {
+            Image img = GenImageColor(64, 64, { 125, 80, 42, 255 });
+            // Inner plank fill
+            ImageDrawRectangle(&img, 6, 6, 52, 52, { 168, 112, 62, 255 });
+            // Horizontal plank seams
+            ImageDrawRectangle(&img, 6, 22, 52, 3, { 105, 65, 32, 255 });
+            ImageDrawRectangle(&img, 6, 40, 52, 3, { 105, 65, 32, 255 });
+            // Center vertical brace
+            ImageDrawRectangle(&img, 29, 6, 6, 52, { 138, 90, 48, 255 });
+            // Corner iron bolts
+            ImageDrawRectangle(&img, 8, 8, 5, 5, { 70, 75, 85, 255 });
+            ImageDrawRectangle(&img, 51, 8, 5, 5, { 70, 75, 85, 255 });
+            ImageDrawRectangle(&img, 8, 51, 5, 5, { 70, 75, 85, 255 });
+            ImageDrawRectangle(&img, 51, 51, 5, 5, { 70, 75, 85, 255 });
+            ExportImage(img, "assets/textures/crate.png");
+            UnloadImage(img);
+        }
+
+        // 3. Stone Brick Wall ("assets/textures/brick.png")
+        if (!FileExists("assets/textures/brick.png")) {
+            Image img = GenImageColor(64, 64, { 60, 62, 72, 255 }); // Mortar background
+            // Row 1 bricks
+            ImageDrawRectangle(&img, 2, 2, 28, 13, { 175, 78, 72, 255 });
+            ImageDrawRectangle(&img, 34, 2, 28, 13, { 160, 70, 65, 255 });
+            // Row 2 bricks (staggered)
+            ImageDrawRectangle(&img, 2, 18, 14, 13, { 155, 68, 62, 255 });
+            ImageDrawRectangle(&img, 20, 18, 28, 13, { 182, 84, 78, 255 });
+            ImageDrawRectangle(&img, 52, 18, 10, 13, { 168, 74, 68, 255 });
+            // Row 3 bricks
+            ImageDrawRectangle(&img, 2, 34, 28, 13, { 165, 72, 66, 255 });
+            ImageDrawRectangle(&img, 34, 34, 28, 13, { 178, 80, 74, 255 });
+            // Row 4 bricks (staggered)
+            ImageDrawRectangle(&img, 2, 50, 14, 12, { 172, 76, 70, 255 });
+            ImageDrawRectangle(&img, 20, 50, 28, 12, { 158, 68, 64, 255 });
+            ImageDrawRectangle(&img, 52, 50, 10, 12, { 175, 78, 72, 255 });
+            ExportImage(img, "assets/textures/brick.png");
+            UnloadImage(img);
+        }
+
+        // 4. Golden Coin with Alpha Transparency ("assets/textures/coin.png")
+        if (!FileExists("assets/textures/coin.png")) {
+            Image img = GenImageColor(64, 64, { 0, 0, 0, 0 }); // Fully transparent background
+            ImageDrawCircle(&img, 32, 32, 27, { 235, 165, 30, 255 });
+            ImageDrawCircle(&img, 32, 32, 22, { 255, 215, 65, 255 });
+            // Inner vertical emblem slot
+            ImageDrawRectangle(&img, 28, 18, 8, 28, { 215, 145, 20, 255 });
+            ImageDrawRectangle(&img, 29, 19, 4, 24, { 255, 245, 160, 255 });
+            ExportImage(img, "assets/textures/coin.png");
+            UnloadImage(img);
+        }
+    }
+
+    // Internal helper: Retrieves a cached GPU texture or lazily loads it from disk on first request.
+    static const Texture2D* GetOrLoadTexture(const char* texturePath) {
+        if (!texturePath || texturePath[0] == '\0') {
+            return nullptr;
+        }
+
+        std::string key(texturePath);
+
+        // 1. Return immediately if already resident in VRAM
+        auto it = s_textureCache.find(key);
+        if (it != s_textureCache.end()) {
+            return &it->second;
+        }
+
+        // 2. Skip redundant filesystem checks if already known to be missing
+        if (s_missingTexturePaths.find(key) != s_missingTexturePaths.end()) {
+            return nullptr;
+        }
+
+        // 3. Check disk and upload to GPU if valid
+        if (!FileExists(texturePath)) {
+            s_missingTexturePaths.insert(key);
+            return nullptr;
+        }
+
+        Texture2D tex = LoadTexture(texturePath);
+        if (tex.id == 0) {
+            s_missingTexturePaths.insert(key);
+            return nullptr;
+        }
+
+        // Use nearest-neighbor (point) filtering so crisp pixel/2D sprites never blur when scaled.
+        SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+        auto inserted = s_textureCache.emplace(key, tex);
+        return &inserted.first->second;
+    }
+
     void Renderer2D::Init() {
         s_activeFontPath = ResolveCleanFontPath();
 
@@ -64,6 +193,9 @@ namespace Talos::Renderer {
                 GetFontForSize(sz);
             }
         }
+
+        // Generate built-in starter .png textures in "assets/textures/" if not present.
+        EnsureStarterTexturesExist();
     }
 
     void Renderer2D::Shutdown() {
@@ -72,6 +204,13 @@ namespace Talos::Renderer {
             UnloadFont(pair.second);
         }
         s_fontCache.clear();
+
+        // Free all cached 2D sprite textures from GPU VRAM.
+        for (auto& pair : s_textureCache) {
+            UnloadTexture(pair.second);
+        }
+        s_textureCache.clear();
+        s_missingTexturePaths.clear();
     }
 
     void Renderer2D::BeginFrame(ColorRGBA clearColor) {
@@ -110,6 +249,37 @@ namespace Talos::Renderer {
             static_cast<int>(endY),
             { color.r, color.g, color.b, color.a }
         );
+    }
+
+    void Renderer2D::DrawSprite(const char* texturePath, float x, float y, float width, float height, ColorRGBA tint) {
+        // If no texture path is assigned, fall back to a solid colored rectangle.
+        if (!texturePath || texturePath[0] == '\0') {
+            DrawRect(x, y, width, height, tint);
+            return;
+        }
+
+        const Texture2D* tex = GetOrLoadTexture(texturePath);
+        if (tex && tex->id != 0) {
+            Rectangle sourceRect = { 0.0f, 0.0f, static_cast<float>(tex->width), static_cast<float>(tex->height) };
+            Rectangle destRect = { x, y, width, height };
+            Vector2 origin = { 0.0f, 0.0f };
+            DrawTexturePro(*tex, sourceRect, destRect, origin, 0.0f, { tint.r, tint.g, tint.b, tint.a });
+            return;
+        }
+
+        // Visual diagnostic fallback: Draw a 2x2 magenta/dark-gray checkerboard when a texture
+        // file path is non-empty but cannot be found on disk.
+        float halfW = width * 0.5f;
+        float halfH = height * 0.5f;
+        DrawRect(x, y, halfW, halfH, { 220, 40, 180, 255 });
+        DrawRect(x + halfW, y, halfW, halfH, { 35, 35, 45, 255 });
+        DrawRect(x, y + halfH, halfW, halfH, { 35, 35, 45, 255 });
+        DrawRect(x + halfW, y + halfH, halfW, halfH, { 220, 40, 180, 255 });
+        DrawRectOutline(x, y, width, height, 1.5f, { 255, 80, 210, 255 });
+    }
+
+    bool Renderer2D::HasTexture(const char* texturePath) {
+        return GetOrLoadTexture(texturePath) != nullptr;
     }
 
     void Renderer2D::DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color) {

@@ -10,7 +10,8 @@ namespace Talos::Editor {
     using namespace Talos::Renderer;
     using namespace Talos::Scene;
 
-    // Preset color swatches for instant 1-click color selection in the Inspector
+    // Preset color swatches for instant 1-click color/tint selection in the Inspector.
+    // Swatch #6 is pure White (255,255,255) so users can reset a sprite texture's tint with 1 click.
     static const ColorRGBA PRESET_COLORS[] = {
         { 80,  180, 250, 255 }, // Sky Blue
         { 235, 95,  95,  255 }, // Coral Red
@@ -18,10 +19,25 @@ namespace Talos::Editor {
         { 250, 200, 75,  255 }, // Warm Gold
         { 185, 115, 250, 255 }, // Vivid Purple
         { 250, 140, 70,  255 }, // Tangerine Orange
-        { 240, 240, 245, 255 }, // Crisp White
+        { 255, 255, 255, 255 }, // Pure White (Unmodified Texture Tint)
         { 60,  65,  80,  255 }  // Slate Gray
     };
     static constexpr int NUM_PRESET_COLORS = 8;
+
+    // Built-in 1-click texture presets pointing to real .png files in "assets/textures/"
+    struct TexturePreset {
+        const char* label;
+        const char* path;
+    };
+
+    static const TexturePreset TEXTURE_PRESETS[] = {
+        { "None",  "" },
+        { "Hero",  "assets/textures/hero.png" },
+        { "Crate", "assets/textures/crate.png" },
+        { "Brick", "assets/textures/brick.png" },
+        { "Coin",  "assets/textures/coin.png" }
+    };
+    static constexpr int NUM_TEXTURE_PRESETS = 5;
 
     // Helper to test if the mouse cursor lies inside a 2D UI rectangle
     static bool IsMouseOver(float x, float y, float w, float h) {
@@ -79,12 +95,13 @@ namespace Talos::Editor {
                 std::string* targetStr = nullptr;
                 if (m_focusedTextFieldId == 1) targetStr = &selected->name;
                 if (m_focusedTextFieldId == 2) targetStr = &selected->text.content;
+                if (m_focusedTextFieldId == 3) targetStr = &selected->sprite.texturePath;
 
                 if (targetStr) {
                     // Append all printable characters typed during this frame
                     int ch = Input::GetCharPressed();
                     while (ch > 0) {
-                        if (ch >= 32 && ch <= 126 && targetStr->size() < 48) {
+                        if (ch >= 32 && ch <= 126 && targetStr->size() < 64) {
                             targetStr->push_back(static_cast<char>(ch));
                         }
                         ch = Input::GetCharPressed();
@@ -335,9 +352,14 @@ namespace Talos::Editor {
 
             Renderer2D::DrawRect(8.0f, rowY, LEFT_PANEL_WIDTH - 16.0f, 30.0f, rowBg);
 
-            // Color indicator swatch
-            ColorRGBA swatch = entity.sprite.enabled ? entity.sprite.color : entity.text.color;
-            Renderer2D::DrawRect(16.0f, rowY + 7.0f, 16.0f, 16.0f, swatch);
+            // Render a 16x16 texture thumbnail if the entity has a texture assigned;
+            // otherwise render a 16x16 solid color indicator swatch.
+            if (entity.sprite.enabled && !entity.sprite.texturePath.empty()) {
+                Renderer2D::DrawSprite(entity.sprite.texturePath.c_str(), 16.0f, rowY + 7.0f, 16.0f, 16.0f, entity.sprite.color);
+            } else {
+                ColorRGBA swatch = entity.sprite.enabled ? entity.sprite.color : entity.text.color;
+                Renderer2D::DrawRect(16.0f, rowY + 7.0f, 16.0f, 16.0f, swatch);
+            }
 
             // Entity Name
             Renderer2D::DrawLabel(entity.name.c_str(), 40.0f, rowY + 7.0f, 16, { 235, 235, 240, 255 });
@@ -373,58 +395,73 @@ namespace Talos::Editor {
 
         float x = panelX + 16.0f;
         float w = RIGHT_PANEL_WIDTH - 32.0f;
-        float y = TOOLBAR_HEIGHT + 46.0f;
+        float y = TOOLBAR_HEIGHT + 44.0f;
 
-        // 1. Entity Name & Master Active Toggle
+        // 1. Entity Identity & Master Active Toggle
         DrawCheckbox(x, y, "Active", selected->active);
-        y += 28.0f;
+        y += 24.0f;
         DrawTextInputBox(x, y, w, "Name:", selected->name, 1);
-        y += 54.0f;
+        y += 32.0f;
 
         // 2. Transform Component (Always accessible on first level)
         Renderer2D::DrawLabel("TRANSFORM 2D", x, y, 15, { 95, 195, 255, 255 });
-        y += 20.0f;
+        y += 18.0f;
         DrawFloatSlider(x, y, w, "Pos X", selected->transform.x, 230.0f, 980.0f, 10);
-        y += 26.0f;
+        y += 22.0f;
         DrawFloatSlider(x, y, w, "Pos Y", selected->transform.y, 50.0f, 740.0f, 11);
-        y += 26.0f;
+        y += 22.0f;
         DrawFloatSlider(x, y, w, "Width", selected->transform.width, 16.0f, 500.0f, 12);
-        y += 26.0f;
+        y += 22.0f;
         DrawFloatSlider(x, y, w, "Height", selected->transform.height, 16.0f, 500.0f, 13);
-        y += 34.0f;
+        y += 28.0f;
 
-        // 3. Sprite Component (Direct checkbox + 1-click Color Palette + RGB Sliders)
-        DrawCheckbox(x, y, "SPRITE (Visual Box)", selected->sprite.enabled);
-        y += 26.0f;
+        // 3. Sprite Component (2D Texture / Solid Box + Color / Tint)
+        DrawCheckbox(x, y, "SPRITE (2D Image / Box)", selected->sprite.enabled);
         if (selected->sprite.enabled) {
-            DrawColorPickerRow(x, y, w, "Box Color", selected->sprite.color, 20);
-            y += 88.0f;
+            // Live status indicator showing whether the entity uses a solid box or a 2D texture
+            if (selected->sprite.texturePath.empty()) {
+                Renderer2D::DrawLabel("[Solid Box]", x + w - 74.0f, y + 2.0f, 14, { 135, 140, 155, 255 });
+            } else if (Renderer2D::HasTexture(selected->sprite.texturePath.c_str())) {
+                Renderer2D::DrawLabel("[Texture OK]", x + w - 82.0f, y + 2.0f, 14, { 90, 225, 135, 255 });
+            } else {
+                Renderer2D::DrawLabel("[Missing!]", x + w - 68.0f, y + 2.0f, 14, { 245, 95, 95, 255 });
+            }
+        }
+        y += 24.0f;
+
+        if (selected->sprite.enabled) {
+            DrawTextureSelector(x, y, w, selected->sprite);
+            y += 58.0f;
+
+            const char* colorLabel = selected->sprite.texturePath.empty() ? "Box Color" : "Img Tint";
+            DrawColorPickerRow(x, y, w, colorLabel, selected->sprite.color, 20);
+            y += 82.0f;
         }
 
         // 4. Text Component (Solves Godot's 3-nested-menus complaint: Text, Size & Color right here!)
         DrawCheckbox(x, y, "TEXT LABEL (First-Level)", selected->text.enabled);
-        y += 26.0f;
+        y += 24.0f;
         if (selected->text.enabled) {
             DrawTextInputBox(x, y, w, "Text:", selected->text.content, 2);
-            y += 50.0f;
-            DrawIntSlider(x, y, w, "Font Size", selected->text.fontSize, 12, 56, 30);
-            y += 26.0f;
-            DrawFloatSlider(x, y, w, "Offset Y", selected->text.offsetY, -80.0f, 80.0f, 31);
             y += 28.0f;
+            DrawIntSlider(x, y, w, "Font Size", selected->text.fontSize, 12, 56, 30);
+            y += 22.0f;
+            DrawFloatSlider(x, y, w, "Offset Y", selected->text.offsetY, -80.0f, 80.0f, 31);
+            y += 24.0f;
             DrawColorPickerRow(x, y, w, "Font Color", selected->text.color, 40);
-            y += 88.0f;
+            y += 82.0f;
         }
 
         // 5. Collider 2D Component
         DrawCheckbox(x, y, "COLLIDER 2D (Solid Box)", selected->collider.enabled);
-        y += 28.0f;
+        y += 24.0f;
 
         // 6. Movement 2D Component
         DrawCheckbox(x, y, "MOVEMENT (WASD Control)", selected->movement.enabled);
-        y += 26.0f;
+        y += 22.0f;
         if (selected->movement.enabled) {
             DrawCheckbox(x + 14.0f, y, "Player Controlled", selected->movement.playerControlled);
-            y += 26.0f;
+            y += 22.0f;
             DrawFloatSlider(x, y, w, "Speed", selected->movement.speed, 50.0f, 700.0f, 50);
         }
     }
@@ -439,17 +476,17 @@ namespace Talos::Editor {
         Renderer2D::DrawRect(x, y, w, h, hovered ? hoverColor : bgColor);
         Renderer2D::DrawRectOutline(x, y, w, h, 1.0f, { 255, 255, 255, 45 });
 
-        int textW = Renderer2D::MeasureTextWidth(label, 16);
+        int textW = Renderer2D::MeasureTextWidth(label, 15);
         float textX = x + (w - static_cast<float>(textW)) * 0.5f;
-        float textY = y + (h - 16.0f) * 0.5f;
-        Renderer2D::DrawLabel(label, textX, textY, 16, { 250, 250, 255, 255 });
+        float textY = y + (h - 15.0f) * 0.5f;
+        Renderer2D::DrawLabel(label, textX, textY, 15, { 250, 250, 255, 255 });
 
         return hovered && Input::IsMouseButtonPressed(MouseButton::Left);
     }
 
     bool Editor::DrawCheckbox(float x, float y, const char* label, bool& value) {
         float boxSize = 18.0f;
-        bool hovered = IsMouseOver(x, y, boxSize + 200.0f, boxSize);
+        bool hovered = IsMouseOver(x, y, boxSize + 190.0f, boxSize);
 
         Renderer2D::DrawRect(x, y, boxSize, boxSize, { 40, 43, 54, 255 });
         Renderer2D::DrawRectOutline(x, y, boxSize, boxSize, 1.0f, { 95, 100, 120, 255 });
@@ -458,7 +495,7 @@ namespace Talos::Editor {
             Renderer2D::DrawRect(x + 4.0f, y + 4.0f, boxSize - 8.0f, boxSize - 8.0f, { 80, 190, 255, 255 });
         }
 
-        Renderer2D::DrawLabel(label, x + boxSize + 8.0f, y + 1.0f, 16,
+        Renderer2D::DrawLabel(label, x + boxSize + 8.0f, y + 1.0f, 15,
                               value ? ColorRGBA{ 240, 240, 245, 255 } : ColorRGBA{ 150, 155, 170, 255 });
 
         if (hovered && Input::IsMouseButtonPressed(MouseButton::Left)) {
@@ -471,11 +508,11 @@ namespace Talos::Editor {
 
     void Editor::DrawFloatSlider(float x, float y, float w, const char* label,
                                  float& value, float minVal, float maxVal, int sliderId) {
-        Renderer2D::DrawLabel(label, x, y + 2.0f, 15, { 185, 190, 205, 255 });
+        Renderer2D::DrawLabel(label, x, y + 1.0f, 14, { 185, 190, 205, 255 });
 
-        float barX = x + 90.0f;
-        float barW = w - 90.0f;
-        float barH = 18.0f;
+        float barX = x + 84.0f;
+        float barW = w - 84.0f;
+        float barH = 17.0f;
 
         if (IsMouseOver(barX, y, barW, barH) && Input::IsMouseButtonPressed(MouseButton::Left)) {
             m_activeSliderId = sliderId;
@@ -497,7 +534,7 @@ namespace Talos::Editor {
 
         char valBuf[32];
         std::snprintf(valBuf, sizeof(valBuf), "%.0f", value);
-        Renderer2D::DrawLabel(valBuf, barX + 8.0f, y + 2.0f, 14, { 245, 245, 250, 255 });
+        Renderer2D::DrawLabel(valBuf, barX + 8.0f, y + 1.0f, 14, { 245, 245, 250, 255 });
     }
 
     void Editor::DrawIntSlider(float x, float y, float w, const char* label,
@@ -507,22 +544,58 @@ namespace Talos::Editor {
         value = static_cast<int>(floatVal + 0.5f);
     }
 
+    void Editor::DrawTextureSelector(float x, float y, float w, Scene::SpriteComponent& sprite) {
+        // 1. One-Click Built-In Texture Preset Buttons
+        Renderer2D::DrawLabel("Preset:", x, y + 4.0f, 14, { 185, 190, 205, 255 });
+
+        float btnStartX = x + 54.0f;
+        float availW = w - 54.0f;
+        float gap = 4.0f;
+        float btnW = (availW - gap * (NUM_TEXTURE_PRESETS - 1)) / static_cast<float>(NUM_TEXTURE_PRESETS);
+
+        for (int i = 0; i < NUM_TEXTURE_PRESETS; ++i) {
+            float bx = btnStartX + i * (btnW + gap);
+            bool isCurrent = (sprite.texturePath == TEXTURE_PRESETS[i].path);
+
+            ColorRGBA bg = isCurrent ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 };
+            ColorRGBA hover = isCurrent ? ColorRGBA{ 68, 135, 220, 255 } : ColorRGBA{ 54, 58, 74, 255 };
+
+            if (DrawButton(bx, y, btnW, 22.0f, TEXTURE_PRESETS[i].label, bg, hover)) {
+                bool wasSolidBox = sprite.texturePath.empty();
+                sprite.texturePath = TEXTURE_PRESETS[i].path;
+                m_focusedTextFieldId = -1;
+
+                // When switching from a solid colored box to a 2D image preset, automatically
+                // set the tint to pure white (255,255,255) so the texture displays its true colors.
+                if (wasSolidBox && !sprite.texturePath.empty()) {
+                    sprite.color = { 255, 255, 255, 255 };
+                } else if (!wasSolidBox && sprite.texturePath.empty() &&
+                           sprite.color.r == 255 && sprite.color.g == 255 && sprite.color.b == 255) {
+                    sprite.color = { 80, 180, 250, 255 };
+                }
+            }
+        }
+
+        // 2. Direct Editable File Path Input Box ("Image:")
+        DrawTextInputBox(x, y + 27.0f, w, "Image:", sprite.texturePath, 3);
+    }
+
     void Editor::DrawColorPickerRow(float x, float y, float w, const char* label,
                                     ColorRGBA& color, int baseSliderId) {
-        Renderer2D::DrawLabel(label, x, y + 3.0f, 15, { 185, 190, 205, 255 });
+        Renderer2D::DrawLabel(label, x, y + 2.0f, 14, { 185, 190, 205, 255 });
 
         // Current color preview box
-        Renderer2D::DrawRect(x + 85.0f, y, 22.0f, 20.0f, color);
-        Renderer2D::DrawRectOutline(x + 85.0f, y, 22.0f, 20.0f, 1.0f, { 220, 220, 230, 255 });
+        Renderer2D::DrawRect(x + 84.0f, y, 22.0f, 19.0f, color);
+        Renderer2D::DrawRectOutline(x + 84.0f, y, 22.0f, 19.0f, 1.0f, { 220, 220, 230, 255 });
 
         // 8 One-Click Preset Swatches right on the first level
-        float swatchX = x + 116.0f;
+        float swatchX = x + 114.0f;
         float swatchSize = 22.0f;
         for (int i = 0; i < NUM_PRESET_COLORS; ++i) {
-            Renderer2D::DrawRect(swatchX, y, swatchSize, 20.0f, PRESET_COLORS[i]);
-            bool hovered = IsMouseOver(swatchX, y, swatchSize, 20.0f);
+            Renderer2D::DrawRect(swatchX, y, swatchSize, 19.0f, PRESET_COLORS[i]);
+            bool hovered = IsMouseOver(swatchX, y, swatchSize, 19.0f);
             if (hovered) {
-                Renderer2D::DrawRectOutline(swatchX, y, swatchSize, 20.0f, 2.0f, { 255, 255, 255, 255 });
+                Renderer2D::DrawRectOutline(swatchX, y, swatchSize, 19.0f, 2.0f, { 255, 255, 255, 255 });
                 if (Input::IsMouseButtonPressed(MouseButton::Left)) {
                     color = PRESET_COLORS[i];
                 }
@@ -535,9 +608,9 @@ namespace Talos::Editor {
         float g = static_cast<float>(color.g);
         float b = static_cast<float>(color.b);
 
-        DrawFloatSlider(x, y + 25.0f, w, "Red (R)",   r, 0.0f, 255.0f, baseSliderId + 1);
-        DrawFloatSlider(x, y + 45.0f, w, "Green (G)", g, 0.0f, 255.0f, baseSliderId + 2);
-        DrawFloatSlider(x, y + 65.0f, w, "Blue (B)",  b, 0.0f, 255.0f, baseSliderId + 3);
+        DrawFloatSlider(x, y + 23.0f, w, "Red (R)",   r, 0.0f, 255.0f, baseSliderId + 1);
+        DrawFloatSlider(x, y + 42.0f, w, "Green (G)", g, 0.0f, 255.0f, baseSliderId + 2);
+        DrawFloatSlider(x, y + 61.0f, w, "Blue (B)",  b, 0.0f, 255.0f, baseSliderId + 3);
 
         color.r = static_cast<uint8_t>(r);
         color.g = static_cast<uint8_t>(g);
@@ -546,23 +619,28 @@ namespace Talos::Editor {
 
     void Editor::DrawTextInputBox(float x, float y, float w, const char* label,
                                   std::string& textBuffer, int fieldId) {
-        Renderer2D::DrawLabel(label, x, y, 14, { 170, 175, 190, 255 });
+        Renderer2D::DrawLabel(label, x, y + 4.0f, 14, { 185, 190, 205, 255 });
 
-        float boxY = y + 18.0f;
-        float boxH = 26.0f;
+        float boxX = x + 54.0f;
+        float boxW = w - 54.0f;
+        float boxH = 23.0f;
         bool isFocused = (m_focusedTextFieldId == fieldId);
-        bool hovered = IsMouseOver(x, boxY, w, boxH);
+        bool hovered = IsMouseOver(boxX, y, boxW, boxH);
 
         if (hovered && Input::IsMouseButtonPressed(MouseButton::Left)) {
             m_focusedTextFieldId = fieldId;
         }
 
-        Renderer2D::DrawRect(x, boxY, w, boxH, isFocused ? ColorRGBA{ 45, 50, 66, 255 } : ColorRGBA{ 34, 36, 46, 255 });
-        Renderer2D::DrawRectOutline(x, boxY, w, boxH, isFocused ? 2.0f : 1.0f,
+        Renderer2D::DrawRect(boxX, y, boxW, boxH, isFocused ? ColorRGBA{ 45, 50, 66, 255 } : ColorRGBA{ 34, 36, 46, 255 });
+        Renderer2D::DrawRectOutline(boxX, y, boxW, boxH, isFocused ? 2.0f : 1.0f,
                                     isFocused ? ColorRGBA{ 95, 195, 255, 255 } : ColorRGBA{ 75, 80, 98, 255 });
 
         std::string displayStr = isFocused ? (textBuffer + "|") : textBuffer;
-        Renderer2D::DrawLabel(displayStr.c_str(), x + 8.0f, boxY + 5.0f, 16, { 245, 245, 250, 255 });
+        if (!isFocused && displayStr.empty() && fieldId == 3) {
+            Renderer2D::DrawLabel("(none - solid color box)", boxX + 8.0f, y + 4.0f, 14, { 110, 115, 130, 255 });
+        } else {
+            Renderer2D::DrawLabel(displayStr.c_str(), boxX + 8.0f, y + 4.0f, 14, { 245, 245, 250, 255 });
+        }
     }
 
 }

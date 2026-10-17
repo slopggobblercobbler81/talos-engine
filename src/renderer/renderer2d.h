@@ -20,15 +20,17 @@ namespace Talos::Renderer {
     // 2D Rendering Subsystem (Layer 2: Domain Subsystems)
     // =========================================================================
     // The exclusive gateway for issuing 2D draw commands to the GPU.
-    // Manages vector/TrueType typography caching so all Editor and Scene text
-    // renders with a clean, modern sans-serif typeface instead of bitmap pixel fonts.
+    // Manages two internal GPU resource caches behind a clean C++ interface:
+    //   1. TrueType Typography Cache: Dynamically rasterizes clean sans-serif fonts.
+    //   2. 2D Texture Cache: Lazily loads and caches .png textures in VRAM by file path.
     class Renderer2D {
     public:
-        // Initializes the 2D renderer and loads the clean TrueType typography system.
+        // Initializes the 2D renderer, loads the clean TrueType typography system,
+        // and generates starter .png texture assets in "assets/textures/" if absent.
         // Must be called once after Window::Init().
         static void Init();
 
-        // Releases all cached GPU font atlases and rendering resources.
+        // Releases all cached GPU font atlases and 2D textures from VRAM.
         // Must be called before Window::Close().
         static void Shutdown();
 
@@ -50,6 +52,16 @@ namespace Talos::Renderer {
         // Renders a 1-pixel geometric line segment between two 2D points.
         // Used for viewport reference grids and alignment guides.
         static void DrawLine2D(float startX, float startY, float endX, float endY, ColorRGBA color);
+
+        // Renders a 2D image/texture scaled to the target rectangle (x, y, width, height)
+        // and multiplied by 'tint' (use {255, 255, 255, 255} for unmodified original colors).
+        // The texture is automatically loaded from disk on first use and cached in VRAM.
+        // If the file path does not exist, renders a visual checkerboard fallback pattern.
+        static void DrawSprite(const char* texturePath, float x, float y, float width, float height, ColorRGBA tint);
+
+        // Returns true if 'texturePath' points to a valid texture that is either already
+        // cached in VRAM or exists on disk and can be loaded into the texture cache.
+        static bool HasTexture(const char* texturePath);
 
         // Renders anti-aliased TrueType text at the given top-left coordinates and pixel height.
         static void DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color);

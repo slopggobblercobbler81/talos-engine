@@ -157,15 +157,28 @@ namespace Talos::Scene {
                 continue;
             }
 
-            // Draw the visual body if SpriteComponent is enabled
+            // Draw the visual body if SpriteComponent is enabled.
+            // If a texturePath is assigned, render the GPU-cached 2D image tinted by sprite.color;
+            // otherwise render a fast solid-color rectangle.
             if (entity.sprite.enabled) {
-                Renderer2D::DrawRect(
-                    entity.transform.x,
-                    entity.transform.y,
-                    entity.transform.width,
-                    entity.transform.height,
-                    entity.sprite.color
-                );
+                if (!entity.sprite.texturePath.empty()) {
+                    Renderer2D::DrawSprite(
+                        entity.sprite.texturePath.c_str(),
+                        entity.transform.x,
+                        entity.transform.y,
+                        entity.transform.width,
+                        entity.transform.height,
+                        entity.sprite.color
+                    );
+                } else {
+                    Renderer2D::DrawRect(
+                        entity.transform.x,
+                        entity.transform.y,
+                        entity.transform.width,
+                        entity.transform.height,
+                        entity.sprite.color
+                    );
+                }
             }
 
             // Draw the text overlay/label if TextComponent is enabled
