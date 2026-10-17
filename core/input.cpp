@@ -12,6 +12,7 @@ namespace Talos::Core {
             case Key::S:            return KEY_S;
             case Key::D:            return KEY_D;
             case Key::F:            return KEY_F;
+            case Key::F3:           return KEY_F3;
             case Key::Z:            return KEY_Z;
             case Key::Y:            return KEY_Y;
             case Key::Up:           return KEY_UP;

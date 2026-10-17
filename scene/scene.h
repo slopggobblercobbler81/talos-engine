@@ -1,9 +1,43 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <cstddef>
 #include "scene/entity.h"
 
 namespace Talos::Scene {
+
+    // =========================================================================
+    // Per-Component Runtime Consumption Metrics (Layer 3: Scene & Entity)
+    // =========================================================================
+    // Stores exact per-frame CPU execution time, RAM footprint, GPU VRAM usage,
+    // active instance count, and operation count for a single component type.
+    struct ComponentDiagnostics {
+        size_t activeCount = 0;       // Entities with this component active in the scene
+        size_t totalCount = 0;        // Total entities carrying this component struct
+        double cpuTimeUs = 0.0;       // Smoothed CPU execution time in microseconds (us)
+        double rawCpuTimeUs = 0.0;    // Exact single-frame CPU time in microseconds (us)
+        size_t ramBytes = 0;          // Exact CPU RAM bytes (struct size + heap strings)
+        size_t activeRamBytes = 0;    // CPU RAM bytes of enabled instances only
+        size_t vramBytes = 0;         // Exact GPU VRAM bytes referenced by active instances
+        size_t operationsCount = 0;   // Frame operations (e.g., AABB checks, draw calls)
+    };
+
+    // Aggregated diagnostic snapshot updated automatically during Scene::Update and Scene::Render.
+    struct SceneDiagnostics {
+        size_t totalEntities = 0;
+        size_t activeEntities = 0;
+
+        ComponentDiagnostics transform;
+        ComponentDiagnostics movement;
+        ComponentDiagnostics collider;
+        ComponentDiagnostics sprite;
+        ComponentDiagnostics text;
+
+        double totalUpdateUs = 0.0;
+        double totalRenderUs = 0.0;
+        size_t totalSceneRamBytes = 0;
+        size_t totalSceneVramBytes = 0;
+    };
 
     // =========================================================================
     // Scene Container & Simulation Coordinator (Layer 3: Scene & Entity)
@@ -45,12 +79,18 @@ namespace Talos::Scene {
         // Submits all active visual and text components to the Renderer2D layer.
         void Render() const;
 
+        // Returns the latest per-component runtime consumption diagnostics.
+        const SceneDiagnostics& GetDiagnostics() const { return m_diagnostics; }
+
     private:
         // Contiguous storage in memory for cache-friendly iteration every frame.
         std::vector<Entity> m_entities;
 
         // Monotonically increasing counter guaranteeing unique EntityIDs.
         EntityID m_nextId = 1;
+
+        // Live per-component diagnostic metrics updated during Update() and Render().
+        mutable SceneDiagnostics m_diagnostics;
     };
 
 }

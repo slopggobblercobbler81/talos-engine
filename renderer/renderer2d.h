@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cstddef>
 
 namespace Talos::Renderer {
 
@@ -109,6 +110,24 @@ namespace Talos::Renderer {
         // Computes the rendered pixel width of a TrueType text string at a given font size.
         // Used for centering labels inside buttons and positioning text cursors.
         static int MeasureTextWidth(const char* text, int fontSize);
+
+        // =====================================================================
+        // Diagnostic & Memory Profiling Queries (VRAM)
+        // =====================================================================
+        // Returns the exact GPU VRAM footprint in bytes of a cached 2D texture (0 if not loaded).
+        static size_t GetTextureVRAMBytes(const char* texturePath);
+
+        // Returns the exact GPU VRAM footprint in bytes of the TrueType font atlas for 'fontSize'.
+        static size_t GetFontAtlasVRAMBytes(int fontSize);
+
+        // Returns the total GPU VRAM bytes occupied by all cached 2D sprite textures.
+        static size_t GetTotalTextureVRAMBytes();
+
+        // Returns the total GPU VRAM bytes occupied by all cached TrueType font atlases.
+        static size_t GetTotalFontVRAMBytes();
+
+        // Returns the number of unique 2D textures currently resident in GPU VRAM.
+        static size_t GetCachedTextureCount();
     };
 
 }

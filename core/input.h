@@ -14,6 +14,7 @@ namespace Talos::Core {
         S,
         D,
         F,
+        F3,
         Z,
         Y,
         Up,

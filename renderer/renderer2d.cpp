@@ -334,4 +334,55 @@ namespace Talos::Renderer {
         return static_cast<int>(measured.x);
     }
 
+    static size_t ComputeTextureVRAMBytes(const Texture2D& tex) {
+        if (tex.id == 0 || tex.width <= 0 || tex.height <= 0) {
+            return 0;
+        }
+        int bytes = GetPixelDataSize(tex.width, tex.height, tex.format);
+        if (bytes > 0) {
+            return static_cast<size_t>(bytes);
+        }
+        return static_cast<size_t>(tex.width) * static_cast<size_t>(tex.height) * 4;
+    }
+
+    size_t Renderer2D::GetTextureVRAMBytes(const char* texturePath) {
+        if (!texturePath || texturePath[0] == '\0') {
+            return 0;
+        }
+        auto it = s_textureCache.find(texturePath);
+        if (it != s_textureCache.end()) {
+            return ComputeTextureVRAMBytes(it->second);
+        }
+        return 0;
+    }
+
+    size_t Renderer2D::GetFontAtlasVRAMBytes(int fontSize) {
+        int clampedSize = (fontSize < 10) ? 10 : ((fontSize > 96) ? 96 : fontSize);
+        auto it = s_fontCache.find(clampedSize);
+        if (it != s_fontCache.end()) {
+            return ComputeTextureVRAMBytes(it->second.texture);
+        }
+        return 0;
+    }
+
+    size_t Renderer2D::GetTotalTextureVRAMBytes() {
+        size_t total = 0;
+        for (const auto& pair : s_textureCache) {
+            total += ComputeTextureVRAMBytes(pair.second);
+        }
+        return total;
+    }
+
+    size_t Renderer2D::GetTotalFontVRAMBytes() {
+        size_t total = 0;
+        for (const auto& pair : s_fontCache) {
+            total += ComputeTextureVRAMBytes(pair.second.texture);
+        }
+        return total;
+    }
+
+    size_t Renderer2D::GetCachedTextureCount() {
+        return s_textureCache.size();
+    }
+
 }

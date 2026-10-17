@@ -3,8 +3,17 @@
 #include "physics/physics2d.h"
 #include "renderer/renderer2d.h"
 #include <algorithm>
+#include <chrono>
+#include <unordered_set>
 
 namespace Talos::Scene {
+
+    static double SmoothMicros(double prevSmoothed, double rawSample) {
+        if (prevSmoothed <= 0.0001) {
+            return rawSample;
+        }
+        return prevSmoothed * 0.85 + rawSample * 0.15;
+    }
 
     Entity& Scene::CreateEntity(const std::string& name, float x, float y) {
         Entity entity;
@@ -77,12 +86,40 @@ namespace Talos::Scene {
     void Scene::Update(float delta) {
         using namespace Talos::Core;
         using namespace Talos::Physics;
+        using Clock = std::chrono::steady_clock;
 
+        double transformUsAccum = 0.0;
+        double movementUsAccum  = 0.0;
+        double colliderUsAccum  = 0.0;
+
+        size_t activeTransformCount = 0;
+        size_t activeMovementCount  = 0;
+        size_t activeColliderCount  = 0;
+        size_t movementOpsCount     = 0;
+        size_t aabbChecksCount      = 0;
+
+        // 1. Evaluate active Transform & Collider component counts
+        auto tTransformStart = Clock::now();
+        for (const auto& entity : m_entities) {
+            if (!entity.active) continue;
+            ++activeTransformCount;
+            if (entity.collider.enabled) {
+                ++activeColliderCount;
+            }
+        }
+        auto tTransformEnd = Clock::now();
+        transformUsAccum += std::chrono::duration<double, std::micro>(tTransformEnd - tTransformStart).count();
+
+        // 2. Process MovementComponent & ColliderComponent per active entity
         for (auto& entity : m_entities) {
-            // Skip inactive entities or entities without movement enabled.
             if (!entity.active || !entity.movement.enabled) {
                 continue;
             }
+
+            // --- MovementComponent execution timing ---
+            auto tMoveStart = Clock::now();
+            ++activeMovementCount;
+            ++movementOpsCount;
 
             float moveX = entity.movement.velocityX;
             float moveY = entity.movement.velocityY;
@@ -97,16 +134,15 @@ namespace Talos::Scene {
                 if (Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
             }
 
+            float nextX = entity.transform.x + moveX * delta;
+            auto tMoveEnd = Clock::now();
+            movementUsAccum += std::chrono::duration<double, std::micro>(tMoveEnd - tMoveStart).count();
+
             // =================================================================
             // Separated-Axis Collision Resolution (X then Y)
             // =================================================================
-            // Why resolve X and Y separately instead of diagonally at once?
-            // If a player moves diagonally into a vertical wall, resolving X and Y
-            // independently blocks only the X movement while allowing the Y movement
-            // to continue smoothly—producing natural wall sliding without getting stuck.
-
             // 1. Horizontal (X) Axis Step
-            float nextX = entity.transform.x + moveX * delta;
+            auto tColXStart = Clock::now();
             bool blockedX = false;
             if (entity.collider.enabled && entity.collider.isSolid) {
                 Rect2D nextBoxX = { nextX, entity.transform.y, entity.transform.width, entity.transform.height };
@@ -115,18 +151,27 @@ namespace Talos::Scene {
                         continue;
                     }
                     Rect2D otherBox = { other.transform.x, other.transform.y, other.transform.width, other.transform.height };
+                    ++aabbChecksCount;
                     if (Physics2D::CheckOverlap(nextBoxX, otherBox)) {
                         blockedX = true;
                         break;
                     }
                 }
             }
+            auto tColXEnd = Clock::now();
+            colliderUsAccum += std::chrono::duration<double, std::micro>(tColXEnd - tColXStart).count();
+
+            // --- TransformComponent X Commit + Next Y Calculation ---
+            auto tTransXStart = Clock::now();
             if (!blockedX) {
                 entity.transform.x = nextX;
             }
+            float nextY = entity.transform.y + moveY * delta;
+            auto tTransXEnd = Clock::now();
+            transformUsAccum += std::chrono::duration<double, std::micro>(tTransXEnd - tTransXStart).count();
 
             // 2. Vertical (Y) Axis Step
-            float nextY = entity.transform.y + moveY * delta;
+            auto tColYStart = Clock::now();
             bool blockedY = false;
             if (entity.collider.enabled && entity.collider.isSolid) {
                 Rect2D nextBoxY = { entity.transform.x, nextY, entity.transform.width, entity.transform.height };
@@ -135,32 +180,101 @@ namespace Talos::Scene {
                         continue;
                     }
                     Rect2D otherBox = { other.transform.x, other.transform.y, other.transform.width, other.transform.height };
+                    ++aabbChecksCount;
                     if (Physics2D::CheckOverlap(nextBoxY, otherBox)) {
                         blockedY = true;
                         break;
                     }
                 }
             }
+            auto tColYEnd = Clock::now();
+            colliderUsAccum += std::chrono::duration<double, std::micro>(tColYEnd - tColYStart).count();
+
+            // --- TransformComponent Y Commit ---
+            auto tTransYStart = Clock::now();
             if (!blockedY) {
                 entity.transform.y = nextY;
             }
+            auto tTransYEnd = Clock::now();
+            transformUsAccum += std::chrono::duration<double, std::micro>(tTransYEnd - tTransYStart).count();
         }
+
+        // Commit simulation component metrics to m_diagnostics
+        const size_t totalCount = m_entities.size();
+        m_diagnostics.totalEntities  = totalCount;
+        m_diagnostics.activeEntities = activeTransformCount;
+
+        m_diagnostics.transform.activeCount     = activeTransformCount;
+        m_diagnostics.transform.totalCount      = totalCount;
+        m_diagnostics.transform.rawCpuTimeUs    = transformUsAccum;
+        m_diagnostics.transform.cpuTimeUs       = SmoothMicros(m_diagnostics.transform.cpuTimeUs, transformUsAccum);
+        m_diagnostics.transform.operationsCount = activeTransformCount;
+
+        m_diagnostics.movement.activeCount      = activeMovementCount;
+        m_diagnostics.movement.totalCount       = totalCount;
+        m_diagnostics.movement.rawCpuTimeUs     = movementUsAccum;
+        m_diagnostics.movement.cpuTimeUs        = SmoothMicros(m_diagnostics.movement.cpuTimeUs, movementUsAccum);
+        m_diagnostics.movement.operationsCount  = movementOpsCount;
+
+        m_diagnostics.collider.activeCount      = activeColliderCount;
+        m_diagnostics.collider.totalCount       = totalCount;
+        m_diagnostics.collider.rawCpuTimeUs     = colliderUsAccum;
+        m_diagnostics.collider.cpuTimeUs        = SmoothMicros(m_diagnostics.collider.cpuTimeUs, colliderUsAccum);
+        m_diagnostics.collider.operationsCount  = aabbChecksCount;
+
+        m_diagnostics.totalUpdateUs =
+            m_diagnostics.transform.cpuTimeUs +
+            m_diagnostics.movement.cpuTimeUs +
+            m_diagnostics.collider.cpuTimeUs;
     }
 
     void Scene::Render() const {
         using namespace Talos::Renderer;
+        using Clock = std::chrono::steady_clock;
 
-        // Iterate through all active entities and submit their enabled visual
-        // components to the Renderer2D subsystem in deterministic order.
+        double spriteUsAccum = 0.0;
+        double textUsAccum   = 0.0;
+
+        size_t activeEntityCount   = 0;
+        size_t activeTransformCnt  = 0;
+        size_t activeMovementCnt   = 0;
+        size_t activeColliderCnt   = 0;
+        size_t activeSpriteCount   = 0;
+        size_t activeTextCount     = 0;
+        size_t spriteDrawCalls     = 0;
+        size_t textDrawCalls       = 0;
+
+        size_t spriteHeapBytes     = 0;
+        size_t activeSpriteHeap    = 0;
+        size_t textHeapBytes       = 0;
+        size_t activeTextHeap      = 0;
+        size_t entityNameHeapBytes = 0;
+
+        std::unordered_set<std::string> activeTextures;
+        std::unordered_set<int> activeFontSizes;
+
+        // Iterate through all entities, submit enabled visual/text components to Renderer2D,
+        // and measure exact per-component CPU time and memory footprint.
         for (const auto& entity : m_entities) {
+            entityNameHeapBytes += entity.name.capacity();
+            spriteHeapBytes     += entity.sprite.texturePath.capacity();
+            textHeapBytes       += entity.text.content.capacity();
+
             if (!entity.active) {
                 continue;
             }
 
-            // Draw the visual body if SpriteComponent is enabled.
-            // If a texturePath is assigned, render the GPU-cached 2D image tinted by sprite.color;
-            // otherwise render a fast solid-color rectangle.
+            ++activeEntityCount;
+            ++activeTransformCnt;
+            if (entity.movement.enabled) ++activeMovementCnt;
+            if (entity.collider.enabled) ++activeColliderCnt;
+
+            // 1. SpriteComponent Rendering & Timing
             if (entity.sprite.enabled) {
+                ++activeSpriteCount;
+                activeSpriteHeap += entity.sprite.texturePath.capacity();
+
+                auto tSpriteStart = Clock::now();
                 if (!entity.sprite.texturePath.empty()) {
                     Renderer2D::DrawSprite(
                         entity.sprite.texturePath.c_str(),
@@ -170,6 +284,7 @@ namespace Talos::Scene {
                         entity.transform.height,
                         entity.sprite.color
                     );
+                    activeTextures.insert(entity.sprite.texturePath);
                 } else {
                     Renderer2D::DrawRect(
                         entity.transform.x,
@@ -179,19 +294,91 @@ namespace Talos::Scene {
                         entity.sprite.color
                     );
                 }
+                auto tSpriteEnd = Clock::now();
+                spriteUsAccum += std::chrono::duration<double, std::micro>(tSpriteEnd - tSpriteStart).count();
+                ++spriteDrawCalls;
             }
 
-            // Draw the text overlay/label if TextComponent is enabled
-            if (entity.text.enabled && !entity.text.content.empty()) {
-                Renderer2D::DrawLabel(
-                    entity.text.content.c_str(),
-                    entity.transform.x + entity.text.offsetX,
-                    entity.transform.y + entity.text.offsetY,
-                    entity.text.fontSize,
-                    entity.text.color
-                );
+            // 2. TextComponent Rendering & Timing
+            if (entity.text.enabled) {
+                ++activeTextCount;
+                activeTextHeap += entity.text.content.capacity();
+
+                if (!entity.text.content.empty()) {
+                    auto tTextStart = Clock::now();
+                    Renderer2D::DrawLabel(
+                        entity.text.content.c_str(),
+                        entity.transform.x + entity.text.offsetX,
+                        entity.transform.y + entity.text.offsetY,
+                        entity.text.fontSize,
+                        entity.text.color
+                    );
+                    auto tTextEnd = Clock::now();
+                    textUsAccum += std::chrono::duration<double, std::micro>(tTextEnd - tTextStart).count();
+                    ++textDrawCalls;
+                    activeFontSizes.insert(entity.text.fontSize);
+                }
             }
         }
+
+        const size_t totalCount = m_entities.size();
+        m_diagnostics.totalEntities  = totalCount;
+        m_diagnostics.activeEntities = activeEntityCount;
+
+        // Compute exact RAM footprint per component across the scene
+        m_diagnostics.transform.totalCount     = totalCount;
+        m_diagnostics.transform.activeCount    = activeTransformCnt;
+        m_diagnostics.transform.ramBytes       = totalCount * sizeof(TransformComponent);
+        m_diagnostics.transform.activeRamBytes = activeTransformCnt * sizeof(TransformComponent);
+        m_diagnostics.transform.vramBytes      = 0;
+
+        m_diagnostics.movement.totalCount      = totalCount;
+        m_diagnostics.movement.activeCount     = activeMovementCnt;
+        m_diagnostics.movement.ramBytes        = totalCount * sizeof(MovementComponent);
+        m_diagnostics.movement.activeRamBytes  = activeMovementCnt * sizeof(MovementComponent);
+        m_diagnostics.movement.vramBytes       = 0;
+
+        m_diagnostics.collider.totalCount      = totalCount;
+        m_diagnostics.collider.activeCount     = activeColliderCnt;
+        m_diagnostics.collider.ramBytes        = totalCount * sizeof(ColliderComponent);
+        m_diagnostics.collider.activeRamBytes  = activeColliderCnt * sizeof(ColliderComponent);
+        m_diagnostics.collider.vramBytes       = 0;
+
+        // Compute exact GPU VRAM for unique textures referenced by active SpriteComponents
+        size_t spriteVram = 0;
+        for (const auto& texPath : activeTextures) {
+            spriteVram += Renderer2D::GetTextureVRAMBytes(texPath.c_str());
+        }
+
+        m_diagnostics.sprite.totalCount      = totalCount;
+        m_diagnostics.sprite.activeCount     = activeSpriteCount;
+        m_diagnostics.sprite.rawCpuTimeUs    = spriteUsAccum;
+        m_diagnostics.sprite.cpuTimeUs       = SmoothMicros(m_diagnostics.sprite.cpuTimeUs, spriteUsAccum);
+        m_diagnostics.sprite.ramBytes        = totalCount * sizeof(SpriteComponent) + spriteHeapBytes;
+        m_diagnostics.sprite.activeRamBytes  = activeSpriteCount * sizeof(SpriteComponent) + activeSpriteHeap;
+        m_diagnostics.sprite.vramBytes       = spriteVram;
+        m_diagnostics.sprite.operationsCount = spriteDrawCalls;
+
+        // Compute exact GPU VRAM for unique TrueType font atlases referenced by active TextComponents
+        size_t textVram = 0;
+        for (int fontSize : activeFontSizes) {
+            textVram += Renderer2D::GetFontAtlasVRAMBytes(fontSize);
+        }
+
+        m_diagnostics.text.totalCount      = totalCount;
+        m_diagnostics.text.activeCount     = activeTextCount;
+        m_diagnostics.text.rawCpuTimeUs    = textUsAccum;
+        m_diagnostics.text.cpuTimeUs       = SmoothMicros(m_diagnostics.text.cpuTimeUs, textUsAccum);
+        m_diagnostics.text.ramBytes        = totalCount * sizeof(TextComponent) + textHeapBytes;
+        m_diagnostics.text.activeRamBytes  = activeTextCount * sizeof(TextComponent) + activeTextHeap;
+        m_diagnostics.text.vramBytes       = textVram;
+        m_diagnostics.text.operationsCount = textDrawCalls;
+
+        m_diagnostics.totalRenderUs = m_diagnostics.sprite.cpuTimeUs + m_diagnostics.text.cpuTimeUs;
+        m_diagnostics.totalSceneRamBytes =
+            (m_entities.capacity() * sizeof(Entity)) +
+            entityNameHeapBytes + spriteHeapBytes + textHeapBytes;
+        m_diagnostics.totalSceneVramBytes = spriteVram + textVram;
     }
 
 }

@@ -76,6 +76,7 @@ namespace Talos::Editor {
         void RenderViewportGrid() const;
         void RenderSelectionGizmo(const Scene::Scene& scene) const;
         void RenderViewportCameraOverlay(const Scene::Scene& scene);
+        void RenderViewportDiagnosticOverlay(const Scene::Scene& scene) const;
         void RenderConsolePanel();
         void RenderTopToolbar(Scene::Scene& scene);
         void RenderEntityListPanel(Scene::Scene& scene);
@@ -114,6 +115,11 @@ namespace Talos::Editor {
         // Play / Edit simulation state
         bool m_isPlaying = false;
         std::vector<Scene::Entity> m_sceneSnapshot; // Saved before Play, restored on Stop
+
+        // Persistent Viewport Diagnostic Overlay state (toggled by F3 ONLY during Play Mode;
+        // preserves its state across Stop -> Play transitions unless explicitly toggled off).
+        bool m_diagnosticOverlayEnabled = false;
+        float m_smoothedFrameDelta = 0.01667f;
 
         // Universal Undo / Redo History Stacks
         std::vector<EditorHistoryState> m_undoStack;
