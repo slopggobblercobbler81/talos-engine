@@ -16,6 +16,8 @@ namespace Talos::Editor {
     struct EditorHistoryState {
         std::vector<Scene::Entity> entities;
         Scene::EntityID selectedEntityId = 0;
+        int textCursorPos = 0;
+        int textSelectionAnchor = 0;
     };
 
     // =========================================================================
@@ -120,6 +122,9 @@ namespace Talos::Editor {
         // Immediate-mode UI interaction state (active slider or focused text input field)
         int m_activeSliderId = -1;
         int m_focusedTextFieldId = -1;
+        int m_textCursorPos = 0;       // Current caret index inside the focused text buffer
+        int m_textSelectionAnchor = 0; // Selection start index (differs from cursor when selecting)
+        bool m_isDraggingText = false; // True while dragging the mouse across a text input box
         int m_newEntityCounter = 1;
 
         // Temporary feedback notification state for Save/Load/Undo/Redo operations
