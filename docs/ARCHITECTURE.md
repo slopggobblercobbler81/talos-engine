@@ -93,19 +93,20 @@ Within each architectural layer, subsystems follow a **Godot-style modular tree 
 
 ```text
 talos-engine/
-├── core/                         # Layer 1: Core & Platform
-│   ├── window.h / .cpp           # OS window lifecycle & frame timing
-│   ├── input.h / .cpp            # Hardware keyboard & mouse polling
-│   ├── input_map.h / .cpp        # Logical actions & .talos InputMap persistence
-│   └── logger.h / .cpp           # Classified debug logger ([INFO], [WARN], [ERROR])
-├── renderer/                     # Layer 2: Rendering Subsystem
-│   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture cache
-├── physics/                      # Layer 2: Physics Subsystem
-│   └── physics2d.h / .cpp        # 2D AABB overlap & movement resolution
-├── scene/                        # Layer 3: Scene & Entity Layer
-│   ├── entity.h                  # Flat zero-inheritance Entity & Component structs
-│   ├── scene.h / .cpp            # World state & per-component telemetry counters
-│   └── scene_serializer.h / .cpp # Human-readable .talos scene persistence
+├── engine/                       # Engine library (no editor dependency); include root: "core/...", "scene/..."
+│   ├── core/                         # Layer 1: Core & Platform
+│   │   ├── window.h / .cpp           # OS window lifecycle & frame timing
+│   │   ├── input.h / .cpp            # Hardware keyboard & mouse polling
+│   │   ├── input_map.h / .cpp        # Logical actions & .talos InputMap persistence
+│   │   └── logger.h / .cpp           # Classified debug logger ([INFO], [WARN], [ERROR])
+│   ├── renderer/                     # Layer 2: Rendering Subsystem
+│   │   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture cache
+│   ├── physics/                      # Layer 2: Physics Subsystem
+│   │   └── physics2d.h / .cpp        # 2D AABB overlap & movement resolution
+│   ├── scene/                        # Layer 3: Scene & Entity Layer
+│   │   ├── entity.h                  # Flat zero-inheritance Entity & Component structs
+│   │   ├── scene.h / .cpp            # World state & per-component telemetry counters
+│   │   └── scene_serializer.h / .cpp # Human-readable .talos scene persistence
 └── editor/                       # Layer 5: Visual Editor (EditorNode + Branches)
     ├── main.cpp                  # Engine bootstrap & main loop
     ├── editor.h / .cpp           # Central Editor Orchestrator (EditorNode)

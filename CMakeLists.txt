@@ -18,18 +18,18 @@ FetchContent_MakeAvailable(raylib)
 # List of modules in our layered engine (Godot-style modular tree)
 add_executable(TalosEngine
     # Layer 1: Core
-    core/window.cpp
-    core/input.cpp
-    core/input_map.cpp
-    core/logger.cpp
+    engine/core/window.cpp
+    engine/core/input.cpp
+    engine/core/input_map.cpp
+    engine/core/logger.cpp
 
     # Layer 2: Renderer & Physics
-    renderer/renderer2d.cpp
-    physics/physics2d.cpp
+    engine/renderer/renderer2d.cpp
+    engine/physics/physics2d.cpp
 
     # Layer 3: Scene
-    scene/scene.cpp
-    scene/scene_serializer.cpp
+    engine/scene/scene.cpp
+    engine/scene/scene_serializer.cpp
 
     # Layer 5: Editor (Central Orchestrator + Specialized Branches)
     editor/editor.cpp
@@ -45,8 +45,12 @@ add_executable(TalosEngine
     editor/dialogs/input_map_dialog.cpp
 )
 
-# Allow for clean file inclusion based on layer (e.g., #include "core/window.h")
-target_include_directories(TalosEngine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# Allow for clean file inclusion based on layer (e.g., #include "core/window.h"
+# resolves to engine/core/window.h, #include "editor/editor.h" to editor/editor.h)
+target_include_directories(TalosEngine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine
+)
 
 # Connect Raylib internally
 target_link_libraries(TalosEngine PRIVATE raylib)
