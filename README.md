@@ -1,7 +1,8 @@
+# Talos Engine
+
 <div align="center">
-  <img src="assets/icon.png" alt="Talos Engine Logo" width="160" />
-  <h1>Talos Engine</h1>
-  <p><strong>Lightweight, self-contained 2D game engine and visual editor written in C++17.</strong></p>
+  <img src="assets/logo.png" alt="Talos Engine Logo" width="220" />
+  <h2>Lightweight, self-contained 2D game engine and visual editor written in C++17.</h2>
 </div>
 
 ---
