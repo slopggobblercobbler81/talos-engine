@@ -19,7 +19,8 @@ namespace Talos::Scene {
     struct Entity {
         EntityID id = 0;
         std::string name = "Entity";
-        bool active = true; // Master toggle: inactive entities skip both Update and Render passes
+        std::string tag = ""; // Optional gameplay category tag (e.g., "Player", "Enemy", "Coin")
+        bool active = true;   // Master toggle: inactive entities skip both Update and Render passes
 
         TransformComponent transform;
         SpriteComponent sprite;
@@ -27,6 +28,11 @@ namespace Talos::Scene {
         ColliderComponent collider;
         MovementComponent movement;
         CameraComponent camera;
+
+        // Returns true if this entity carries the specified non-empty gameplay tag.
+        bool HasTag(const std::string& expectedTag) const {
+            return !expectedTag.empty() && tag == expectedTag;
+        }
     };
 
 }

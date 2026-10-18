@@ -14,6 +14,7 @@ The **Scene & Entity System** (Layer 3) manages all objects in the game world, t
 Every object in Talos Engine is an instance of a single flat structure (`Entity`) stored contiguously in memory (`std::vector<Entity>`). An `Entity` holds:
 * **`id` (`EntityID`):** A unique 32-bit integer assigned automatically upon creation.
 * **`name` (`std::string`):** A human-readable identifier for fast, path-independent lookups.
+* **`tag` (`std::string`):** Semantic category label (e.g., `"Player"`, `"Enemy"`, `"Coin"`, `"Wall"`) used by scripts, collision events, and tag-based queries (`entity.HasTag("Enemy")`).
 * **`active` (`bool`):** A master switch to enable or disable the entity across both update and render passes.
 * **Direct Toggleable Components:**
   1. **`TransformComponent`:** Position `(x, y)` and dimensions `(width, height)`.
@@ -27,13 +28,15 @@ Turning an ordinary visual box into a solid obstacle, a pass-through sensor/trig
 
 ---
 
-## 2. Path-Independent Lookups (`Scene::FindEntity`)
+## 2. Path-Independent Lookups (`Scene::FindEntity` & Tag Queries)
 
 In hierarchy-based engines, referencing an object via a relative path (such as `$Parent/Container/Panel/Player`) breaks immediately whenever you reorganize your scene.
 
 In Talos Engine, `Scene` stores entities in a flat, cache-friendly list and provides direct lookup methods:
 * `Scene::FindEntity("Player")` — Searches by human-readable name.
 * `Scene::FindEntityById(id)` — Searches by persistent numeric `EntityID`.
+* `Scene::FindEntityByTag("Player")` — Returns the first entity matching the semantic tag.
+* `Scene::FindEntitiesByTag("Enemy")` — Returns all entities matching the semantic tag.
 * `Scene::FindActiveCameraEntity()` — Resolves the primary active `CameraComponent` entity in the scene.
 
 Reordering entities or grouping them visually in the editor never invalidates code references.
@@ -48,7 +51,8 @@ During each iteration of the main loop, `Scene` executes strictly separated pass
    - Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`).
    - Performs semi-implicit Euler integration on all active dynamic entities with `movement.enabled` (sampling directional input if `playerControlled` is active, integrating `gravityScale`, or applying top-down linear damping).
    - Runs an iterative narrow-phase collision solver (`Physics2D::ComputeManifold` + `Physics2D::ResolveCollision`) across all active solid collider pairs (`isSolid && !isTrigger`) for `Box vs Box`, `Circle vs Circle`, and mixed `Circle vs Box`.
-   - Evaluates non-blocking **Sensor / Trigger** overlaps (`isTrigger == true`) via `Physics2D::CheckOverlap(shapeA, shapeB)`, tracks active overlaps across frames, emits `TriggerOverlapEvent` transitions (`TriggerEventState::Enter`, `Stay`, and `Exit`), dispatches `TriggerCallback` toward scripts/listeners, and logs `Enter`/`Exit` events.
+   - Tracks solid collision pairs across frames, emits `CollisionEvent` transitions (`CollisionEventState::Enter`, `Stay`, and `Exit`) complete with entity IDs, names, tags (`entityATag`, `entityBTag`), contact normal, penetration depth, and world contact point, notifies the scripting/listener system via `CollisionCallback` (`Scene::SetCollisionCallback`), and supports tag-aware queries (`Scene::IsColliding`, `Scene::IsCollidingWithTag`).
+   - Evaluates non-blocking **Sensor / Trigger** overlaps (`isTrigger == true`) via `Physics2D::CheckOverlap(shapeA, shapeB)`, tracks active overlaps across frames, emits `TriggerOverlapEvent` transitions (`TriggerEventState::Enter`, `Stay`, and `Exit`) enriched with `triggerTag` and `otherTag`, dispatches `TriggerCallback` toward scripts/listeners, and supports `Scene::IsTriggerOverlapping` / `Scene::IsTriggerOverlappingWithTag`.
    - Advances all active `CameraComponent` instances (resolving fixed positions or smoothly interpolating `(currentX, currentY)` toward `targetName` after movement has settled) and records telemetry into `SceneDiagnostics::camera`.
 2. **`Scene::UpdateAnimations(float delta)`:**
    Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.

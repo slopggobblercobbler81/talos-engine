@@ -17,7 +17,7 @@ namespace Talos::Editor {
         for (size_t i = 0; i < a.size(); ++i) {
             const Entity& ea = a[i];
             const Entity& eb = b[i];
-            if (ea.id != eb.id || ea.name != eb.name || ea.active != eb.active) return false;
+            if (ea.id != eb.id || ea.name != eb.name || ea.tag != eb.tag || ea.active != eb.active) return false;
             if (std::fabs(ea.transform.x - eb.transform.x) > 0.01f ||
                 std::fabs(ea.transform.y - eb.transform.y) > 0.01f ||
                 std::fabs(ea.transform.width - eb.transform.width) > 0.01f ||

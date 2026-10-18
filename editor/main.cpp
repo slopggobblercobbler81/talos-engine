@@ -44,6 +44,7 @@ int main() {
 
         // Player Entity: Uses 4-frame animated sheet texture and is controllable with WASD/Arrows in Play Mode
         Entity& player = world.CreateEntity("Player", 360.0f, 340.0f);
+        player.tag = "Player";
         player.transform.width = 72.0f;
         player.transform.height = 72.0f;
         player.sprite.texturePath = "examples/assets/textures/sheet.png";
@@ -77,6 +78,7 @@ int main() {
 
         // Wooden Crate Entity: Uses 2D Crate texture and acts as a solid obstacle on Scenery layer
         Entity& crate = world.CreateEntity("WoodenCrate", 530.0f, 430.0f);
+        crate.tag = "Obstacle";
         crate.transform.width = 68.0f;
         crate.transform.height = 68.0f;
         crate.sprite.texturePath = "examples/assets/textures/crate.png";
@@ -93,6 +95,7 @@ int main() {
 
         // Solid Wall Entity: Uses 2D Brick texture and blocks movement on Scenery layer
         Entity& wall = world.CreateEntity("BrickWall", 700.0f, 230.0f);
+        wall.tag = "Wall";
         wall.transform.width = 110.0f;
         wall.transform.height = 280.0f;
         wall.sprite.texturePath = "examples/assets/textures/brick.png";
@@ -109,6 +112,7 @@ int main() {
 
         // Gold Coin Entity: Dynamic Circle collider demonstrating mixed Circle vs Box collisions & bouncing
         Entity& coin = world.CreateEntity("GoldCoin", 540.0f, 250.0f);
+        coin.tag = "Coin";
         coin.transform.width = 56.0f;
         coin.transform.height = 56.0f;
         coin.sprite.texturePath = "examples/assets/textures/coin.png";

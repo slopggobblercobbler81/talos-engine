@@ -59,11 +59,39 @@ namespace Talos::Editor {
         float startY = TOOLBAR_HEIGHT + 44.0f - m_scrollOffset;
         float y = startY;
 
-        // 1. Entity Identity & Master Active Toggle
+        // 1. Entity Identity, Tag & Master Active Toggle
         gui.DrawCheckbox(x, y, "Active", selected->active);
+        if (!selected->tag.empty()) {
+            std::string tagBadge = "[" + selected->tag + "]";
+            int tbW = Renderer2D::MeasureTextWidth(tagBadge.c_str(), 14);
+            Renderer2D::DrawLabel(tagBadge.c_str(), x + w - static_cast<float>(tbW), y + 2.0f, 14, { 110, 225, 165, 255 });
+        } else {
+            Renderer2D::DrawLabel("[Untagged]", x + w - 76.0f, y + 2.0f, 14, { 120, 125, 140, 255 });
+        }
         y += 22.0f;
         gui.DrawTextInputBox(x, y, w, "Name:", selected->name, 1);
-        y += 29.0f;
+        y += 27.0f;
+        gui.DrawTextInputBox(x, y, w, "Tag:", selected->tag, 6);
+        y += 26.0f;
+
+        // Quick preset tag buttons ("Player", "Enemy", "Coin", "Wall", "None")
+        static const char* TAG_PRESETS[5] = { "Player", "Enemy", "Coin", "Wall", "None" };
+        float tagBtnGap = 4.0f;
+        float tagBtnW = (w - tagBtnGap * 4.0f) / 5.0f;
+        for (int t = 0; t < 5; ++t) {
+            const char* preset = TAG_PRESETS[t];
+            bool isClear = (t == 4);
+            bool isActiveTag = isClear ? selected->tag.empty() : (selected->tag == preset);
+            ColorRGBA bg = isActiveTag ? ColorRGBA{ 50, 125, 95, 255 } : ColorRGBA{ 38, 41, 52, 255 };
+            ColorRGBA hv = isActiveTag ? ColorRGBA{ 65, 150, 115, 255 } : ColorRGBA{ 52, 56, 70, 255 };
+            if (gui.DrawButton(x + static_cast<float>(t) * (tagBtnW + tagBtnGap), y, tagBtnW, 20.0f, preset, bg, hv)) {
+                selected->tag = isClear ? "" : preset;
+                if (gui.GetFocusedTextFieldId() == 6) {
+                    gui.ResetTextCaret();
+                }
+            }
+        }
+        y += 26.0f;
 
         // 2. Transform Component (Always accessible on first level)
         Renderer2D::DrawLabel("TRANSFORM 2D", x, y, 15, { 95, 195, 255, 255 });

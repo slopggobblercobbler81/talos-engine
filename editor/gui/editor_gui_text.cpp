@@ -84,6 +84,7 @@ namespace Talos::Editor {
             if (m_focusedTextFieldId == 2) { targetStr = &selected->text.content; isEntityField = true; }
             if (m_focusedTextFieldId == 3) { targetStr = &selected->sprite.texturePath; isEntityField = true; }
             if (m_focusedTextFieldId == 5) { targetStr = &selected->camera.targetName; isEntityField = true; }
+            if (m_focusedTextFieldId == 6) { targetStr = &selected->tag; isEntityField = true; }
         }
 
         if (!targetStr) return;

@@ -64,6 +64,7 @@ namespace Talos::Scene {
             out << "[Entity]\n";
             out << "id = " << e.id << "\n";
             out << "name = " << e.name << "\n";
+            out << "tag = " << e.tag << "\n";
             out << "active = " << (e.active ? 1 : 0) << "\n";
 
             // TransformComponent
@@ -195,6 +196,7 @@ namespace Talos::Scene {
 
             if (key == "id")                        currentEntity.id = static_cast<EntityID>(std::stoul(val));
             else if (key == "name")                 currentEntity.name = val;
+            else if (key == "tag")                  currentEntity.tag = val;
             else if (key == "active")               currentEntity.active = (std::atoi(val.c_str()) != 0);
             else if (key == "transform.x")          currentEntity.transform.x = std::strtof(val.c_str(), nullptr);
             else if (key == "transform.y")          currentEntity.transform.y = std::strtof(val.c_str(), nullptr);

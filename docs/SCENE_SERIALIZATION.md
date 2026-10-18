@@ -28,6 +28,7 @@ Each `[Entity]` block records the entity's identity and the state of its flat co
 [Entity]
 id = 2
 name = Player
+tag = Player
 active = 1
 transform.x = 354.00
 transform.y = 323.00

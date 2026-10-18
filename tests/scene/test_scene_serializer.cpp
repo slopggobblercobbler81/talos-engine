@@ -26,6 +26,7 @@ namespace {
 TEST(RoundTrip_PreservesEntityData) {
     Scene original;
     Entity& e = original.CreateEntity("Hero", 12.5f, -40.25f);
+    e.tag = "Player";
     e.active = false;
     e.transform.width = 64.0f;
     e.transform.height = 32.0f;
@@ -64,6 +65,9 @@ TEST(RoundTrip_PreservesEntityData) {
     const Entity& r = loaded.GetEntities()[0];
     CHECK_EQ(r.id, e.id);
     CHECK_EQ(r.name, std::string("Hero"));
+    CHECK_EQ(r.tag, std::string("Player"));
+    CHECK(r.HasTag("Player"));
+    CHECK(!r.HasTag("Enemy"));
     CHECK(!r.active);
     CHECK_NEAR(r.transform.x, 12.5, 0.01);
     CHECK_NEAR(r.transform.y, -40.25, 0.01);
@@ -308,6 +312,104 @@ TEST(Trigger_DetectsOverlapAndEmitsEnterStayExitWithoutBlockingMovement) {
     CHECK_EQ(enterCount, 1);
     CHECK_EQ(stayCount, 1);
     CHECK_EQ(exitCount, 1);
+}
+
+TEST(TagsAndCollisionEvents_NotifiesScriptsWithEnterStayExitAndTagQueries) {
+    Scene scene;
+
+    Entity& player = scene.CreateEntity("Hero", 0.0f, 100.0f);
+    player.tag = "Player";
+    player.transform.width = 40.0f;
+    player.transform.height = 40.0f;
+    player.collider.enabled = true;
+    player.collider.isSolid = true;
+    player.collider.isStatic = false;
+    player.movement.enabled = true;
+    EntityID playerId = player.id;
+
+    Entity& enemyA = scene.CreateEntity("GoblinA", 100.0f, 100.0f);
+    enemyA.tag = "Enemy";
+    enemyA.transform.width = 40.0f;
+    enemyA.transform.height = 40.0f;
+    enemyA.collider.enabled = true;
+    enemyA.collider.isSolid = true;
+    enemyA.collider.isStatic = true;
+    EntityID enemyAId = enemyA.id;
+
+    Entity& enemyB = scene.CreateEntity("GoblinB", 300.0f, 100.0f);
+    enemyB.tag = "Enemy";
+    enemyB.transform.width = 40.0f;
+    enemyB.transform.height = 40.0f;
+
+    Entity& coinTrigger = scene.CreateEntity("GoldCoin", 70.0f, 100.0f);
+    coinTrigger.tag = "Coin";
+    coinTrigger.transform.width = 40.0f;
+    coinTrigger.transform.height = 40.0f;
+    coinTrigger.collider.enabled = true;
+    coinTrigger.collider.isTrigger = true;
+    EntityID coinId = coinTrigger.id;
+
+    // Verify tag lookup helpers
+    CHECK(scene.FindEntityByTag("Player") != nullptr);
+    CHECK_EQ(scene.FindEntityByTag("Player")->id, playerId);
+    CHECK(scene.FindEntityByTag("NonExistent") == nullptr);
+    CHECK_EQ(scene.FindEntitiesByTag("Enemy").size(), static_cast<size_t>(2));
+
+    int colEnter = 0, colStay = 0, colExit = 0;
+    std::string lastTagA, lastTagB;
+    scene.SetCollisionCallback([&](Entity& a, Entity& b, const CollisionEvent& ev) {
+        (void)a;
+        (void)b;
+        if (ev.state == CollisionEventState::Enter) ++colEnter;
+        else if (ev.state == CollisionEventState::Stay) ++colStay;
+        else if (ev.state == CollisionEventState::Exit) ++colExit;
+        lastTagA = ev.entityATag;
+        lastTagB = ev.entityBTag;
+    });
+
+    // Step 1: Separated -> no solid collision or trigger overlap with Player
+    scene.Update(0.0f);
+    CHECK(!scene.IsColliding(playerId));
+    CHECK(!scene.IsCollidingWithTag(playerId, "Enemy"));
+    CHECK_EQ(colEnter, 0);
+
+    // Step 2: Move Player to overlap EnemyA (and Coin trigger) at x = 80 -> Enter event
+    Entity* pPtr = scene.FindEntityById(playerId);
+    pPtr->transform.x = 80.0f;
+    scene.Update(0.0f);
+    CHECK(scene.IsColliding(playerId, enemyAId));
+    CHECK(scene.IsCollidingWithTag(playerId, "Enemy"));
+    CHECK(!scene.IsCollidingWithTag(playerId, "Wall"));
+    CHECK(scene.IsTriggerOverlappingWithTag(coinId, "Player"));
+    CHECK(scene.IsTriggerOverlappingWithTag(playerId, "Coin"));
+    CHECK_EQ(scene.GetCollisionEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetCollisionEvents()[0].state == CollisionEventState::Enter);
+    CHECK_EQ(lastTagA, std::string("Player"));
+    CHECK_EQ(lastTagB, std::string("Enemy"));
+    CHECK_EQ(colEnter, 1);
+    CHECK_EQ(colStay, 0);
+    CHECK_EQ(colExit, 0);
+
+    // Step 3: Move Player into EnemyA again in the next frame -> Stay event
+    pPtr->transform.x = 80.0f;
+    scene.Update(0.0f);
+    CHECK(scene.IsCollidingWithTag(playerId, "Enemy"));
+    CHECK_EQ(scene.GetCollisionEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetCollisionEvents()[0].state == CollisionEventState::Stay);
+    CHECK_EQ(colEnter, 1);
+    CHECK_EQ(colStay, 1);
+    CHECK_EQ(colExit, 0);
+
+    // Step 4: Move Player far away (x = 0) -> Exit event
+    pPtr->transform.x = 0.0f;
+    scene.Update(0.0f);
+    CHECK(!scene.IsColliding(playerId));
+    CHECK(!scene.IsCollidingWithTag(playerId, "Enemy"));
+    CHECK_EQ(scene.GetCollisionEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetCollisionEvents()[0].state == CollisionEventState::Exit);
+    CHECK_EQ(colEnter, 1);
+    CHECK_EQ(colStay, 1);
+    CHECK_EQ(colExit, 1);
 }
 
 TEST_MAIN()

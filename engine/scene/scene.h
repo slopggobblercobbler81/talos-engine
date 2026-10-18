@@ -9,8 +9,35 @@
 namespace Talos::Scene {
 
     // =========================================================================
-    // Trigger / Sensor Overlap Events (Layer 3: Scene & Entity -> Scripting)
+    // Solid Collision & Trigger / Sensor Events (Layer 3: Scene -> Scripting)
     // =========================================================================
+    // Lifecycle phase of a solid physical collision between two colliders.
+    enum class CollisionEventState {
+        Enter = 0, // First frame of physical contact between two solid colliders
+        Stay  = 1, // Subsequent frames while the two solid colliders remain in contact
+        Exit  = 2  // First frame after the two solid colliders separate
+    };
+
+    // Event record generated during Scene::Update for solid physical collisions.
+    // Automatically dispatched to the Scripting layer and gameplay listeners.
+    struct CollisionEvent {
+        EntityID entityAId = 0;
+        EntityID entityBId = 0;
+        std::string entityAName;
+        std::string entityBName;
+        std::string entityATag;
+        std::string entityBTag;
+        float normalX = 0.0f;       // Contact normal X pointing from Entity A toward Entity B
+        float normalY = 0.0f;       // Contact normal Y pointing from Entity A toward Entity B
+        float penetration = 0.0f;   // Penetration depth prior to MTV separation
+        float contactX = 0.0f;      // World-space contact point X
+        float contactY = 0.0f;      // World-space contact point Y
+        CollisionEventState state = CollisionEventState::Enter;
+    };
+
+    // Callback signature used by the Scripting layer or gameplay listeners to receive collision events.
+    using CollisionCallback = std::function<void(Entity& entityA, Entity& entityB, const CollisionEvent& event)>;
+
     // Lifecycle phase of a non-blocking Trigger (isTrigger == true) overlap.
     enum class TriggerEventState {
         Enter = 0, // First frame of overlap between a trigger collider and another collider
@@ -24,6 +51,8 @@ namespace Talos::Scene {
         EntityID otherId   = 0;
         std::string triggerName;
         std::string otherName;
+        std::string triggerTag;
+        std::string otherTag;
         TriggerEventState state = TriggerEventState::Enter;
     };
 
@@ -87,8 +116,22 @@ namespace Talos::Scene {
         // Used prior to loading a scene file from disk.
         void Clear();
 
-        // Clears transient runtime trigger overlap state (called on Play/Stop transitions).
+        // Clears transient runtime collision and trigger overlap state (called on Play/Stop transitions).
         void ResetTriggerState();
+        void ResetCollisionState();
+
+        // Registers a callback invoked whenever two solid colliders enter, stay in, or exit physical contact.
+        void SetCollisionCallback(CollisionCallback callback);
+
+        // Returns the list of solid CollisionEvents (Enter / Stay / Exit) emitted during the latest Update() step.
+        const std::vector<CollisionEvent>& GetCollisionEvents() const { return m_frameCollisionEvents; }
+
+        // Returns true if 'entityAId' is currently in physical contact with 'entityBId'
+        // (or any solid collider when entityBId == 0).
+        bool IsColliding(EntityID entityAId, EntityID entityBId = 0) const;
+
+        // Returns true if 'entityId' is currently in physical contact with any solid collider carrying 'targetTag'.
+        bool IsCollidingWithTag(EntityID entityId, const std::string& targetTag) const;
 
         // Registers a callback invoked whenever a Trigger (isTrigger) enters, stays, or exits overlap.
         void SetTriggerCallback(TriggerCallback callback);
@@ -100,11 +143,22 @@ namespace Talos::Scene {
         // (or any collider when otherId == 0).
         bool IsTriggerOverlapping(EntityID triggerId, EntityID otherId = 0) const;
 
+        // Returns true if the given trigger entity is currently overlapping any collider carrying 'targetTag'.
+        bool IsTriggerOverlappingWithTag(EntityID triggerId, const std::string& targetTag) const;
+
         // Path-independent lookup by name. Unlike hierarchical NodePath systems,
         // finding an entity by name never breaks if the scene order is reorganized.
         // Returns nullptr if no entity with that name exists.
         Entity* FindEntity(const std::string& name);
         const Entity* FindEntity(const std::string& name) const;
+
+        // Fast lookup by gameplay category tag (e.g., "Player", "Enemy", "Coin").
+        // FindEntityByTag returns the first active entity matching the tag (or nullptr).
+        // FindEntitiesByTag returns all active entities matching the tag.
+        Entity* FindEntityByTag(const std::string& tag);
+        const Entity* FindEntityByTag(const std::string& tag) const;
+        std::vector<Entity*> FindEntitiesByTag(const std::string& tag);
+        std::vector<const Entity*> FindEntitiesByTag(const std::string& tag) const;
 
         // Fast lookup by unique numeric identifier. Returns nullptr if not found.
         Entity* FindEntityById(EntityID id);
@@ -141,11 +195,27 @@ namespace Talos::Scene {
         const SceneDiagnostics& GetDiagnostics() const { return m_diagnostics; }
 
     private:
+        struct ActiveCollisionPair {
+            EntityID entityAId = 0;
+            EntityID entityBId = 0;
+            std::string entityAName;
+            std::string entityBName;
+            std::string entityATag;
+            std::string entityBTag;
+            float normalX = 0.0f;
+            float normalY = 0.0f;
+            float penetration = 0.0f;
+            float contactX = 0.0f;
+            float contactY = 0.0f;
+        };
+
         struct ActiveTriggerOverlap {
             EntityID triggerId = 0;
             EntityID otherId   = 0;
             std::string triggerName;
             std::string otherName;
+            std::string triggerTag;
+            std::string otherTag;
         };
 
         // Contiguous storage in memory for cache-friendly iteration every frame.
@@ -154,13 +224,22 @@ namespace Talos::Scene {
         // Monotonically increasing counter guaranteeing unique EntityIDs.
         EntityID m_nextId = 1;
 
+        // Active solid collision contacts from the previous simulation step (used to compute Enter/Stay/Exit).
+        std::vector<ActiveCollisionPair> m_activeCollisions;
+
+        // Solid collision events emitted during the most recent Update() call.
+        std::vector<CollisionEvent> m_frameCollisionEvents;
+
+        // Optional listener hook for Scripting / gameplay systems on solid collisions.
+        CollisionCallback m_collisionCallback;
+
         // Active trigger overlaps from the previous simulation step (used to compute Enter/Stay/Exit).
         std::vector<ActiveTriggerOverlap> m_activeTriggerOverlaps;
 
         // Trigger events emitted during the most recent Update() call.
         std::vector<TriggerOverlapEvent> m_frameTriggerEvents;
 
-        // Optional listener hook for Scripting / gameplay systems.
+        // Optional listener hook for Scripting / gameplay systems on trigger overlaps.
         TriggerCallback m_triggerCallback;
 
         // Live per-component diagnostic metrics updated during Update() and Render().

@@ -58,11 +58,53 @@ namespace Talos::Scene {
         m_entities.clear();
         m_nextId = 1;
         ResetTriggerState();
+        ResetCollisionState();
     }
 
     void Scene::ResetTriggerState() {
         m_activeTriggerOverlaps.clear();
         m_frameTriggerEvents.clear();
+        ResetCollisionState();
+    }
+
+    void Scene::ResetCollisionState() {
+        m_activeCollisions.clear();
+        m_frameCollisionEvents.clear();
+    }
+
+    void Scene::SetCollisionCallback(CollisionCallback callback) {
+        m_collisionCallback = std::move(callback);
+    }
+
+    bool Scene::IsColliding(EntityID entityAId, EntityID entityBId) const {
+        for (const auto& active : m_activeCollisions) {
+            bool matchesA = (active.entityAId == entityAId);
+            bool matchesB = (active.entityBId == entityAId);
+            if (!matchesA && !matchesB) {
+                continue;
+            }
+            if (entityBId == 0) {
+                return true;
+            }
+            EntityID partnerId = matchesA ? active.entityBId : active.entityAId;
+            if (partnerId == entityBId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Scene::IsCollidingWithTag(EntityID entityId, const std::string& targetTag) const {
+        if (targetTag.empty()) return false;
+        for (const auto& active : m_activeCollisions) {
+            if (active.entityAId == entityId && active.entityBTag == targetTag) {
+                return true;
+            }
+            if (active.entityBId == entityId && active.entityATag == targetTag) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void Scene::SetTriggerCallback(TriggerCallback callback) {
@@ -72,6 +114,19 @@ namespace Talos::Scene {
     bool Scene::IsTriggerOverlapping(EntityID triggerId, EntityID otherId) const {
         for (const auto& active : m_activeTriggerOverlaps) {
             if (active.triggerId == triggerId && (otherId == 0 || active.otherId == otherId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Scene::IsTriggerOverlappingWithTag(EntityID triggerId, const std::string& targetTag) const {
+        if (targetTag.empty()) return false;
+        for (const auto& active : m_activeTriggerOverlaps) {
+            if (active.triggerId == triggerId && active.otherTag == targetTag) {
+                return true;
+            }
+            if (active.otherId == triggerId && active.triggerTag == targetTag) {
                 return true;
             }
         }
@@ -94,6 +149,48 @@ namespace Talos::Scene {
             }
         }
         return nullptr;
+    }
+
+    Entity* Scene::FindEntityByTag(const std::string& tag) {
+        if (tag.empty()) return nullptr;
+        for (auto& entity : m_entities) {
+            if (entity.active && entity.tag == tag) {
+                return &entity;
+            }
+        }
+        return nullptr;
+    }
+
+    const Entity* Scene::FindEntityByTag(const std::string& tag) const {
+        if (tag.empty()) return nullptr;
+        for (const auto& entity : m_entities) {
+            if (entity.active && entity.tag == tag) {
+                return &entity;
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<Entity*> Scene::FindEntitiesByTag(const std::string& tag) {
+        std::vector<Entity*> matches;
+        if (tag.empty()) return matches;
+        for (auto& entity : m_entities) {
+            if (entity.active && entity.tag == tag) {
+                matches.push_back(&entity);
+            }
+        }
+        return matches;
+    }
+
+    std::vector<const Entity*> Scene::FindEntitiesByTag(const std::string& tag) const {
+        std::vector<const Entity*> matches;
+        if (tag.empty()) return matches;
+        for (const auto& entity : m_entities) {
+            if (entity.active && entity.tag == tag) {
+                matches.push_back(&entity);
+            }
+        }
+        return matches;
     }
 
     Entity* Scene::FindEntityById(EntityID id) {
@@ -315,6 +412,8 @@ namespace Talos::Scene {
         auto tColStart = Clock::now();
         constexpr int SOLVER_ITERATIONS = 3;
         const size_t entityCount = m_entities.size();
+        m_frameCollisionEvents.clear();
+        std::vector<ActiveCollisionPair> currentCollisions;
 
         for (int iter = 0; iter < SOLVER_ITERATIONS; ++iter) {
             bool anyCollisionInPass = false;
@@ -350,6 +449,30 @@ namespace Talos::Scene {
                     }
 
                     anyCollisionInPass = true;
+
+                    // Record unique colliding pair for this frame (using the initial contact manifold)
+                    bool alreadyRecordedInFrame = false;
+                    for (const auto& rec : currentCollisions) {
+                        if (rec.entityAId == eA.id && rec.entityBId == eB.id) {
+                            alreadyRecordedInFrame = true;
+                            break;
+                        }
+                    }
+                    if (!alreadyRecordedInFrame) {
+                        currentCollisions.push_back({
+                            eA.id,
+                            eB.id,
+                            eA.name,
+                            eB.name,
+                            eA.tag,
+                            eB.tag,
+                            manifold.normalX,
+                            manifold.normalY,
+                            manifold.penetration,
+                            manifold.contactX,
+                            manifold.contactY
+                        });
+                    }
 
                     PhysicsBodyState bodyA = {
                         eA.transform.x,
@@ -394,6 +517,93 @@ namespace Talos::Scene {
             }
         }
 
+        auto formatNameAndTag = [](const std::string& name, const std::string& tag) -> std::string {
+            if (tag.empty()) {
+                return "'" + name + "'";
+            }
+            return "'" + name + "' [" + tag + "]";
+        };
+
+        // Emit Enter & Stay events for solid collision contacts in this frame
+        for (const auto& cur : currentCollisions) {
+            bool wasActive = false;
+            for (const auto& prev : m_activeCollisions) {
+                if (prev.entityAId == cur.entityAId && prev.entityBId == cur.entityBId) {
+                    wasActive = true;
+                    break;
+                }
+            }
+
+            CollisionEventState state = wasActive ? CollisionEventState::Stay : CollisionEventState::Enter;
+            CollisionEvent ev = {
+                cur.entityAId,
+                cur.entityBId,
+                cur.entityAName,
+                cur.entityBName,
+                cur.entityATag,
+                cur.entityBTag,
+                cur.normalX,
+                cur.normalY,
+                cur.penetration,
+                cur.contactX,
+                cur.contactY,
+                state
+            };
+            m_frameCollisionEvents.push_back(ev);
+
+            if (state == CollisionEventState::Enter) {
+                TALOS_LOG_INFO("[Collision] " + formatNameAndTag(cur.entityAName, cur.entityATag) +
+                               " collided with " + formatNameAndTag(cur.entityBName, cur.entityBTag));
+            }
+
+            if (m_collisionCallback) {
+                Entity* entA = FindEntityById(cur.entityAId);
+                Entity* entB = FindEntityById(cur.entityBId);
+                if (entA && entB) {
+                    m_collisionCallback(*entA, *entB, m_frameCollisionEvents.back());
+                }
+            }
+        }
+
+        // Emit Exit events for solid collision pairs that separated on this frame
+        for (const auto& prev : m_activeCollisions) {
+            bool stillActive = false;
+            for (const auto& cur : currentCollisions) {
+                if (cur.entityAId == prev.entityAId && cur.entityBId == prev.entityBId) {
+                    stillActive = true;
+                    break;
+                }
+            }
+
+            if (!stillActive) {
+                CollisionEvent ev = {
+                    prev.entityAId,
+                    prev.entityBId,
+                    prev.entityAName,
+                    prev.entityBName,
+                    prev.entityATag,
+                    prev.entityBTag,
+                    prev.normalX,
+                    prev.normalY,
+                    0.0f,
+                    prev.contactX,
+                    prev.contactY,
+                    CollisionEventState::Exit
+                };
+                m_frameCollisionEvents.push_back(ev);
+
+                if (m_collisionCallback) {
+                    Entity* entA = FindEntityById(prev.entityAId);
+                    Entity* entB = FindEntityById(prev.entityBId);
+                    if (entA && entB) {
+                        m_collisionCallback(*entA, *entB, m_frameCollisionEvents.back());
+                    }
+                }
+            }
+        }
+
+        m_activeCollisions = std::move(currentCollisions);
+
         // =====================================================================
         // 3b. Sensor / Trigger Overlap Detection & Event Dispatch (isTrigger)
         //     Detects Box/Circle overlaps without blocking physical movement
@@ -432,10 +642,10 @@ namespace Talos::Scene {
                 }
 
                 if (eA.collider.isTrigger) {
-                    currentOverlaps.push_back({ eA.id, eB.id, eA.name, eB.name });
+                    currentOverlaps.push_back({ eA.id, eB.id, eA.name, eB.name, eA.tag, eB.tag });
                 }
                 if (eB.collider.isTrigger) {
-                    currentOverlaps.push_back({ eB.id, eA.id, eB.name, eA.name });
+                    currentOverlaps.push_back({ eB.id, eA.id, eB.name, eA.name, eB.tag, eA.tag });
                 }
             }
         }
@@ -451,10 +661,13 @@ namespace Talos::Scene {
             }
 
             TriggerEventState state = wasActive ? TriggerEventState::Stay : TriggerEventState::Enter;
-            m_frameTriggerEvents.push_back({ cur.triggerId, cur.otherId, cur.triggerName, cur.otherName, state });
+            m_frameTriggerEvents.push_back({
+                cur.triggerId, cur.otherId, cur.triggerName, cur.otherName, cur.triggerTag, cur.otherTag, state
+            });
 
             if (state == TriggerEventState::Enter) {
-                TALOS_LOG_INFO("[Trigger] '" + cur.otherName + "' entered trigger '" + cur.triggerName + "'");
+                TALOS_LOG_INFO("[Trigger] " + formatNameAndTag(cur.otherName, cur.otherTag) +
+                               " entered trigger " + formatNameAndTag(cur.triggerName, cur.triggerTag));
             }
 
             if (m_triggerCallback) {
@@ -478,9 +691,11 @@ namespace Talos::Scene {
 
             if (!stillActive) {
                 m_frameTriggerEvents.push_back({
-                    prev.triggerId, prev.otherId, prev.triggerName, prev.otherName, TriggerEventState::Exit
+                    prev.triggerId, prev.otherId, prev.triggerName, prev.otherName,
+                    prev.triggerTag, prev.otherTag, TriggerEventState::Exit
                 });
-                TALOS_LOG_INFO("[Trigger] '" + prev.otherName + "' exited trigger '" + prev.triggerName + "'");
+                TALOS_LOG_INFO("[Trigger] " + formatNameAndTag(prev.otherName, prev.otherTag) +
+                               " exited trigger " + formatNameAndTag(prev.triggerName, prev.triggerTag));
 
                 if (m_triggerCallback) {
                     Entity* trigEnt  = FindEntityById(prev.triggerId);
@@ -623,7 +838,7 @@ namespace Talos::Scene {
 
         for (size_t i = 0; i < m_entities.size(); ++i) {
             const Entity& entity = m_entities[i];
-            entityNameHeapBytes += entity.name.capacity();
+            entityNameHeapBytes += entity.name.capacity() + entity.tag.capacity();
             spriteHeapBytes     += entity.sprite.texturePath.capacity();
             textHeapBytes       += entity.text.content.capacity();
             cameraHeapBytes     += entity.camera.targetName.capacity();
