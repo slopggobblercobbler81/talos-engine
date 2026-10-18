@@ -25,6 +25,8 @@ namespace Talos::Scene {
         TextComponent text;
         ColliderComponent collider;
         MovementComponent movement;
+        CameraComponent camera;
     };
 
 }
+

@@ -56,7 +56,7 @@ namespace Talos::Editor {
         float boxX = LEFT_PANEL_WIDTH + 10.0f;
         float boxY = TOOLBAR_HEIGHT + 10.0f;
         float boxW = std::min(680.0f, static_cast<float>(vpW) - 20.0f);
-        float boxH = 222.0f;
+        float boxH = 244.0f;
 
         Renderer2D::DrawRect(boxX, boxY, boxW, boxH, { 14, 16, 22, 232 });
         Renderer2D::DrawRectOutline(boxX, boxY, boxW, boxH, 1.0f, { 70, 130, 180, 220 });
@@ -116,10 +116,11 @@ namespace Talos::Editor {
             ColorRGBA accent;
         };
 
-        const RowEntry rows[5] = {
+        const RowEntry rows[6] = {
             { "Transform 2D", &diag.transform, "bounds", { 95,  195, 255, 255 } },
             { "Movement 2D",  &diag.movement,  "moving", { 105, 230, 145, 255 } },
             { "Collider 2D",  &diag.collider,  "AABB",   { 250, 200, 75,  255 } },
+            { "Camera 2D",    &diag.camera,    "tracks", { 110, 225, 215, 255 } },
             { "Sprite 2D",    &diag.sprite,    "draws",  { 245, 130, 95,  255 } },
             { "Text Label",   &diag.text,      "draws",  { 195, 135, 255, 255 } }
         };
@@ -127,6 +128,7 @@ namespace Talos::Editor {
         double totalCompCpuUs = diag.transform.cpuTimeUs +
                                 diag.movement.cpuTimeUs +
                                 diag.collider.cpuTimeUs +
+                                diag.camera.cpuTimeUs +
                                 diag.sprite.cpuTimeUs +
                                 diag.text.cpuTimeUs;
         size_t totalActiveRam = 0;
@@ -136,7 +138,7 @@ namespace Talos::Editor {
         float rowY = colHeaderY + 21.0f;
         constexpr float rowH = 22.0f;
 
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < 6; ++i) {
             const RowEntry& r = rows[i];
             const ComponentDiagnostics& cd = *r.data;
 
@@ -217,11 +219,12 @@ namespace Talos::Editor {
 
         // 5. Selected Entity Exact Per-Component Breakdown Row
         Renderer2D::DrawRect(boxX + 4.0f, rowY, boxW - 8.0f, 22.0f, { 22, 26, 36, 235 });
-        const Entity* sel = const_cast<Scene::Scene&>(scene).FindEntityById(selectedEntityId);
+        const Entity* sel = scene.FindEntityById(selectedEntityId);
         if (sel) {
             size_t tRam = sizeof(TransformComponent);
             size_t mRam = sizeof(MovementComponent);
             size_t cRam = sizeof(ColliderComponent);
+            size_t camRam = sizeof(CameraComponent) + sel->camera.targetName.capacity();
             size_t sRam = sizeof(SpriteComponent) + sel->sprite.texturePath.capacity();
             size_t xRam = sizeof(TextComponent)   + sel->text.content.capacity();
             size_t sVram = (sel->sprite.enabled && !sel->sprite.texturePath.empty())
@@ -235,14 +238,15 @@ namespace Talos::Editor {
             FormatBytes(sVram, sVramStr, sizeof(sVramStr));
             FormatBytes(xVram, xVramStr, sizeof(xVramStr));
 
-            char entityLine[220];
+            char entityLine[240];
             std::snprintf(
                 entityLine, sizeof(entityLine),
-                "Entity '%s' (#%u): Trans %zuB | Move %zuB(%s) | Coll %zuB(%s) | Sprite %zuB+%s VRAM(%s) | Text %zuB+%s(%s)",
+                "Entity '%s' (#%u): Trans %zuB | Move %zuB(%s) | Coll %zuB(%s) | Cam %zuB(%s) | Sprite %zuB+%s(%s) | Text %zuB+%s(%s)",
                 sel->name.c_str(), sel->id,
                 tRam,
                 mRam, sel->movement.enabled ? "ON" : "OFF",
                 cRam, sel->collider.enabled ? "ON" : "OFF",
+                camRam, sel->camera.enabled ? "ON" : "OFF",
                 sRam, sVramStr, sel->sprite.enabled ? "ON" : "OFF",
                 xRam, xVramStr, sel->text.enabled   ? "ON" : "OFF"
             );

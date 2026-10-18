@@ -234,8 +234,20 @@ namespace Talos::Editor {
         int vpW = windowWidth - static_cast<int>(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH);
         int vpH = windowHeight - static_cast<int>(TOOLBAR_HEIGHT + consoleHeight);
 
+        Camera2DView activeCamera = m_camera;
+        bool usingRuntimeCamera = false;
+        if (isPlaying) {
+            usingRuntimeCamera = scene.ResolveRuntimeCamera(
+                static_cast<float>(vpX),
+                static_cast<float>(vpY),
+                static_cast<float>(vpW),
+                static_cast<float>(vpH),
+                activeCamera
+            );
+        }
+
         Renderer2D::BeginViewportScissor(vpX, vpY, vpW, vpH);
-        Renderer2D::BeginCamera2D(m_camera);
+        Renderer2D::BeginCamera2D(activeCamera);
 
         if (!isPlaying) {
             RenderGrid(windowWidth, windowHeight, consoleHeight);
@@ -244,10 +256,40 @@ namespace Talos::Editor {
         scene.Render();
 
         if (!isPlaying) {
-            RenderSelectionGizmo(scene, selectedEntityId);
+            RenderSelectionGizmo(scene, selectedEntityId, vpW, vpH);
         }
 
         Renderer2D::EndCamera2D();
+
+        // In Play Mode, display a compact Runtime Camera status badge in the bottom-left of the viewport
+        if (isPlaying) {
+            const Entity* camEntity = scene.FindActiveCameraEntity();
+            float badgeX = static_cast<float>(vpX) + 12.0f;
+            float badgeY = static_cast<float>(vpY + vpH) - 34.0f;
+            char camInfo[112];
+            if (camEntity && usingRuntimeCamera) {
+                const char* modeStr = !camEntity->camera.followTarget
+                    ? "Fixed"
+                    : (camEntity->camera.smoothFollow ? "Smooth Follow" : "Instant Follow");
+                const char* targetStr = (!camEntity->camera.followTarget)
+                    ? camEntity->name.c_str()
+                    : ((camEntity->camera.targetName.empty() || camEntity->camera.targetName == "Self")
+                        ? camEntity->name.c_str()
+                        : camEntity->camera.targetName.c_str());
+                std::snprintf(camInfo, sizeof(camInfo),
+                              "RUNTIME CAMERA: %s -> %s [%s | %.0f%%]",
+                              camEntity->name.c_str(), targetStr, modeStr,
+                              camEntity->camera.zoom * 100.0f);
+            } else {
+                std::snprintf(camInfo, sizeof(camInfo), "RUNTIME CAMERA: None (Using Editor View)");
+            }
+            int textW = Renderer2D::MeasureTextWidth(camInfo, 14);
+            float pillW = static_cast<float>(textW) + 20.0f;
+            Renderer2D::DrawRect(badgeX, badgeY, pillW, 24.0f, { 16, 20, 28, 215 });
+            Renderer2D::DrawRectOutline(badgeX, badgeY, pillW, 24.0f, 1.0f, { 80, 195, 215, 200 });
+            Renderer2D::DrawLabel(camInfo, badgeX + 10.0f, badgeY + 5.0f, 14, { 120, 235, 225, 255 });
+        }
+
         Renderer2D::EndViewportScissor();
     }
 
@@ -279,8 +321,12 @@ namespace Talos::Editor {
         }
     }
 
-    void CanvasViewport::RenderSelectionGizmo(const Scene::Scene& scene, Scene::EntityID selectedEntityId) const {
+    void CanvasViewport::RenderSelectionGizmo(const Scene::Scene& scene,
+                                              Scene::EntityID selectedEntityId,
+                                              int vpW,
+                                              int vpH) const {
         float invZoom = (m_camera.zoom > 0.01f) ? (1.0f / m_camera.zoom) : 1.0f;
+        const Entity* activeCamEntity = scene.FindActiveCameraEntity();
 
         for (const auto& e : scene.GetEntities()) {
             if (!e.active) continue;
@@ -291,9 +337,58 @@ namespace Talos::Editor {
                     std::max(1.0f, 1.0f * invZoom), { 75, 220, 120, 140 }
                 );
             }
+
+            // Render Runtime Camera 2D Frustum Gizmo in Edit Mode
+            if (e.camera.enabled && vpW > 0 && vpH > 0) {
+                const Entity* target = &e;
+                if (e.camera.followTarget && !e.camera.targetName.empty() && e.camera.targetName != "Self") {
+                    const Entity* found = scene.FindEntity(e.camera.targetName);
+                    if (found && found->active) {
+                        target = found;
+                    }
+                }
+
+                float camCenterX = target->transform.x + target->transform.width * 0.5f + e.camera.offsetX;
+                float camCenterY = target->transform.y + target->transform.height * 0.5f + e.camera.offsetY;
+                float camZoom = std::max(0.20f, std::min(5.00f, e.camera.zoom));
+
+                float frustumW = static_cast<float>(vpW) / camZoom;
+                float frustumH = static_cast<float>(vpH) / camZoom;
+                float frustumX = camCenterX - frustumW * 0.5f;
+                float frustumY = camCenterY - frustumH * 0.5f;
+
+                bool isActivePrimary = (activeCamEntity && activeCamEntity->id == e.id);
+                ColorRGBA camColor = isActivePrimary
+                    ? ColorRGBA{ 90, 225, 245, 210 }
+                    : ColorRGBA{ 130, 165, 195, 145 };
+
+                Renderer2D::DrawRectOutline(
+                    frustumX, frustumY, frustumW, frustumH,
+                    std::max(1.5f, 1.8f * invZoom), camColor
+                );
+
+                // Center lens crosshair at (camCenterX, camCenterY)
+                float crossArm = 10.0f * invZoom;
+                Renderer2D::DrawLine2D(camCenterX - crossArm, camCenterY, camCenterX + crossArm, camCenterY, camColor);
+                Renderer2D::DrawLine2D(camCenterX, camCenterY - crossArm, camCenterX, camCenterY + crossArm, camColor);
+
+                // Guide line from owning entity center to camera framing center when offset or external target is used
+                float ownerCenterX = e.transform.x + e.transform.width * 0.5f;
+                float ownerCenterY = e.transform.y + e.transform.height * 0.5f;
+                if (std::fabs(camCenterX - ownerCenterX) > 1.0f || std::fabs(camCenterY - ownerCenterY) > 1.0f) {
+                    Renderer2D::DrawLine2D(ownerCenterX, ownerCenterY, camCenterX, camCenterY, { 90, 225, 245, 120 });
+                }
+
+                char camTag[64];
+                std::snprintf(camTag, sizeof(camTag), "CAM: %s (%s %.0f%%)",
+                              e.name.c_str(),
+                              e.camera.followTarget ? "Follow" : "Fixed",
+                              camZoom * 100.0f);
+                Renderer2D::DrawLabel(camTag, frustumX + 6.0f * invZoom, frustumY + 5.0f * invZoom, 14, camColor);
+            }
         }
 
-        const Entity* selected = const_cast<Scene::Scene&>(scene).FindEntityById(selectedEntityId);
+        const Entity* selected = scene.FindEntityById(selectedEntityId);
         if (!selected || !selected->active) return;
 
         float bx = selected->transform.x;

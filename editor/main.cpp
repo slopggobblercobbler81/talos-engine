@@ -60,6 +60,13 @@ int main() {
         player.movement.enabled = true;
         player.movement.playerControlled = true;
         player.movement.speed = 320.0f;
+        player.camera.enabled = true;
+        player.camera.isPrimary = true;
+        player.camera.followTarget = true;
+        player.camera.smoothFollow = true;
+        player.camera.targetName = "Player";
+        player.camera.followSpeed = 8.0f;
+        player.camera.zoom = 1.0f;
         player.text.enabled = true;
         player.text.content = "Player";
         player.text.fontSize = 18;

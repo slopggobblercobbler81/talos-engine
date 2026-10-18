@@ -53,13 +53,21 @@ namespace Talos::Editor {
 
             Renderer2D::DrawLabel(entity.name.c_str(), 40.0f, rowY + 7.0f, 16, { 235, 235, 240, 255 });
 
-            // Render compact SortingLayer + Z-Order badge aligned to the right edge of the row
-            char depthBadge[32];
-            std::snprintf(depthBadge, sizeof(depthBadge), "%s Z:%d",
-                          Scene::SortingLayer::GetShortName(entity.sprite.sortingLayer),
-                          entity.sprite.zOrder);
+            // Render compact Camera + SortingLayer + Z-Order badge aligned to the right edge of the row
+            char depthBadge[40];
+            if (entity.camera.enabled) {
+                std::snprintf(depthBadge, sizeof(depthBadge), "CAM %s Z:%d",
+                              Scene::SortingLayer::GetShortName(entity.sprite.sortingLayer),
+                              entity.sprite.zOrder);
+            } else {
+                std::snprintf(depthBadge, sizeof(depthBadge), "%s Z:%d",
+                              Scene::SortingLayer::GetShortName(entity.sprite.sortingLayer),
+                              entity.sprite.zOrder);
+            }
             int badgeW = Renderer2D::MeasureTextWidth(depthBadge, 13);
-            ColorRGBA badgeColor = isSelected ? ColorRGBA{ 215, 235, 255, 255 } : ColorRGBA{ 130, 142, 168, 220 };
+            ColorRGBA badgeColor = isSelected
+                ? ColorRGBA{ 215, 235, 255, 255 }
+                : (entity.camera.enabled ? ColorRGBA{ 110, 225, 215, 230 } : ColorRGBA{ 130, 142, 168, 220 });
             Renderer2D::DrawLabel(depthBadge, LEFT_PANEL_WIDTH - 16.0f - static_cast<float>(badgeW), rowY + 8.0f, 13, badgeColor);
 
             if (isHovered && Input::IsMouseButtonPressed(MouseButton::Left)) {

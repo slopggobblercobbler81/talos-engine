@@ -4,6 +4,7 @@
 #include "renderer/renderer2d.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <unordered_set>
 
 namespace Talos::Scene {
@@ -66,6 +67,15 @@ namespace Talos::Scene {
         return nullptr;
     }
 
+    const Entity* Scene::FindEntity(const std::string& name) const {
+        for (const auto& entity : m_entities) {
+            if (entity.name == name) {
+                return &entity;
+            }
+        }
+        return nullptr;
+    }
+
     Entity* Scene::FindEntityById(EntityID id) {
         for (auto& entity : m_entities) {
             if (entity.id == id) {
@@ -73,6 +83,65 @@ namespace Talos::Scene {
             }
         }
         return nullptr;
+    }
+
+    const Entity* Scene::FindEntityById(EntityID id) const {
+        for (const auto& entity : m_entities) {
+            if (entity.id == id) {
+                return &entity;
+            }
+        }
+        return nullptr;
+    }
+
+    const Entity* Scene::FindActiveCameraEntity() const {
+        const Entity* fallbackCamera = nullptr;
+        for (const auto& entity : m_entities) {
+            if (!entity.active || !entity.camera.enabled) {
+                continue;
+            }
+            if (entity.camera.isPrimary) {
+                return &entity;
+            }
+            if (!fallbackCamera) {
+                fallbackCamera = &entity;
+            }
+        }
+        return fallbackCamera;
+    }
+
+    bool Scene::ResolveRuntimeCamera(float viewX,
+                                     float viewY,
+                                     float viewWidth,
+                                     float viewHeight,
+                                     Renderer::Camera2DView& outCamera) const {
+        const Entity* camEntity = FindActiveCameraEntity();
+        if (!camEntity) {
+            return false;
+        }
+
+        const CameraComponent& cam = camEntity->camera;
+        float centerX = cam.currentX;
+        float centerY = cam.currentY;
+
+        if (!cam.runtimeInitialized) {
+            const Entity* target = camEntity;
+            if (cam.followTarget && !cam.targetName.empty() && cam.targetName != "Self") {
+                const Entity* found = FindEntity(cam.targetName);
+                if (found && found->active) {
+                    target = found;
+                }
+            }
+            centerX = target->transform.x + target->transform.width * 0.5f + cam.offsetX;
+            centerY = target->transform.y + target->transform.height * 0.5f + cam.offsetY;
+        }
+
+        outCamera.targetX = centerX;
+        outCamera.targetY = centerY;
+        outCamera.offsetX = viewX + viewWidth * 0.5f;
+        outCamera.offsetY = viewY + viewHeight * 0.5f;
+        outCamera.zoom    = std::max(0.20f, std::min(5.00f, cam.zoom));
+        return true;
     }
 
     std::vector<Entity>& Scene::GetEntities() {
@@ -251,6 +320,62 @@ namespace Talos::Scene {
             transformUsAccum += std::chrono::duration<double, std::micro>(tTransYEnd - tTransYStart).count();
         }
 
+        // 3. Process CameraComponent (Fixed or Smooth Target Follow)
+        double cameraUsAccum = 0.0;
+        size_t activeCameraCount = 0;
+        size_t cameraOpsCount = 0;
+
+        for (auto& entity : m_entities) {
+            if (!entity.active || !entity.camera.enabled) {
+                continue;
+            }
+
+            auto tCamStart = Clock::now();
+            ++activeCameraCount;
+            ++cameraOpsCount;
+
+            if (entity.camera.zoom < 0.20f) {
+                entity.camera.zoom = 0.20f;
+            }
+
+            if (!entity.camera.followTarget) {
+                // Fixed Camera Mode: lock onto the camera entity's initial world center + offset
+                // on the first runtime frame so it remains stationary even if attached to a moving entity.
+                if (!entity.camera.runtimeInitialized) {
+                    entity.camera.currentX = entity.transform.x + entity.transform.width * 0.5f + entity.camera.offsetX;
+                    entity.camera.currentY = entity.transform.y + entity.transform.height * 0.5f + entity.camera.offsetY;
+                    entity.camera.runtimeInitialized = true;
+                }
+            } else {
+                // Follow Target Mode: resolve target entity ("" or "Self" follows the owning entity)
+                const Entity* target = &entity;
+                if (!entity.camera.targetName.empty() && entity.camera.targetName != "Self") {
+                    const Entity* found = FindEntity(entity.camera.targetName);
+                    if (found && found->active) {
+                        target = found;
+                    }
+                }
+
+                float desiredX = target->transform.x + target->transform.width * 0.5f + entity.camera.offsetX;
+                float desiredY = target->transform.y + target->transform.height * 0.5f + entity.camera.offsetY;
+
+                if (!entity.camera.runtimeInitialized || !entity.camera.smoothFollow || delta <= 0.0f) {
+                    entity.camera.currentX = desiredX;
+                    entity.camera.currentY = desiredY;
+                    entity.camera.runtimeInitialized = true;
+                } else {
+                    float speed = std::max(0.5f, entity.camera.followSpeed);
+                    float alpha = 1.0f - std::exp(-speed * delta);
+                    alpha = std::max(0.0f, std::min(1.0f, alpha));
+                    entity.camera.currentX += (desiredX - entity.camera.currentX) * alpha;
+                    entity.camera.currentY += (desiredY - entity.camera.currentY) * alpha;
+                }
+            }
+
+            auto tCamEnd = Clock::now();
+            cameraUsAccum += std::chrono::duration<double, std::micro>(tCamEnd - tCamStart).count();
+        }
+
         // Commit simulation component metrics to m_diagnostics
         const size_t totalCount = m_entities.size();
         m_diagnostics.totalEntities  = totalCount;
@@ -274,10 +399,17 @@ namespace Talos::Scene {
         m_diagnostics.collider.cpuTimeUs        = SmoothMicros(m_diagnostics.collider.cpuTimeUs, colliderUsAccum);
         m_diagnostics.collider.operationsCount  = aabbChecksCount;
 
+        m_diagnostics.camera.activeCount        = activeCameraCount;
+        m_diagnostics.camera.totalCount         = totalCount;
+        m_diagnostics.camera.rawCpuTimeUs       = cameraUsAccum;
+        m_diagnostics.camera.cpuTimeUs          = SmoothMicros(m_diagnostics.camera.cpuTimeUs, cameraUsAccum);
+        m_diagnostics.camera.operationsCount    = cameraOpsCount;
+
         m_diagnostics.totalUpdateUs =
             m_diagnostics.transform.cpuTimeUs +
             m_diagnostics.movement.cpuTimeUs +
-            m_diagnostics.collider.cpuTimeUs;
+            m_diagnostics.collider.cpuTimeUs +
+            m_diagnostics.camera.cpuTimeUs;
     }
 
     void Scene::Render() const {
@@ -291,6 +423,7 @@ namespace Talos::Scene {
         size_t activeTransformCnt  = 0;
         size_t activeMovementCnt   = 0;
         size_t activeColliderCnt   = 0;
+        size_t activeCameraCnt     = 0;
         size_t activeSpriteCount   = 0;
         size_t activeTextCount     = 0;
         size_t spriteDrawCalls     = 0;
@@ -300,6 +433,8 @@ namespace Talos::Scene {
         size_t activeSpriteHeap    = 0;
         size_t textHeapBytes       = 0;
         size_t activeTextHeap      = 0;
+        size_t cameraHeapBytes     = 0;
+        size_t activeCameraHeap    = 0;
         size_t entityNameHeapBytes = 0;
 
         std::unordered_set<std::string> activeTextures;
@@ -314,6 +449,7 @@ namespace Talos::Scene {
             entityNameHeapBytes += entity.name.capacity();
             spriteHeapBytes     += entity.sprite.texturePath.capacity();
             textHeapBytes       += entity.text.content.capacity();
+            cameraHeapBytes     += entity.camera.targetName.capacity();
 
             if (!entity.active) {
                 continue;
@@ -323,6 +459,10 @@ namespace Talos::Scene {
             ++activeTransformCnt;
             if (entity.movement.enabled) ++activeMovementCnt;
             if (entity.collider.enabled) ++activeColliderCnt;
+            if (entity.camera.enabled) {
+                ++activeCameraCnt;
+                activeCameraHeap += entity.camera.targetName.capacity();
+            }
             renderOrder.push_back(i);
         }
 
@@ -428,6 +568,12 @@ namespace Talos::Scene {
         m_diagnostics.collider.activeRamBytes  = activeColliderCnt * sizeof(ColliderComponent);
         m_diagnostics.collider.vramBytes       = 0;
 
+        m_diagnostics.camera.totalCount        = totalCount;
+        m_diagnostics.camera.activeCount       = activeCameraCnt;
+        m_diagnostics.camera.ramBytes          = totalCount * sizeof(CameraComponent) + cameraHeapBytes;
+        m_diagnostics.camera.activeRamBytes    = activeCameraCnt * sizeof(CameraComponent) + activeCameraHeap;
+        m_diagnostics.camera.vramBytes         = 0;
+
         // Compute exact GPU VRAM for unique textures referenced by active SpriteComponents
         size_t spriteVram = 0;
         for (const auto& texPath : activeTextures) {
@@ -461,8 +607,9 @@ namespace Talos::Scene {
         m_diagnostics.totalRenderUs = m_diagnostics.sprite.cpuTimeUs + m_diagnostics.text.cpuTimeUs;
         m_diagnostics.totalSceneRamBytes =
             (m_entities.capacity() * sizeof(Entity)) +
-            entityNameHeapBytes + spriteHeapBytes + textHeapBytes;
+            entityNameHeapBytes + spriteHeapBytes + textHeapBytes + cameraHeapBytes;
         m_diagnostics.totalSceneVramBytes = spriteVram + textVram;
     }
 
 }
+

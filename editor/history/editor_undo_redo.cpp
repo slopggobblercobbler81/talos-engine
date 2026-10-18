@@ -52,6 +52,15 @@ namespace Talos::Editor {
             if (ea.movement.enabled != eb.movement.enabled ||
                 ea.movement.playerControlled != eb.movement.playerControlled ||
                 std::fabs(ea.movement.speed - eb.movement.speed) > 0.01f) return false;
+            if (ea.camera.enabled != eb.camera.enabled ||
+                ea.camera.isPrimary != eb.camera.isPrimary ||
+                ea.camera.followTarget != eb.camera.followTarget ||
+                ea.camera.smoothFollow != eb.camera.smoothFollow ||
+                ea.camera.targetName != eb.camera.targetName ||
+                std::fabs(ea.camera.followSpeed - eb.camera.followSpeed) > 0.01f ||
+                std::fabs(ea.camera.zoom - eb.camera.zoom) > 0.001f ||
+                std::fabs(ea.camera.offsetX - eb.camera.offsetX) > 0.01f ||
+                std::fabs(ea.camera.offsetY - eb.camera.offsetY) > 0.01f) return false;
         }
         return true;
     }

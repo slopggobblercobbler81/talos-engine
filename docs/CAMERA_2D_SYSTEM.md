@@ -78,3 +78,36 @@ A compact floating HUD bar in the bottom-left corner of the viewport displays:
 - Current **Zoom Percentage** (`Zoom: 100%`).
 - Interactive **`Reset`** button to restore `100%` zoom centered on the default canvas.
 - Interactive **`Focus [F]`** button (and `F` keyboard shortcut) to smoothly snap the camera target to the currently selected entity.
+
+---
+
+## Runtime Game Camera (`Scene::CameraComponent`)
+
+In addition to the Editor navigation camera, Talos Engine provides an entity-integrated **Runtime Game Camera (`CameraComponent`)** used during Play Mode and in the exported standalone game.
+
+### 1. Component Properties (`scene/components.h`)
+- **`enabled` (`bool`):** Enables or disables the camera on the entity.
+- **`isPrimary` (`bool`):** Marks this camera as the primary active camera when multiple cameras exist in the scene.
+- **`followTarget` (`bool`):**
+  - `false` (**Fixed Mode**): Locks the camera center to the owning entity's center plus `(offsetX, offsetY)`.
+  - `true` (**Follow Target Mode**): Tracks a target entity by name (`targetName`), or tracks the owning entity itself if `targetName` is empty or matches the entity's own name.
+- **`smoothFollow` (`bool`):**
+  - `true`: Applies frame-rate-independent exponential damping toward the target center:
+    $$\alpha = \min(1.0, \text{followSpeed} \cdot \Delta t)$$
+    $$\text{current} \mathrel{+}= (\text{desired} - \text{current}) \cdot \alpha$$
+  - `false`: Snaps instantaneously to the target center each frame.
+- **`targetName` (`std::string`):** Name of the target entity to follow (e.g., `"Player"`).
+- **`followSpeed` (`float`):** Damping speed factor (`0.5` to `25.0`, default `8.0`).
+- **`zoom` (`float`):** Runtime projection zoom multiplier (`0.25x` to `4.00x`, default `1.00x`).
+- **`offsetX`, `offsetY` (`float`):** World-space look-ahead or framing offset relative to the tracked center.
+
+### 2. Primary Camera Resolution (`Scene::ResolveRuntimeCamera`)
+- `Scene::FindActiveCameraEntity()` returns the first active entity with `camera.enabled && camera.isPrimary` (or falls back to the first active entity with `camera.enabled`).
+- `Scene::ResolveRuntimeCamera(viewX, viewY, viewWidth, viewHeight, outCamera)` builds a `Renderer::Camera2DData` centered on the viewport rectangle with the active camera's `(currentX, currentY)` target and `zoom`.
+- During **Play Mode**, `CanvasViewport::RenderWorld` automatically switches from the Editor camera to `Scene::ResolveRuntimeCamera(...)` whenever an active `CameraComponent` is present in the scene, displaying a live status badge (`RUNTIME CAMERA: ...`) in the bottom-left corner of the viewport.
+
+### 3. Edit Mode Frustum Gizmo & Inspector Controls
+- When an entity with `camera.enabled` is selected in **Edit Mode**, `CanvasViewport::RenderSelectionGizmo` draws a cyan **Runtime Camera Frustum Frame** representing the exact world area (`viewWidth / zoom` $\times$ `viewHeight / zoom`) that will be visible in Play Mode, complete with a center reticle, offset guide line, and a `CAM: Fixed/Follow` header badge.
+- In the **Hierarchy (`SceneTreeDock`)**, entities with an active camera display a cyan `CAM` badge.
+- In the **First-Level Inspector (`InspectorDock`)**, the `8. CAMERA 2D (Runtime View)` section exposes `[Fixed]` / `[Follow]` mode buttons, `Primary` toggle, `Target` text field with `[Self]` / `[Player]` quick presets, `Smooth Follow (Damping)` toggle, `Follow Spd`, `Zoom (%)` with `[100%]` reset, and `Offset X / Y` sliders.
+

@@ -116,7 +116,18 @@ namespace Talos::Scene {
             out << "movement.playerControlled = " << (e.movement.playerControlled ? 1 : 0) << "\n";
             out << "movement.speed = " << e.movement.speed << "\n";
             out << "movement.velocityX = " << e.movement.velocityX << "\n";
-            out << "movement.velocityY = " << e.movement.velocityY << "\n\n";
+            out << "movement.velocityY = " << e.movement.velocityY << "\n";
+
+            // CameraComponent
+            out << "camera.enabled = " << (e.camera.enabled ? 1 : 0) << "\n";
+            out << "camera.isPrimary = " << (e.camera.isPrimary ? 1 : 0) << "\n";
+            out << "camera.followTarget = " << (e.camera.followTarget ? 1 : 0) << "\n";
+            out << "camera.smoothFollow = " << (e.camera.smoothFollow ? 1 : 0) << "\n";
+            out << "camera.targetName = " << e.camera.targetName << "\n";
+            out << "camera.followSpeed = " << e.camera.followSpeed << "\n";
+            out << "camera.zoom = " << e.camera.zoom << "\n";
+            out << "camera.offsetX = " << e.camera.offsetX << "\n";
+            out << "camera.offsetY = " << e.camera.offsetY << "\n\n";
         }
 
         TALOS_LOG_INFO("Scene saved to '" + filePath + "' (" +
@@ -213,6 +224,15 @@ namespace Talos::Scene {
             else if (key == "movement.speed")       currentEntity.movement.speed = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityX")   currentEntity.movement.velocityX = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityY")   currentEntity.movement.velocityY = std::strtof(val.c_str(), nullptr);
+            else if (key == "camera.enabled")       currentEntity.camera.enabled = (std::atoi(val.c_str()) != 0);
+            else if (key == "camera.isPrimary")     currentEntity.camera.isPrimary = (std::atoi(val.c_str()) != 0);
+            else if (key == "camera.followTarget")  currentEntity.camera.followTarget = (std::atoi(val.c_str()) != 0);
+            else if (key == "camera.smoothFollow")  currentEntity.camera.smoothFollow = (std::atoi(val.c_str()) != 0);
+            else if (key == "camera.targetName")    currentEntity.camera.targetName = val;
+            else if (key == "camera.followSpeed")   currentEntity.camera.followSpeed = std::max(0.0f, std::strtof(val.c_str(), nullptr));
+            else if (key == "camera.zoom")          currentEntity.camera.zoom = std::max(0.1f, std::strtof(val.c_str(), nullptr));
+            else if (key == "camera.offsetX")       currentEntity.camera.offsetX = std::strtof(val.c_str(), nullptr);
+            else if (key == "camera.offsetY")       currentEntity.camera.offsetY = std::strtof(val.c_str(), nullptr);
             else {
                 Core::Logger::Write(Core::LogLevel::Warning,
                                     "Unknown entity property key '" + key + "'",

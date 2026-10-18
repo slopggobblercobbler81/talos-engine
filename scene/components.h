@@ -140,4 +140,24 @@ namespace Talos::Scene {
         float velocityY = 0.0f;        // Programmatic vertical velocity (pixels/sec)
     };
 
+    // Configures a 2D runtime game camera for Play Mode and exported standalone games.
+    // Supports either a stationary Fixed view or a Target-Following view (instant or smooth damping).
+    struct CameraComponent {
+        bool enabled = false;
+        bool isPrimary = true;          // Prioritized when multiple active cameras exist in the scene
+        bool followTarget = true;       // false = Fixed camera, true = Follow target entity
+        bool smoothFollow = true;       // Exponential damping when following a target
+        std::string targetName = "";    // Entity name to follow ("" or "Self" = follow owning entity)
+        float followSpeed = 8.0f;       // Smooth damping speed (1.0 .. 25.0)
+        float zoom = 1.0f;              // Runtime viewport zoom factor (0.25 .. 4.00)
+        float offsetX = 0.0f;           // Horizontal framing offset in world pixels
+        float offsetY = 0.0f;           // Vertical framing offset in world pixels
+
+        // Transient runtime tracking state (not serialized to .talos files)
+        float currentX = 0.0f;
+        float currentY = 0.0f;
+        bool runtimeInitialized = false;
+    };
+
 }
+

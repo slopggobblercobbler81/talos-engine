@@ -62,7 +62,10 @@ namespace Talos::Editor {
 
     private:
         void RenderGrid(int windowWidth, int windowHeight, float consoleHeight) const;
-        void RenderSelectionGizmo(const Scene::Scene& scene, Scene::EntityID selectedEntityId) const;
+        void RenderSelectionGizmo(const Scene::Scene& scene,
+                                  Scene::EntityID selectedEntityId,
+                                  int vpW,
+                                  int vpH) const;
 
     private:
         Renderer::Camera2DView m_camera;

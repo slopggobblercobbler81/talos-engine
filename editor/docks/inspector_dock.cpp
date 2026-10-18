@@ -152,6 +152,21 @@ namespace Talos::Editor {
             y += 22.0f;
         }
 
+        // 8. Runtime Game Camera Component (Play Mode & Exported Game View)
+        gui.DrawCheckbox(x, y, "CAMERA 2D (Runtime View)", selected->camera.enabled);
+        if (selected->camera.enabled) {
+            char camBadge[40];
+            std::snprintf(camBadge, sizeof(camBadge), "[%s | %.0f%%]",
+                          selected->camera.followTarget ? "Follow" : "Fixed",
+                          selected->camera.zoom * 100.0f);
+            int cbWidth = Renderer2D::MeasureTextWidth(camBadge, 14);
+            Renderer2D::DrawLabel(camBadge, x + w - static_cast<float>(cbWidth), y + 2.0f, 14, { 110, 225, 215, 255 });
+        }
+        y += 23.0f;
+        if (selected->camera.enabled) {
+            y += gui.DrawCameraControls(x, y, w, selected->camera, 80);
+        }
+
         m_contentHeight = y - startY;
 
         // Draw subtle scrollbar thumb when content exceeds panel height

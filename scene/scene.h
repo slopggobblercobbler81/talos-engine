@@ -30,6 +30,7 @@ namespace Talos::Scene {
         ComponentDiagnostics transform;
         ComponentDiagnostics movement;
         ComponentDiagnostics collider;
+        ComponentDiagnostics camera;
         ComponentDiagnostics sprite;
         ComponentDiagnostics text;
 
@@ -43,7 +44,7 @@ namespace Talos::Scene {
     // Scene Container & Simulation Coordinator (Layer 3: Scene & Entity)
     // =========================================================================
     // Owns the contiguous array of Entities in the active game world and orchestrates
-    // their per-frame movement, collision resolution, and rendering submission.
+    // their per-frame movement, collision resolution, camera tracking, and rendering submission.
     class Scene {
     public:
         // Allocates a new Entity in the scene with a unique auto-incremented ID
@@ -65,9 +66,24 @@ namespace Talos::Scene {
         // finding an entity by name never breaks if the scene order is reorganized.
         // Returns nullptr if no entity with that name exists.
         Entity* FindEntity(const std::string& name);
+        const Entity* FindEntity(const std::string& name) const;
 
         // Fast lookup by unique numeric identifier. Returns nullptr if not found.
         Entity* FindEntityById(EntityID id);
+        const Entity* FindEntityById(EntityID id) const;
+
+        // Finds the active runtime CameraComponent entity (prioritizing isPrimary == true).
+        // Returns nullptr if no active entity has camera.enabled == true.
+        const Entity* FindActiveCameraEntity() const;
+
+        // Resolves the active runtime Camera2DView for Play Mode or standalone game window rendering.
+        // Centers the camera within the given screen/viewport rectangle (viewX, viewY, viewWidth, viewHeight).
+        // Returns false if no active CameraComponent exists in the scene.
+        bool ResolveRuntimeCamera(float viewX,
+                                  float viewY,
+                                  float viewWidth,
+                                  float viewHeight,
+                                  Renderer::Camera2DView& outCamera) const;
 
         // Direct access to the underlying contiguous entity storage (used by Editor/Systems).
         std::vector<Entity>& GetEntities();
@@ -77,7 +93,7 @@ namespace Talos::Scene {
         // for all active entities with sprite.enabled && sprite.frameCount > 1.
         void UpdateAnimations(float delta);
 
-        // Advances entity movement, sprite animations, and resolves solid collisions via the Physics2D layer.
+        // Advances entity movement, sprite animations, solid collisions, and runtime camera tracking.
         void Update(float delta);
 
         // Submits all active visual and text components to the Renderer2D layer.

@@ -21,8 +21,9 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
   3. **`TextComponent`:** First-level typography (`enabled`, `content`, `fontSize`, `color`, `offsetX/Y`). All essential text properties live directly on the component without nested theme override menus.
   4. **`ColliderComponent`:** Solid 2D AABB collision (`enabled`, `isSolid`, `isStatic`) that automatically uses the entity's `TransformComponent` dimensions.
   5. **`MovementComponent`:** Velocity and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `velocityX/Y`).
+  6. **`CameraComponent`:** Configurable 2D runtime game camera (`enabled`, `isPrimary`, `followTarget`, `smoothFollow`, `targetName`, `followSpeed`, `zoom`, `offsetX`, `offsetY`) supporting both fixed framing and frame-rate-independent smooth target tracking.
 
-Turning an ordinary visual box into a solid obstacle or a controllable character requires flipping a single boolean flag (`entity.collider.enabled = true;`) rather than restructuring a node tree.
+Turning an ordinary visual box into a solid obstacle, a controllable character, or the active game camera requires flipping a single boolean flag (`entity.camera.enabled = true;`) rather than restructuring a node tree.
 
 ---
 
@@ -33,6 +34,7 @@ In hierarchy-based engines, referencing an object via a relative path (such as `
 In Talos Engine, `Scene` stores entities in a flat, cache-friendly list and provides direct lookup methods:
 * `Scene::FindEntity("Player")` — Searches by human-readable name.
 * `Scene::FindEntityById(id)` — Searches by persistent numeric `EntityID`.
+* `Scene::FindActiveCameraEntity()` — Resolves the primary active `CameraComponent` entity in the scene.
 
 Reordering entities or grouping them visually in the editor never invalidates code references.
 
@@ -43,7 +45,9 @@ Reordering entities or grouping them visually in the editor never invalidates co
 During each iteration of the main loop, `Scene` executes strictly separated passes:
 
 1. **`Scene::Update(float delta)`:**
-   Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`), then iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
+   - Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`).
+   - Iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
+   - Advances all active `CameraComponent` instances (resolving fixed positions or smoothly interpolating `(currentX, currentY)` toward `targetName` after movement has settled) and records telemetry into `SceneDiagnostics::camera`.
 2. **`Scene::UpdateAnimations(float delta)`:**
    Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.
 3. **`Scene::Render()`:**

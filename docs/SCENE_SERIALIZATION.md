@@ -63,6 +63,15 @@ movement.playerControlled = 1
 movement.speed = 320.00
 movement.velocityX = 0.00
 movement.velocityY = 0.00
+camera.enabled = 1
+camera.isPrimary = 1
+camera.followTarget = 1
+camera.smoothFollow = 1
+camera.targetName = Player
+camera.followSpeed = 8.00
+camera.zoom = 1.00
+camera.offsetX = 0.00
+camera.offsetY = 0.00
 ```
 
 ---
