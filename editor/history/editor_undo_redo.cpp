@@ -24,7 +24,9 @@ namespace Talos::Editor {
                 std::fabs(ea.transform.height - eb.transform.height) > 0.01f) return false;
             if (ea.sprite.enabled != eb.sprite.enabled ||
                 ea.sprite.texturePath != eb.sprite.texturePath ||
-                !AreColorsEqual(ea.sprite.color, eb.sprite.color)) return false;
+                !AreColorsEqual(ea.sprite.color, eb.sprite.color) ||
+                ea.sprite.sortingLayer != eb.sprite.sortingLayer ||
+                ea.sprite.zOrder != eb.sprite.zOrder) return false;
             if (ea.text.enabled != eb.text.enabled ||
                 ea.text.content != eb.text.content ||
                 ea.text.fontSize != eb.text.fontSize ||

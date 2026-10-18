@@ -152,10 +152,32 @@ namespace Talos::Editor {
             gui.UnfocusTextField();
 
             auto& entities = scene.GetEntities();
+            std::vector<size_t> pickOrder;
+            pickOrder.reserve(entities.size());
+            for (size_t i = 0; i < entities.size(); ++i) {
+                if (entities[i].active) {
+                    pickOrder.push_back(i);
+                }
+            }
+
+            // Sort in reverse render order (front-to-back) so clicking overlapping entities
+            // selects the visually top-most entity.
+            std::sort(pickOrder.begin(), pickOrder.end(),
+                [&entities](size_t idxA, size_t idxB) {
+                    const Entity& a = entities[idxA];
+                    const Entity& b = entities[idxB];
+                    if (a.sprite.sortingLayer != b.sprite.sortingLayer) {
+                        return a.sprite.sortingLayer > b.sprite.sortingLayer;
+                    }
+                    if (a.sprite.zOrder != b.sprite.zOrder) {
+                        return a.sprite.zOrder > b.sprite.zOrder;
+                    }
+                    return idxA > idxB;
+                });
+
             bool hitAny = false;
-            for (int i = static_cast<int>(entities.size()) - 1; i >= 0; --i) {
-                Entity& e = entities[i];
-                if (!e.active) continue;
+            for (size_t idx : pickOrder) {
+                Entity& e = entities[idx];
 
                 float hitX = e.transform.x;
                 float hitY = e.transform.y;

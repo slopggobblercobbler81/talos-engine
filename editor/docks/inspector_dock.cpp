@@ -1,8 +1,13 @@
 #include "editor/docks/inspector_dock.h"
+#include "core/input.h"
 #include "renderer/renderer2d.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
 
 namespace Talos::Editor {
 
+    using namespace Talos::Core;
     using namespace Talos::Renderer;
     using namespace Talos::Scene;
     using namespace Talos::Editor::EditorLayout;
@@ -30,29 +35,63 @@ namespace Talos::Editor {
             return;
         }
 
+        float contentTopY = TOOLBAR_HEIGHT + 38.0f;
+        float viewH = static_cast<float>(windowHeight) - contentTopY;
+        float maxScroll = std::max(0.0f, m_contentHeight - viewH + 16.0f);
+
+        if (EditorGui::IsMouseOver(panelX, contentTopY, RIGHT_PANEL_WIDTH, viewH)) {
+            float wheel = Input::GetMouseWheelMove();
+            if (std::fabs(wheel) > 0.001f) {
+                m_scrollOffset -= wheel * 28.0f;
+            }
+        }
+        m_scrollOffset = std::max(0.0f, std::min(m_scrollOffset, maxScroll));
+
+        Renderer2D::BeginViewportScissor(
+            static_cast<int>(panelX),
+            static_cast<int>(contentTopY),
+            static_cast<int>(RIGHT_PANEL_WIDTH),
+            static_cast<int>(viewH)
+        );
+
         float x = panelX + 16.0f;
         float w = RIGHT_PANEL_WIDTH - 32.0f;
-        float y = TOOLBAR_HEIGHT + 44.0f;
+        float startY = TOOLBAR_HEIGHT + 44.0f - m_scrollOffset;
+        float y = startY;
 
         // 1. Entity Identity & Master Active Toggle
         gui.DrawCheckbox(x, y, "Active", selected->active);
-        y += 24.0f;
+        y += 22.0f;
         gui.DrawTextInputBox(x, y, w, "Name:", selected->name, 1);
-        y += 32.0f;
+        y += 29.0f;
 
         // 2. Transform Component (Always accessible on first level)
         Renderer2D::DrawLabel("TRANSFORM 2D", x, y, 15, { 95, 195, 255, 255 });
         y += 18.0f;
         gui.DrawFloatSlider(x, y, w, "Pos X", selected->transform.x, 230.0f, 980.0f, 10);
-        y += 22.0f;
+        y += 21.0f;
         gui.DrawFloatSlider(x, y, w, "Pos Y", selected->transform.y, 50.0f, 740.0f, 11);
-        y += 22.0f;
+        y += 21.0f;
         gui.DrawFloatSlider(x, y, w, "Width", selected->transform.width, 16.0f, 500.0f, 12);
-        y += 22.0f;
+        y += 21.0f;
         gui.DrawFloatSlider(x, y, w, "Height", selected->transform.height, 16.0f, 500.0f, 13);
-        y += 28.0f;
+        y += 25.0f;
 
-        // 3. Sprite Component (2D Texture / Solid Box + Color / Tint)
+        // 3. Render Depth (Sorting Layer & Z-Order)
+        Renderer2D::DrawLabel("RENDER DEPTH", x, y, 15, { 250, 200, 75, 255 });
+        char depthHeaderBuf[48];
+        std::snprintf(depthHeaderBuf, sizeof(depthHeaderBuf), "[L%d: %s | Z: %d]",
+                      selected->sprite.sortingLayer,
+                      SortingLayer::GetName(selected->sprite.sortingLayer),
+                      selected->sprite.zOrder);
+        int dhWidth = Renderer2D::MeasureTextWidth(depthHeaderBuf, 14);
+        Renderer2D::DrawLabel(depthHeaderBuf, x + w - static_cast<float>(dhWidth), y + 1.0f, 14, { 190, 210, 240, 255 });
+        y += 18.0f;
+
+        gui.DrawSortingControls(x, y, w, selected->sprite.sortingLayer, selected->sprite.zOrder, 15);
+        y += 49.0f;
+
+        // 4. Sprite Component (2D Texture / Solid Box + Color / Tint)
         gui.DrawCheckbox(x, y, "SPRITE (2D Image / Box)", selected->sprite.enabled);
         if (selected->sprite.enabled) {
             if (selected->sprite.texturePath.empty()) {
@@ -63,48 +102,52 @@ namespace Talos::Editor {
                 Renderer2D::DrawLabel("[Missing!]", x + w - 68.0f, y + 2.0f, 14, { 245, 95, 95, 255 });
             }
         }
-        y += 24.0f;
+        y += 23.0f;
 
         if (selected->sprite.enabled) {
             gui.DrawTextureSelector(x, y, w, selected->sprite);
-            y += 58.0f;
+            y += 55.0f;
 
             const char* colorLabel = selected->sprite.texturePath.empty() ? "Box Color" : "Img Tint";
             gui.DrawColorPickerRow(x, y, w, colorLabel, selected->sprite.color, 20);
-            y += 82.0f;
+            y += 80.0f;
         }
 
-        // 4. Text Component (First-Level Text, Font Size & Color)
+        // 5. Text Component (First-Level Text, Font Size & Color)
         gui.DrawCheckbox(x, y, "TEXT LABEL (First-Level)", selected->text.enabled);
-        y += 24.0f;
+        y += 23.0f;
         if (selected->text.enabled) {
             gui.DrawTextInputBox(x, y, w, "Text:", selected->text.content, 2);
-            y += 28.0f;
+            y += 27.0f;
             gui.DrawIntSlider(x, y, w, "Font Size", selected->text.fontSize, 12, 56, 30);
-            y += 22.0f;
+            y += 21.0f;
             gui.DrawFloatSlider(x, y, w, "Offset Y", selected->text.offsetY, -80.0f, 80.0f, 31);
-            y += 24.0f;
+            y += 23.0f;
             gui.DrawColorPickerRow(x, y, w, "Font Color", selected->text.color, 40);
-            y += 82.0f;
+            y += 80.0f;
         }
 
-        // 5. Collider 2D Component
+        // 6. Collider 2D Component
         gui.DrawCheckbox(x, y, "COLLIDER 2D (Solid Box)", selected->collider.enabled);
-        y += 24.0f;
+        y += 23.0f;
 
-        // 6. Movement 2D Component
+        // 7. Movement 2D Component
         bool wasMoveEnabled = selected->movement.enabled;
         if (gui.DrawCheckbox(x, y, "MOVEMENT (WASD Control)", selected->movement.enabled)) {
             if (!wasMoveEnabled && selected->movement.enabled) {
                 selected->movement.playerControlled = true;
             }
         }
-        y += 22.0f;
+        y += 21.0f;
         if (selected->movement.enabled) {
             gui.DrawCheckbox(x + 14.0f, y, "Player Controlled", selected->movement.playerControlled);
-            y += 22.0f;
+            y += 21.0f;
             gui.DrawFloatSlider(x, y, w, "Speed", selected->movement.speed, 50.0f, 700.0f, 50);
+            y += 22.0f;
         }
+
+        m_contentHeight = y - startY;
+        Renderer2D::EndViewportScissor();
     }
 
 }

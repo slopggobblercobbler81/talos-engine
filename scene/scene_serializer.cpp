@@ -79,6 +79,8 @@ namespace Talos::Scene {
                 << static_cast<int>(e.sprite.color.g) << ","
                 << static_cast<int>(e.sprite.color.b) << ","
                 << static_cast<int>(e.sprite.color.a) << "\n";
+            out << "sprite.sortingLayer = " << e.sprite.sortingLayer << "\n";
+            out << "sprite.zOrder = " << e.sprite.zOrder << "\n";
 
             // TextComponent
             out << "text.enabled = " << (e.text.enabled ? 1 : 0) << "\n";
@@ -172,6 +174,8 @@ namespace Talos::Scene {
             else if (key == "sprite.enabled")       currentEntity.sprite.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "sprite.texturePath")   currentEntity.sprite.texturePath = val;
             else if (key == "sprite.color")         currentEntity.sprite.color = ParseColor(val);
+            else if (key == "sprite.sortingLayer" || key == "sortingLayer") currentEntity.sprite.sortingLayer = std::atoi(val.c_str());
+            else if (key == "sprite.zOrder" || key == "zOrder")             currentEntity.sprite.zOrder = std::atoi(val.c_str());
             else if (key == "text.enabled")         currentEntity.text.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "text.content")         currentEntity.text.content = val;
             else if (key == "text.fontSize")        currentEntity.text.fontSize = std::atoi(val.c_str());

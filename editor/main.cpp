@@ -31,9 +31,11 @@ int main() {
     Scene world;
 
     if (!SceneSerializer::Load(world, DEFAULT_SCENE_PATH)) {
-        // Title Banner Entity
+        // Title Banner Entity (Overlay Layer)
         Entity& title = world.CreateEntity("TitleBanner", 260.0f, 75.0f);
         title.sprite.enabled = false;
+        title.sprite.sortingLayer = SortingLayer::Overlay;
+        title.sprite.zOrder = 20;
         title.text.enabled = true;
         title.text.content = "Welcome to Talos Engine!";
         title.text.fontSize = 28;
@@ -45,6 +47,8 @@ int main() {
         player.transform.height = 72.0f;
         player.sprite.texturePath = "examples/assets/textures/hero.png";
         player.sprite.color = { 255, 255, 255, 255 };
+        player.sprite.sortingLayer = SortingLayer::Characters;
+        player.sprite.zOrder = 10;
         player.collider.enabled = true;
         player.movement.enabled = true;
         player.movement.playerControlled = true;
@@ -54,12 +58,14 @@ int main() {
         player.text.fontSize = 18;
         player.text.offsetY = -24.0f;
 
-        // Wooden Crate Entity: Uses 2D Crate texture and acts as a solid obstacle
+        // Wooden Crate Entity: Uses 2D Crate texture and acts as a solid obstacle on Scenery layer
         Entity& crate = world.CreateEntity("WoodenCrate", 530.0f, 430.0f);
         crate.transform.width = 68.0f;
         crate.transform.height = 68.0f;
         crate.sprite.texturePath = "examples/assets/textures/crate.png";
         crate.sprite.color = { 255, 255, 255, 255 };
+        crate.sprite.sortingLayer = SortingLayer::Scenery;
+        crate.sprite.zOrder = 0;
         crate.collider.enabled = true;
         crate.collider.isStatic = true;
         crate.text.enabled = true;
@@ -67,12 +73,14 @@ int main() {
         crate.text.fontSize = 16;
         crate.text.offsetY = -22.0f;
 
-        // Solid Wall Entity: Uses 2D Brick texture and blocks movement
+        // Solid Wall Entity: Uses 2D Brick texture and blocks movement on Scenery layer
         Entity& wall = world.CreateEntity("BrickWall", 700.0f, 230.0f);
         wall.transform.width = 110.0f;
         wall.transform.height = 280.0f;
         wall.sprite.texturePath = "examples/assets/textures/brick.png";
         wall.sprite.color = { 255, 255, 255, 255 };
+        wall.sprite.sortingLayer = SortingLayer::Scenery;
+        wall.sprite.zOrder = 5;
         wall.collider.enabled = true;
         wall.collider.isStatic = true;
         wall.text.enabled = true;
@@ -80,12 +88,14 @@ int main() {
         wall.text.fontSize = 18;
         wall.text.offsetY = -24.0f;
 
-        // Gold Coin Entity: Demonstrates PNG alpha transparency
+        // Gold Coin Entity: Demonstrates PNG alpha transparency and depth sorting
         Entity& coin = world.CreateEntity("GoldCoin", 540.0f, 250.0f);
         coin.transform.width = 56.0f;
         coin.transform.height = 56.0f;
         coin.sprite.texturePath = "examples/assets/textures/coin.png";
         coin.sprite.color = { 255, 255, 255, 255 };
+        coin.sprite.sortingLayer = SortingLayer::Scenery;
+        coin.sprite.zOrder = 10;
         coin.text.enabled = true;
         coin.text.content = "Coin";
         coin.text.fontSize = 16;

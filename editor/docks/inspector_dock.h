@@ -17,6 +17,10 @@ namespace Talos::Editor {
                     int windowHeight,
                     Scene::EntityID selectedEntityId,
                     EditorGui& gui);
+
+    private:
+        float m_scrollOffset = 0.0f;
+        float m_contentHeight = 0.0f;
     };
 
 }

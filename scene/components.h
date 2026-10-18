@@ -19,7 +19,39 @@ namespace Talos::Scene {
         float height = 64.0f;
     };
 
-    // Controls visual shape or 2D image/texture rendering for the entity.
+    // Standard 2D sorting layers rendered from back (0) to front (4).
+    namespace SortingLayer {
+        constexpr int Background = 0; // Distant backdrops, skies, floors
+        constexpr int Scenery    = 1; // Environment props, walls, crates, obstacles
+        constexpr int Characters = 2; // Players, enemies, NPCs (Default)
+        constexpr int Effects    = 3; // Collectibles, particles, projectiles, VFX
+        constexpr int Overlay    = 4; // World-space UI banners, floating HUD labels
+        constexpr int Count      = 5;
+
+        inline const char* GetName(int layer) {
+            switch (layer) {
+                case Background: return "Background";
+                case Scenery:    return "Scenery";
+                case Characters: return "Characters";
+                case Effects:    return "Effects";
+                case Overlay:    return "Overlay";
+                default:         return "Custom";
+            }
+        }
+
+        inline const char* GetShortName(int layer) {
+            switch (layer) {
+                case Background: return "Bg";
+                case Scenery:    return "Scene";
+                case Characters: return "Char";
+                case Effects:    return "FX";
+                case Overlay:    return "UI";
+                default:         return "?";
+            }
+        }
+    }
+
+    // Controls visual shape or 2D image/texture rendering and explicit draw depth for the entity.
     // When 'texturePath' is empty, renders a solid 2D rectangle filled with 'color'.
     // When 'texturePath' points to a .png file (e.g., "assets/textures/hero.png"),
     // renders the GPU-cached texture scaled to TransformComponent and tinted by 'color'.
@@ -27,6 +59,8 @@ namespace Talos::Scene {
         bool enabled = true;
         std::string texturePath = "";
         Renderer::ColorRGBA color = { 80, 180, 250, 255 };
+        int sortingLayer = SortingLayer::Characters; // Explicit depth layer (0 = Background .. 4 = Overlay)
+        int zOrder = 0;                              // Fine-grained draw order within the layer (-100 .. +100)
     };
 
     // Provides first-level text rendering directly on an entity without requiring

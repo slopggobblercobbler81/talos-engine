@@ -253,9 +253,12 @@ namespace Talos::Scene {
         std::unordered_set<std::string> activeTextures;
         std::unordered_set<int> activeFontSizes;
 
-        // Iterate through all entities, submit enabled visual/text components to Renderer2D,
-        // and measure exact per-component CPU time and memory footprint.
-        for (const auto& entity : m_entities) {
+        // 1. Gather memory footprint across all entities and collect active indices for depth sorting
+        std::vector<size_t> renderOrder;
+        renderOrder.reserve(m_entities.size());
+
+        for (size_t i = 0; i < m_entities.size(); ++i) {
+            const Entity& entity = m_entities[i];
             entityNameHeapBytes += entity.name.capacity();
             spriteHeapBytes     += entity.sprite.texturePath.capacity();
             textHeapBytes       += entity.text.content.capacity();
@@ -268,8 +271,31 @@ namespace Talos::Scene {
             ++activeTransformCnt;
             if (entity.movement.enabled) ++activeMovementCnt;
             if (entity.collider.enabled) ++activeColliderCnt;
+            renderOrder.push_back(i);
+        }
 
-            // 1. SpriteComponent Rendering & Timing
+        // 2. Sort active entities deterministically by (sortingLayer ASC, zOrder ASC, originalIndex ASC)
+        auto tSortStart = Clock::now();
+        std::sort(renderOrder.begin(), renderOrder.end(),
+            [this](size_t idxA, size_t idxB) {
+                const Entity& a = m_entities[idxA];
+                const Entity& b = m_entities[idxB];
+                if (a.sprite.sortingLayer != b.sprite.sortingLayer) {
+                    return a.sprite.sortingLayer < b.sprite.sortingLayer;
+                }
+                if (a.sprite.zOrder != b.sprite.zOrder) {
+                    return a.sprite.zOrder < b.sprite.zOrder;
+                }
+                return idxA < idxB;
+            });
+        auto tSortEnd = Clock::now();
+        spriteUsAccum += std::chrono::duration<double, std::micro>(tSortEnd - tSortStart).count();
+
+        // 3. Submit sorted entities' visual and text components from back to front
+        for (size_t idx : renderOrder) {
+            const Entity& entity = m_entities[idx];
+
+            // SpriteComponent Rendering & Timing
             if (entity.sprite.enabled) {
                 ++activeSpriteCount;
                 activeSpriteHeap += entity.sprite.texturePath.capacity();
@@ -299,7 +325,7 @@ namespace Talos::Scene {
                 ++spriteDrawCalls;
             }
 
-            // 2. TextComponent Rendering & Timing
+            // TextComponent Rendering & Timing
             if (entity.text.enabled) {
                 ++activeTextCount;
                 activeTextHeap += entity.text.content.capacity();

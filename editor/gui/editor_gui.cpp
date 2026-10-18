@@ -1,6 +1,7 @@
 #include "editor/gui/editor_gui.h"
 #include "core/input.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace Talos::Editor {
@@ -334,7 +335,79 @@ namespace Talos::Editor {
                                   int& value, int minVal, int maxVal, int sliderId) {
         float floatVal = static_cast<float>(value);
         DrawFloatSlider(x, y, w, label, floatVal, static_cast<float>(minVal), static_cast<float>(maxVal), sliderId);
-        value = static_cast<int>(floatVal + 0.5f);
+        value = static_cast<int>(std::round(floatVal));
+    }
+
+    void EditorGui::DrawSortingControls(float x, float y, float w, int& sortingLayer, int& zOrder, int zSliderId) {
+        Renderer2D::DrawLabel("Layer:", x, y + 3.0f, 14, { 185, 190, 205, 255 });
+
+        float btnStartX = x + 54.0f;
+        float availW = w - 54.0f;
+        float gap = 4.0f;
+        float btnW = (availW - gap * (SortingLayer::Count - 1)) / static_cast<float>(SortingLayer::Count);
+
+        for (int i = 0; i < SortingLayer::Count; ++i) {
+            float bx = btnStartX + i * (btnW + gap);
+            bool isCurrent = (sortingLayer == i);
+
+            ColorRGBA bg = isCurrent ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 };
+            ColorRGBA hover = isCurrent ? ColorRGBA{ 68, 135, 220, 255 } : ColorRGBA{ 54, 58, 74, 255 };
+
+            if (DrawButton(bx, y, btnW, 21.0f, SortingLayer::GetShortName(i), bg, hover)) {
+                if (!isCurrent) {
+                    PushUndoIfActive();
+                }
+                sortingLayer = i;
+                m_focusedTextFieldId = -1;
+            }
+        }
+
+        // Z-Order row: label + [-] step button + slider (-100..100) + [+] step button
+        float zy = y + 25.0f;
+        Renderer2D::DrawLabel("Z-Order", x, zy + 2.0f, 14, { 185, 190, 205, 255 });
+
+        float minusX = x + 64.0f;
+        float stepBtnW = 22.0f;
+        float barH = 18.0f;
+
+        if (DrawButton(minusX, zy, stepBtnW, barH, "-", { 42, 46, 58, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            zOrder = std::max(-100, zOrder - 1);
+            m_focusedTextFieldId = -1;
+        }
+
+        float plusX = x + w - stepBtnW;
+        if (DrawButton(plusX, zy, stepBtnW, barH, "+", { 42, 46, 58, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            zOrder = std::min(100, zOrder + 1);
+            m_focusedTextFieldId = -1;
+        }
+
+        float barX = minusX + stepBtnW + 4.0f;
+        float barW = plusX - barX - 4.0f;
+
+        if (IsMouseOver(barX, zy, barW, barH) && Input::IsMouseButtonPressed(MouseButton::Left)) {
+            BeginContinuousIfActive();
+            m_activeSliderId = zSliderId;
+            m_focusedTextFieldId = -1;
+        }
+
+        if (m_activeSliderId == zSliderId && Input::IsMouseButtonDown(MouseButton::Left)) {
+            float t = (Input::GetMouseX() - barX) / barW;
+            t = std::max(0.0f, std::min(1.0f, t));
+            zOrder = static_cast<int>(std::round(-100.0f + t * 200.0f));
+        }
+
+        float fillRatio = (static_cast<float>(zOrder) + 100.0f) / 200.0f;
+        fillRatio = std::max(0.0f, std::min(1.0f, fillRatio));
+
+        Renderer2D::DrawRect(barX, zy, barW, barH, { 36, 38, 48, 255 });
+        Renderer2D::DrawRect(barX, zy, barW * fillRatio, barH, { 65, 135, 220, 255 });
+        Renderer2D::DrawRectOutline(barX, zy, barW, barH, 1.0f, { 70, 75, 90, 255 });
+
+        char zBuf[32];
+        std::snprintf(zBuf, sizeof(zBuf), "%d", zOrder);
+        Renderer2D::DrawLabel(zBuf, barX + 8.0f, zy + 2.0f, 14, { 245, 245, 250, 255 });
     }
 
     void EditorGui::DrawTextureSelector(float x, float y, float w, Scene::SpriteComponent& sprite) {
