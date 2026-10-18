@@ -339,4 +339,72 @@ TEST(ErrorHandling_RejectsMissingAndCorruptFiles) {
     AudioSystem::Shutdown();
 }
 
+TEST(VolumeBuses_MasterSfxMusicAndConfigPersistence) {
+    AudioSystem::Init();
+    AudioSystem::ResetDefaultVolumes();
+
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 1.0f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetSFXVolume(), 1.0f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicVolume(), 1.0f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicBusVolume(), 1.0f, 0.001f);
+
+    // 1. Clamping & bus volume setters/getters
+    AudioSystem::SetMasterVolume(1.5f);
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 1.0f, 0.001f);
+    AudioSystem::SetMasterVolume(-0.4f);
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 0.0f, 0.001f);
+    AudioSystem::SetMasterVolume(0.5f);
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 0.5f, 0.001f);
+
+    AudioSystem::SetSFXVolume(0.5f);
+    CHECK_NEAR(AudioSystem::GetSFXVolume(), 0.5f, 0.001f);
+
+    AudioSystem::SetMusicVolume(0.4f);
+    CHECK_NEAR(AudioSystem::GetMusicVolume(), 0.4f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicBusVolume(), 0.4f, 0.001f);
+
+    // 2. Effective volume scaling across loaded Sound and Music assets
+    const std::string wavPath = CreateTestWavFile("bus_test_sfx.wav");
+    const std::string musicPath = CreateTestWavFile("bus_test_music.wav");
+    CHECK(AudioSystem::LoadSound(wavPath));
+    CHECK(AudioSystem::LoadMusic(musicPath));
+
+    AudioSystem::SetSoundVolume(wavPath, 0.8f);
+    AudioSystem::SetMusicVolume(musicPath, 0.75f);
+
+    CHECK_NEAR(AudioSystem::GetSoundVolume(wavPath), 0.8f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicVolume(musicPath), 0.75f, 0.001f);
+
+    // Effective volume = clipVolume * busVolume * masterVolume
+    CHECK_NEAR(AudioSystem::GetEffectiveSoundVolume(wavPath), 0.8f * 0.5f * 0.5f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetEffectiveMusicVolume(musicPath), 0.75f * 0.4f * 0.5f, 0.001f);
+
+    // Updating bus volume dynamically updates effective volumes
+    AudioSystem::SetSFXVolume(0.25f);
+    AudioSystem::SetMusicBusVolume(0.5f);
+    CHECK_NEAR(AudioSystem::GetEffectiveSoundVolume(wavPath), 0.8f * 0.25f * 0.5f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetEffectiveMusicVolume(musicPath), 0.75f * 0.5f * 0.5f, 0.001f);
+
+    // 3. Project configuration persistence (.talos)
+    AudioSystem::SetMasterVolume(0.85f);
+    AudioSystem::SetSFXVolume(0.65f);
+    AudioSystem::SetMusicVolume(0.35f);
+
+    const std::string configPath = (TempDir() / "test_audio_settings.talos").string();
+    CHECK(AudioSystem::SaveConfig(configPath));
+
+    AudioSystem::ResetDefaultVolumes();
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 1.0f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetSFXVolume(), 1.0f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicVolume(), 1.0f, 0.001f);
+
+    CHECK(AudioSystem::LoadConfig(configPath));
+    CHECK_NEAR(AudioSystem::GetMasterVolume(), 0.85f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetSFXVolume(), 0.65f, 0.001f);
+    CHECK_NEAR(AudioSystem::GetMusicVolume(), 0.35f, 0.001f);
+
+    AudioSystem::ResetDefaultVolumes();
+    AudioSystem::Shutdown();
+}
+
 TEST_MAIN()

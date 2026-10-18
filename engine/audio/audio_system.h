@@ -49,9 +49,21 @@ namespace Talos::Audio {
         // Feeds active streaming Music buffers; call once per frame in the main loop
         static void Update();
 
-        // --- Master Controls ---
+        // --- Volume Bus Controls (Project & Script-Ready API: 0.0f = Mute, 1.0f = 100%) ---
         static void SetMasterVolume(float volume);
         static float GetMasterVolume();
+
+        static void SetSFXVolume(float volume);
+        static float GetSFXVolume();
+
+        static void SetMusicVolume(float volume);
+        static float GetMusicVolume();
+        static void SetMusicBusVolume(float volume);
+        static float GetMusicBusVolume();
+
+        static void ResetDefaultVolumes();
+        static bool SaveConfig(const std::string& filePath = "examples/scenes/audio_settings.talos");
+        static bool LoadConfig(const std::string& filePath = "examples/scenes/audio_settings.talos");
 
         // --- Format Detection & Validation ---
         static AudioFormat DetectFormat(const std::string& path);
@@ -78,6 +90,7 @@ namespace Talos::Audio {
 
         static void SetSoundVolume(const std::string& path, float volume);
         static float GetSoundVolume(const std::string& path);
+        static float GetEffectiveSoundVolume(const std::string& path);
         static void SetSoundPitch(const std::string& path, float pitch);
         static float GetSoundPitch(const std::string& path);
         static void SetSoundPan(const std::string& path, float pan);
@@ -110,6 +123,7 @@ namespace Talos::Audio {
 
         static void SetMusicVolume(const std::string& path, float volume);
         static float GetMusicVolume(const std::string& path);
+        static float GetEffectiveMusicVolume(const std::string& path);
         static void SetMusicPitch(const std::string& path, float pitch);
         static float GetMusicPitch(const std::string& path);
         static void SetMusicPan(const std::string& path, float pan);

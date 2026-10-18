@@ -321,7 +321,11 @@ namespace Talos::Editor {
         DrawCheckbox(x, cy, "Play On Collision / Trigger", audio.playOnCollision);
         cy += 24.0f;
 
-        // 5. Volume, Pitch & Pan Sliders
+        // 5. Volume, Pitch & Pan Sliders (per-entity clip parameters)
+        float prevClipVol   = audio.volume;
+        float prevClipPitch = audio.pitch;
+        float prevClipPan   = audio.pan;
+
         float volPct = std::round(audio.volume * 100.0f);
         DrawFloatSlider(x, cy, w, "Volume (%)", volPct, 0.0f, 100.0f, baseSliderId + 0);
         audio.volume = std::max(0.0f, std::min(1.0f, std::round(volPct) / 100.0f));
@@ -357,7 +361,67 @@ namespace Talos::Editor {
             audio.pan = 0.5f;
             m_focusedTextFieldId = -1;
         }
-        cy += 23.0f;
+        cy += 22.0f;
+
+        if (!audio.clipPath.empty()) {
+            if (std::fabs(audio.volume - prevClipVol) > 1e-4f) {
+                if (audio.isMusic) AudioSystem::SetMusicVolume(audio.clipPath, audio.volume);
+                else               AudioSystem::SetSoundVolume(audio.clipPath, audio.volume);
+            }
+            if (std::fabs(audio.pitch - prevClipPitch) > 1e-4f) {
+                if (audio.isMusic) AudioSystem::SetMusicPitch(audio.clipPath, audio.pitch);
+                else               AudioSystem::SetSoundPitch(audio.clipPath, audio.pitch);
+            }
+            if (std::fabs(audio.pan - prevClipPan) > 1e-4f) {
+                if (audio.isMusic) AudioSystem::SetMusicPan(audio.clipPath, audio.pan);
+                else               AudioSystem::SetSoundPan(audio.clipPath, audio.pan);
+            }
+        }
+
+        // 6. Project Audio Volume Buses (Master / SFX / Music - persisted to audio_settings.talos)
+        Renderer2D::DrawLine2D(x, cy, x + w, cy, { 46, 50, 62, 255 });
+        cy += 6.0f;
+        Renderer2D::DrawLabel("PROJECT AUDIO BUSES", x, cy + 2.0f, 13, { 130, 190, 245, 255 });
+
+        float prevMaster = AudioSystem::GetMasterVolume();
+        float prevSfx    = AudioSystem::GetSFXVolume();
+        float prevMusic  = AudioSystem::GetMusicBusVolume();
+
+        bool allDefault = (std::fabs(prevMaster - 1.0f) < 0.01f &&
+                           std::fabs(prevSfx - 1.0f) < 0.01f &&
+                           std::fabs(prevMusic - 1.0f) < 0.01f);
+        if (DrawButton(x + w - 48.0f, cy, 48.0f, 18.0f, "Reset",
+                       allDefault ? ColorRGBA{ 38, 41, 52, 255 } : ColorRGBA{ 52, 95, 165, 255 },
+                       { 68, 125, 205, 255 })) {
+            AudioSystem::ResetDefaultVolumes();
+            AudioSystem::SaveConfig();
+            m_focusedTextFieldId = -1;
+        }
+        cy += 22.0f;
+
+        float masterPct = std::round(AudioSystem::GetMasterVolume() * 100.0f);
+        DrawFloatSlider(x, cy, w, "Master (%)", masterPct, 0.0f, 100.0f, baseSliderId + 3);
+        float newMaster = std::max(0.0f, std::min(1.0f, std::round(masterPct) / 100.0f));
+        cy += 21.0f;
+
+        float sfxPct = std::round(AudioSystem::GetSFXVolume() * 100.0f);
+        DrawFloatSlider(x, cy, w, "SFX (%)", sfxPct, 0.0f, 100.0f, baseSliderId + 4);
+        float newSfx = std::max(0.0f, std::min(1.0f, std::round(sfxPct) / 100.0f));
+        cy += 21.0f;
+
+        float musicPct = std::round(AudioSystem::GetMusicBusVolume() * 100.0f);
+        DrawFloatSlider(x, cy, w, "Music (%)", musicPct, 0.0f, 100.0f, baseSliderId + 5);
+        float newMusic = std::max(0.0f, std::min(1.0f, std::round(musicPct) / 100.0f));
+        cy += 22.0f;
+
+        if (std::fabs(newMaster - prevMaster) > 1e-4f ||
+            std::fabs(newSfx - prevSfx) > 1e-4f ||
+            std::fabs(newMusic - prevMusic) > 1e-4f) {
+            AudioSystem::SetMasterVolume(newMaster);
+            AudioSystem::SetSFXVolume(newSfx);
+            AudioSystem::SetMusicBusVolume(newMusic);
+            AudioSystem::SaveConfig();
+        }
 
         return cy - y;
     }

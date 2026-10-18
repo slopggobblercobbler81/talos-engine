@@ -8,6 +8,9 @@ namespace Talos::Editor {
     Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
         : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {
         m_inputMapDialog.Initialize("examples/scenes/input_map.talos");
+        if (!Audio::AudioSystem::LoadConfig("examples/scenes/audio_settings.talos")) {
+            Audio::AudioSystem::SaveConfig("examples/scenes/audio_settings.talos");
+        }
         TALOS_LOG_INFO("Central Editor Orchestrator initialized (Godot-style modular tree).");
     }
 
@@ -67,6 +70,7 @@ namespace Talos::Editor {
         m_gui.UnfocusTextField();
         m_viewport.CancelEntityDrag();
         m_inputMapDialog.Close(m_gui);
+        m_toolbar.CloseAudioMixer(m_gui);
 
         m_toolbar.ShowStatusMessage("Simulation Started (Play Mode)", 2.0f);
         TALOS_LOG_INFO("Entering Play Mode (snapshot saved: " + std::to_string(m_editSnapshot.size()) + " entities)");
@@ -115,6 +119,11 @@ namespace Talos::Editor {
             m_viewport.OnMouseReleased(false, true);
         }
 
+        if (m_toolbar.IsAudioMixerOpen() && Core::Input::IsKeyPressedOnce(Core::Key::Escape)) {
+            m_toolbar.CloseAudioMixer(m_gui);
+            return;
+        }
+
         // In Play Mode, advance the live game simulation (Movement + Collisions)
         // and allow [F3] to toggle the Diagnostic Overlay.
         if (m_isPlaying) {
@@ -139,7 +148,7 @@ namespace Talos::Editor {
         bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
                         Core::Input::IsKeyDown(Core::Key::RightControl);
         bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
-                         Core::Input::IsKeyDown(Core::Key::RightShift);
+                          Core::Input::IsKeyDown(Core::Key::RightShift);
 
         if (ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
             while (Core::Input::GetCharPressed() > 0) {}
@@ -191,7 +200,7 @@ namespace Talos::Editor {
         }
 
         // Block 2D viewport navigation and entity picking while a modal dialog is open
-        if (m_inputMapDialog.IsOpen()) {
+        if (m_inputMapDialog.IsOpen() || m_toolbar.IsAudioMixerOpen()) {
             return;
         }
 
@@ -280,6 +289,9 @@ namespace Talos::Editor {
             if (!modalStatus.empty()) {
                 m_toolbar.ShowStatusMessage(modalStatus, 2.0f);
             }
+        }
+        if (m_toolbar.IsAudioMixerOpen()) {
+            m_toolbar.RenderAudioMixerModal(m_windowWidth, m_windowHeight, consoleH, m_gui);
         }
     }
 

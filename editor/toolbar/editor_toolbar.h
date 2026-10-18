@@ -39,10 +39,15 @@ namespace Talos::Editor {
                     bool& outRequestStartPlay,
                     bool& outRequestStopPlay);
 
+        bool IsAudioMixerOpen() const { return m_audioMixerOpen; }
+        void CloseAudioMixer(EditorGui& gui);
+        void RenderAudioMixerModal(int windowWidth, int windowHeight, float consoleHeight, EditorGui& gui);
+
     private:
         int m_newEntityCounter = 1;
         std::string m_statusMessage;
         float m_statusTimer = 0.0f;
+        bool m_audioMixerOpen = false;
     };
 
 }

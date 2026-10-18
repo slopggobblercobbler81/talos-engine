@@ -50,6 +50,8 @@ namespace Talos::Audio {
         bool s_Initialized = false;
         bool s_DeviceReady = false;
         float s_MasterVolume = 1.0f;
+        float s_SfxVolume = 1.0f;
+        float s_MusicVolume = 1.0f;
 
         std::unordered_map<std::string, CachedSound> s_SoundCache;
         std::unordered_map<std::string, CachedMusic> s_MusicCache;
@@ -61,6 +63,13 @@ namespace Talos::Audio {
         float ClampPitch(float p) { return std::clamp(p, 0.05f, 4.0f); }
         float ClampPan(float p) { return std::clamp(p, 0.0f, 1.0f); }
         float ToRaylibPan(float p) { return 1.0f - ClampPan(p); }
+
+        std::string TrimStr(const std::string& s) {
+            const auto first = s.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) return "";
+            const auto last = s.find_last_not_of(" \t\r\n");
+            return s.substr(first, last - first + 1);
+        }
 
         void WriteLe16(std::ofstream& out, std::uint16_t v) {
             const char b[2] = { static_cast<char>(v & 0xFFu), static_cast<char>((v >> 8u) & 0xFFu) };
@@ -204,7 +213,7 @@ namespace Talos::Audio {
         }
     }
 
-    // --- Master Controls ---
+    // --- Volume Bus Controls (Project & Script-Ready API) ---
 
     void AudioSystem::SetMasterVolume(float volume) {
         s_MasterVolume = ClampVolume(volume);
@@ -212,6 +221,109 @@ namespace Talos::Audio {
     }
 
     float AudioSystem::GetMasterVolume() { return s_MasterVolume; }
+
+    void AudioSystem::SetSFXVolume(float volume) {
+        s_SfxVolume = ClampVolume(volume);
+        if (IsDeviceReady()) {
+            for (auto& [path, entry] : s_SoundCache) {
+                if (entry.hasDeviceBuffer) {
+                    ::SetSoundVolume(entry.sound, entry.volume * s_SfxVolume);
+                }
+            }
+        }
+    }
+
+    float AudioSystem::GetSFXVolume() { return s_SfxVolume; }
+
+    void AudioSystem::SetMusicVolume(float volume) {
+        s_MusicVolume = ClampVolume(volume);
+        if (IsDeviceReady()) {
+            for (auto& [path, entry] : s_MusicCache) {
+                if (entry.hasDeviceStream) {
+                    ::SetMusicVolume(entry.music, entry.volume * s_MusicVolume);
+                }
+            }
+        }
+    }
+
+    float AudioSystem::GetMusicVolume() { return s_MusicVolume; }
+
+    void AudioSystem::SetMusicBusVolume(float volume) { SetMusicVolume(volume); }
+    float AudioSystem::GetMusicBusVolume() { return GetMusicVolume(); }
+
+    void AudioSystem::ResetDefaultVolumes() {
+        SetMasterVolume(1.0f);
+        SetSFXVolume(1.0f);
+        SetMusicVolume(1.0f);
+    }
+
+    bool AudioSystem::SaveConfig(const std::string& filePath) {
+        if (filePath.empty()) return false;
+        std::error_code ec;
+        std::filesystem::path p(filePath);
+        if (p.has_parent_path()) {
+            std::filesystem::create_directories(p.parent_path(), ec);
+        }
+
+        std::ofstream out(filePath, std::ios::trunc);
+        if (!out.is_open()) {
+            TALOS_LOG_WARN("AudioSystem::SaveConfig failed to open '" + filePath + "'");
+            return false;
+        }
+
+        out << "# Talos Engine - Project Audio Volume Configuration\n";
+        out << "# Values range from 0.00 (Mute) to 1.00 (100%)\n\n";
+        out << "[Audio]\n";
+        out << "masterVolume = " << s_MasterVolume << "\n";
+        out << "sfxVolume = " << s_SfxVolume << "\n";
+        out << "musicVolume = " << s_MusicVolume << "\n";
+        return out.good();
+    }
+
+    bool AudioSystem::LoadConfig(const std::string& filePath) {
+        if (filePath.empty()) return false;
+        std::ifstream in(filePath);
+        if (!in.is_open()) return false;
+
+        float master = s_MasterVolume;
+        float sfx    = s_SfxVolume;
+        float music  = s_MusicVolume;
+        bool parsedAny = false;
+
+        std::string line;
+        while (std::getline(in, line)) {
+            std::string trimmed = TrimStr(line);
+            if (trimmed.empty() || trimmed[0] == '#' || trimmed[0] == '[') continue;
+            auto eqPos = trimmed.find('=');
+            if (eqPos == std::string::npos) continue;
+
+            std::string key = TrimStr(trimmed.substr(0, eqPos));
+            std::string valStr = TrimStr(trimmed.substr(eqPos + 1));
+            if (key.empty() || valStr.empty()) continue;
+
+            try {
+                float val = std::stof(valStr);
+                if (key == "masterVolume" || key == "master_volume") {
+                    master = ClampVolume(val);
+                    parsedAny = true;
+                } else if (key == "sfxVolume" || key == "sfx_volume") {
+                    sfx = ClampVolume(val);
+                    parsedAny = true;
+                } else if (key == "musicVolume" || key == "music_volume") {
+                    music = ClampVolume(val);
+                    parsedAny = true;
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+
+        if (!parsedAny) return false;
+        SetMasterVolume(master);
+        SetSFXVolume(sfx);
+        SetMusicVolume(music);
+        return true;
+    }
 
     // --- Format Detection & Validation ---
 
@@ -334,7 +446,7 @@ namespace Talos::Audio {
         entry.paused = false;
 
         if (entry.hasDeviceBuffer && IsDeviceReady()) {
-            ::SetSoundVolume(entry.sound, entry.volume);
+            ::SetSoundVolume(entry.sound, entry.volume * s_SfxVolume);
             ::SetSoundPitch(entry.sound, entry.pitch);
             ::SetSoundPan(entry.sound, ToRaylibPan(entry.pan));
             ::PlaySound(entry.sound);
@@ -399,12 +511,19 @@ namespace Talos::Audio {
         auto it = s_SoundCache.find(path);
         if (it == s_SoundCache.end()) return;
         it->second.volume = ClampVolume(volume);
-        if (it->second.hasDeviceBuffer && IsDeviceReady()) ::SetSoundVolume(it->second.sound, it->second.volume);
+        if (it->second.hasDeviceBuffer && IsDeviceReady()) {
+            ::SetSoundVolume(it->second.sound, it->second.volume * s_SfxVolume);
+        }
     }
 
     float AudioSystem::GetSoundVolume(const std::string& path) {
         auto it = s_SoundCache.find(path);
         return (it != s_SoundCache.end()) ? it->second.volume : 0.0f;
+    }
+
+    float AudioSystem::GetEffectiveSoundVolume(const std::string& path) {
+        auto it = s_SoundCache.find(path);
+        return (it != s_SoundCache.end()) ? (it->second.volume * s_SfxVolume * s_MasterVolume) : 0.0f;
     }
 
     void AudioSystem::SetSoundPitch(const std::string& path, float pitch) {
@@ -543,7 +662,7 @@ namespace Talos::Audio {
 
         if (entry.hasDeviceStream && IsDeviceReady()) {
             entry.music.looping = loop;
-            ::SetMusicVolume(entry.music, entry.volume);
+            ::SetMusicVolume(entry.music, entry.volume * s_MusicVolume);
             ::SetMusicPitch(entry.music, entry.pitch);
             ::SetMusicPan(entry.music, ToRaylibPan(entry.pan));
             ::PlayMusicStream(entry.music);
@@ -631,12 +750,19 @@ namespace Talos::Audio {
         auto it = s_MusicCache.find(path);
         if (it == s_MusicCache.end()) return;
         it->second.volume = ClampVolume(volume);
-        if (it->second.hasDeviceStream && IsDeviceReady()) ::SetMusicVolume(it->second.music, it->second.volume);
+        if (it->second.hasDeviceStream && IsDeviceReady()) {
+            ::SetMusicVolume(it->second.music, it->second.volume * s_MusicVolume);
+        }
     }
 
     float AudioSystem::GetMusicVolume(const std::string& path) {
         auto it = s_MusicCache.find(path);
         return (it != s_MusicCache.end()) ? it->second.volume : 0.0f;
+    }
+
+    float AudioSystem::GetEffectiveMusicVolume(const std::string& path) {
+        auto it = s_MusicCache.find(path);
+        return (it != s_MusicCache.end()) ? (it->second.volume * s_MusicVolume * s_MasterVolume) : 0.0f;
     }
 
     void AudioSystem::SetMusicPitch(const std::string& path, float pitch) {
