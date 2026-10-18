@@ -58,7 +58,7 @@ namespace Talos::Scene {
     // When 'texturePath' points to a .png file (e.g., "assets/textures/hero.png"),
     // renders the GPU-cached texture scaled to TransformComponent and tinted by 'color'.
     struct SpriteComponent {
-        bool enabled = true;
+        bool enabled = false;
         std::string texturePath = "";
         Renderer::ColorRGBA color = { 80, 180, 250, 255 };
         int sortingLayer = SortingLayer::Characters; // Explicit depth layer (0 = Background .. 4 = Overlay)

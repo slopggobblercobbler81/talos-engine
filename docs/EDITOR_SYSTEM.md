@@ -34,15 +34,21 @@ When in **Edit Mode** (`!IsPlaying()`):
 
 ---
 
-## 4. The "First-Level Inspector" Philosophy
+## 4. The "First-Level Inspector" & On-Demand Component Attachment
 
-To eliminate the frustration of unfolding three or four nested sub-menus just to change a font color or resize an object, the right-hand Inspector panel exposes all high-frequency properties on the **First Level**:
+To keep the Inspector clean and avoid showing inactive checkboxes for every possible capability on every object, newly created entities start with **only the fundamental `Transform 2D` component**. Optional components are attached on demand:
 
-1. **Identity & Lifecycle:** Direct `Active` checkbox and live-editable `Name` text field.
-2. **Transform 2D:** Direct sliders for `Pos X`, `Pos Y`, `Width`, and `Height`.
-3. **Sprite Component:** Toggleable checkbox + **8 one-click preset color swatches** + direct `R`, `G`, `B` sliders.
-4. **Text Label Component:** Toggleable checkbox + live keyboard text input box + `Font Size` slider + `Offset Y` slider + **8 one-click preset color swatches** + direct `R`, `G`, `B` sliders.
-5. **Collider 2D & Movement 2D:** Direct single-click checkboxes to make any object solid or controllable via `WASD` / Arrow Keys, with a direct `Speed` slider.
+1. **Identity & Lifecycle (Always Visible):** Direct `Active` checkbox, live-editable `Name` and `Tag` text fields, and quick preset tag buttons.
+2. **Transform 2D (Fundamental, Always Present):** Direct sliders for `Pos X`, `Pos Y`, `Width`, and `Height`.
+3. **Attached Optional Components (Shown Only When Added):**
+   - **Render Depth (`Sorting Layer` & `Z-Order`):** Automatically appears whenever a visual component (`Sprite 2D` or `Text Label`) is attached.
+   - **Sprite 2D:** Texture selector, UV region, 2D frame-sheet animator, and **8 one-click preset color swatches** + direct `R`, `G`, `B` sliders.
+   - **Text Label:** Live keyboard text input box + `Font Size` slider + `Offset Y` slider + **8 one-click preset color swatches** + direct `R`, `G`, `B` sliders.
+   - **Collider 2D:** Box / Circle shape selector, custom radius, bounciness (`Restitution`), and `Dynamic` / `Static` / `Trigger` mode toggles.
+   - **Movement 2D:** `Player Controlled (WASD)` toggle, `Speed` / `Velocity`, `Mass`, and `Gravity (%)`.
+   - **Camera 2D:** Primary toggle, `Follow` / `Fixed` framing, target entity, damping speed, zoom, and framing offsets.
+   - Each attached optional component header features a right-aligned **`[X]`** button to remove the component (`enabled = false`) with full Undo/Redo support.
+4. **`+ Add Component` Dropdown Button:** Located at the bottom of the Inspector, unfolding a list of unattached components (`Sprite 2D`, `Text Label`, `Collider 2D`, `Movement 2D`, `Camera 2D`) that can be added to the selected entity with a single click.
 
 ---
 

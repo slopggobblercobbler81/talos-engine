@@ -51,6 +51,7 @@ int main() {
         player.tag = "Player";
         player.transform.width = 72.0f;
         player.transform.height = 72.0f;
+        player.sprite.enabled = true;
         player.sprite.texturePath = "examples/assets/textures/sheet.png";
         player.sprite.color = { 255, 255, 255, 255 };
         player.sprite.sortingLayer = SortingLayer::Characters;
@@ -85,6 +86,7 @@ int main() {
         crate.tag = "Obstacle";
         crate.transform.width = 68.0f;
         crate.transform.height = 68.0f;
+        crate.sprite.enabled = true;
         crate.sprite.texturePath = "examples/assets/textures/crate.png";
         crate.sprite.color = { 255, 255, 255, 255 };
         crate.sprite.sortingLayer = SortingLayer::Scenery;
@@ -102,6 +104,7 @@ int main() {
         wall.tag = "Wall";
         wall.transform.width = 110.0f;
         wall.transform.height = 280.0f;
+        wall.sprite.enabled = true;
         wall.sprite.texturePath = "examples/assets/textures/brick.png";
         wall.sprite.color = { 255, 255, 255, 255 };
         wall.sprite.sortingLayer = SortingLayer::Scenery;
@@ -119,6 +122,7 @@ int main() {
         coin.tag = "Coin";
         coin.transform.width = 56.0f;
         coin.transform.height = 56.0f;
+        coin.sprite.enabled = true;
         coin.sprite.texturePath = "examples/assets/textures/coin.png";
         coin.sprite.color = { 255, 255, 255, 255 };
         coin.sprite.sortingLayer = SortingLayer::Scenery;

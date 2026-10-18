@@ -99,8 +99,9 @@ namespace Talos::Editor {
             m_textSelectionAnchor = 0;
         }
 
-    private:
         void PushUndoIfActive();
+
+    private:
         void BeginContinuousIfActive();
 
     private:

@@ -400,6 +400,21 @@ namespace Talos::Editor {
                               camZoom * 100.0f);
                 Renderer2D::DrawLabel(camTag, frustumX + 6.0f * invZoom, frustumY + 5.0f * invZoom, 14, camColor);
             }
+
+            // Render subtle Transform 2D node frame + center crosshair in Edit Mode when no other visual/collider/camera component is attached
+            if (!e.sprite.enabled && !e.text.enabled && !e.collider.enabled && !e.camera.enabled) {
+                ColorRGBA nodeColor = { 95, 195, 255, 140 };
+                Renderer2D::DrawRectOutline(
+                    e.transform.x, e.transform.y,
+                    e.transform.width, e.transform.height,
+                    std::max(1.0f, 1.2f * invZoom), nodeColor
+                );
+                float cx = e.transform.x + e.transform.width * 0.5f;
+                float cy = e.transform.y + e.transform.height * 0.5f;
+                float arm = 6.0f * invZoom;
+                Renderer2D::DrawLine2D(cx - arm, cy, cx + arm, cy, nodeColor);
+                Renderer2D::DrawLine2D(cx, cy - arm, cx, cy + arm, nodeColor);
+            }
         }
 
         const Entity* selected = scene.FindEntityById(selectedEntityId);

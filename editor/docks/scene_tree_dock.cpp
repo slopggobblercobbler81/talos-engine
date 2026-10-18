@@ -46,9 +46,12 @@ namespace Talos::Editor {
                     entity.sprite.flipX,
                     entity.sprite.flipY
                 );
-            } else {
+            } else if (entity.sprite.enabled || entity.text.enabled) {
                 ColorRGBA swatch = entity.sprite.enabled ? entity.sprite.color : entity.text.color;
                 Renderer2D::DrawRect(16.0f, rowY + 7.0f, 16.0f, 16.0f, swatch);
+            } else {
+                Renderer2D::DrawRect(16.0f, rowY + 7.0f, 16.0f, 16.0f, { 32, 38, 50, 255 });
+                Renderer2D::DrawRectOutline(16.0f, rowY + 7.0f, 16.0f, 16.0f, 1.0f, { 95, 195, 255, 220 });
             }
 
             Renderer2D::DrawLabel(entity.name.c_str(), 40.0f, rowY + 7.0f, 16, { 235, 235, 240, 255 });

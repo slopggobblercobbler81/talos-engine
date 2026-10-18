@@ -26,10 +26,16 @@ namespace {
 TEST(RoundTrip_PreservesEntityData) {
     Scene original;
     Entity& e = original.CreateEntity("Hero", 12.5f, -40.25f);
+    CHECK(!e.sprite.enabled);
+    CHECK(!e.text.enabled);
+    CHECK(!e.collider.enabled);
+    CHECK(!e.movement.enabled);
+    CHECK(!e.camera.enabled);
     e.tag = "Player";
     e.active = false;
     e.transform.width = 64.0f;
     e.transform.height = 32.0f;
+    e.sprite.enabled = true;
     e.sprite.texturePath = "examples/assets/textures/hero.png";
     e.sprite.color = { 10, 20, 30, 40 };
     e.sprite.sortingLayer = 2;
@@ -72,6 +78,7 @@ TEST(RoundTrip_PreservesEntityData) {
     CHECK_NEAR(r.transform.x, 12.5, 0.01);
     CHECK_NEAR(r.transform.y, -40.25, 0.01);
     CHECK_NEAR(r.transform.width, 64.0, 0.01);
+    CHECK(r.sprite.enabled);
     CHECK_EQ(r.sprite.texturePath, e.sprite.texturePath);
     CHECK_EQ(static_cast<int>(r.sprite.color.r), 10);
     CHECK_EQ(static_cast<int>(r.sprite.color.a), 40);

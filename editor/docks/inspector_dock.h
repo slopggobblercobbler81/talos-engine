@@ -22,6 +22,8 @@ namespace Talos::Editor {
     private:
         float m_scrollOffset = 0.0f;
         float m_contentHeight = 0.0f;
+        bool m_addComponentMenuOpen = false;
+        Scene::EntityID m_lastSelectedEntityId = 0;
     };
 
 }

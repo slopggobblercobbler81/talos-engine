@@ -16,15 +16,15 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
 * **`name` (`std::string`):** A human-readable identifier for fast, path-independent lookups.
 * **`tag` (`std::string`):** Semantic category label (e.g., `"Player"`, `"Enemy"`, `"Coin"`, `"Wall"`) used by scripts, collision events, and tag-based queries (`entity.HasTag("Enemy")`).
 * **`active` (`bool`):** A master switch to enable or disable the entity across both update and render passes.
-* **Direct Toggleable Components:**
-  1. **`TransformComponent`:** Position `(x, y)` and dimensions `(width, height)`.
+* **Direct Toggleable Components (Only `TransformComponent` is active on a newly created entity; all other components default to `enabled = false` and are attached on demand via the Inspector's `+ Add Component` menu or in code):**
+  1. **`TransformComponent` (Fundamental):** Position `(x, y)` and dimensions `(width, height)`, always present on every entity.
   2. **`SpriteComponent`:** Visual rectangle/sprite rendering (`enabled`, `texturePath`, `color`), explicit depth sorting (`sortingLayer`, `zOrder`), UV sub-rectangle & mirror flipping (`sourceX`, `sourceY`, `sourceW`, `sourceH`, `flipX`, `flipY`), and integrated 2D frame-by-frame animation (`frameCount`, `currentFrame`, `fps`, `loop`, `isPlaying`, `frameTimer`, and `SyncFrameUV`).
   3. **`TextComponent`:** First-level typography (`enabled`, `content`, `fontSize`, `color`, `offsetX/Y`). All essential text properties live directly on the component without nested theme override menus.
   4. **`ColliderComponent`:** Solid 2D collision or non-blocking sensor/trigger area (`enabled`, `shape` = `Box` or `Circle`, `radius`, `restitution`, `isSolid`, `isStatic`, `isTrigger`) that automatically fits the entity's `TransformComponent` dimensions (or uses an explicit custom circle radius when `radius > 0`).
   5. **`MovementComponent`:** Velocity, rigid-body properties, and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `mass`, `gravityScale`, `velocityX/Y`).
   6. **`CameraComponent`:** Configurable 2D runtime game camera (`enabled`, `isPrimary`, `followTarget`, `smoothFollow`, `targetName`, `followSpeed`, `zoom`, `offsetX`, `offsetY`) supporting both fixed framing and frame-rate-independent smooth target tracking.
 
-Turning an ordinary visual box into a solid obstacle, a pass-through sensor/trigger zone, a bouncing circular object, a controllable character, or the active game camera requires flipping a single boolean flag (`entity.camera.enabled = true;`) rather than restructuring a node tree.
+Attaching a visual sprite, text label, solid obstacle, pass-through sensor/trigger zone, controllable character movement, or runtime camera is done either from the **`+ Add Component`** dropdown at the bottom of the Inspector or in code (`entity.sprite.enabled = true;`).
 
 ---
 
