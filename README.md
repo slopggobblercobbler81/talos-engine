@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/logo.png" alt="Talos Engine Logo" width="160" />
+  <img src="assets/icon.png" alt="Talos Engine Logo" width="160" />
   <h1>Talos Engine</h1>
   <p><strong>Lightweight, self-contained 2D game engine and visual editor written in C++17.</strong></p>
 </div>
@@ -50,4 +50,4 @@ cmake --build build
 
 ## Documentation
 
-For detailed technical guides on each subsystem, see the [`docs/`](docs/) directory and [`docs/ROADMAP_1_0.md`](docs/ROADMAP_1_0.md).
+For detailed technical guides on each subsystem, see the [`docs/`](docs/) directory.
