@@ -89,6 +89,8 @@ Every frame executes a deterministic, strictly ordered pipeline across layers:
 
 ## 4. Modular Tree Structure (Central Orchestrator + Branches)
 
+Each engine layer is built as a static library (`engine/CMakeLists.txt`): `talos_core`, `talos_renderer` (-> core), `talos_physics`, and `talos_scene` (-> core, renderer, physics). The editor executable links against them. raylib is linked `PRIVATE` only to `talos_core` and `talos_renderer`, so no other target can see its headers.
+
 Within each architectural layer, subsystems follow a **Godot-style modular tree organization** (`Central Orchestrator -> Specialized Branches`) to prevent monolithic files:
 
 ```text
