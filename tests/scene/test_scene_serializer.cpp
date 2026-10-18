@@ -45,6 +45,7 @@ TEST(RoundTrip_PreservesEntityData) {
     e.collider.radius = 18.0f;
     e.collider.restitution = 0.5f;
     e.collider.isStatic = true;
+    e.collider.isTrigger = true;
     e.movement.enabled = true;
     e.movement.speed = 150.0f;
     e.movement.mass = 2.5f;
@@ -82,6 +83,7 @@ TEST(RoundTrip_PreservesEntityData) {
     CHECK_NEAR(r.collider.radius, 18.0, 0.01);
     CHECK_NEAR(r.collider.restitution, 0.5, 0.01);
     CHECK(r.collider.isStatic);
+    CHECK(r.collider.isTrigger);
     CHECK_NEAR(r.movement.mass, 2.5, 0.01);
     CHECK_EQ(r.camera.targetName, std::string("Player"));
     CHECK_NEAR(r.camera.zoom, 1.5, 0.01);
@@ -228,6 +230,84 @@ TEST(Save_EmptySceneLoadsAsEmpty) {
     loaded.CreateEntity("Stale");
     CHECK(SceneSerializer::Load(loaded, path));
     CHECK(loaded.GetEntities().empty());
+}
+
+TEST(Trigger_DetectsOverlapAndEmitsEnterStayExitWithoutBlockingMovement) {
+    Scene scene;
+
+    // Stationary Circle Trigger Zone at [100..160, 0..60] (center = 130, 30, radius = 30)
+    Entity& zone = scene.CreateEntity("CoinSensor", 100.0f, 0.0f);
+    zone.transform.width = 60.0f;
+    zone.transform.height = 60.0f;
+    zone.sprite.enabled = false;
+    zone.collider.enabled = true;
+    zone.collider.shape = Talos::Physics::ColliderShape::Circle;
+    zone.collider.isStatic = true;
+    zone.collider.isTrigger = true;
+    EntityID zoneId = zone.id;
+
+    // Moving Box entity starting at x = 0, width = 40, height = 40, moving right
+    Entity& runner = scene.CreateEntity("Runner", 0.0f, 10.0f);
+    runner.transform.width = 40.0f;
+    runner.transform.height = 40.0f;
+    runner.sprite.enabled = false;
+    runner.collider.enabled = true;
+    runner.collider.shape = Talos::Physics::ColliderShape::Box;
+    runner.collider.isSolid = true;
+    runner.movement.enabled = true;
+    runner.movement.playerControlled = false;
+    runner.movement.gravityScale = 0.0f;
+    EntityID runnerId = runner.id;
+
+    int enterCount = 0;
+    int stayCount  = 0;
+    int exitCount  = 0;
+    scene.SetTriggerCallback([&](Entity& trig, Entity& other, TriggerEventState state) {
+        CHECK_EQ(trig.id, zoneId);
+        CHECK_EQ(other.id, runnerId);
+        if (state == TriggerEventState::Enter) ++enterCount;
+        else if (state == TriggerEventState::Stay) ++stayCount;
+        else if (state == TriggerEventState::Exit) ++exitCount;
+    });
+
+    // Step 1: Runner is far to the left (x = 0) -> no overlap
+    scene.Update(0.0f);
+    CHECK(scene.GetTriggerEvents().empty());
+    CHECK(!scene.IsTriggerOverlapping(zoneId));
+
+    // Step 2: Move Runner inside the trigger zone (x = 110) -> Enter event, position NOT pushed out
+    Entity* rPtr = scene.FindEntityById(runnerId);
+    rPtr->transform.x = 110.0f;
+    scene.Update(0.0f);
+    CHECK_NEAR(rPtr->transform.x, 110.0, 1e-4); // Pass-through: trigger never blocks or pushes body
+    CHECK(scene.IsTriggerOverlapping(zoneId, runnerId));
+    CHECK_EQ(scene.GetTriggerEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetTriggerEvents()[0].state == TriggerEventState::Enter);
+    CHECK_EQ(enterCount, 1);
+    CHECK_EQ(stayCount, 0);
+    CHECK_EQ(exitCount, 0);
+
+    // Step 3: Runner remains inside the trigger zone (x = 120) -> Stay event
+    rPtr->transform.x = 120.0f;
+    scene.Update(0.0f);
+    CHECK_NEAR(rPtr->transform.x, 120.0, 1e-4);
+    CHECK(scene.IsTriggerOverlapping(zoneId, runnerId));
+    CHECK_EQ(scene.GetTriggerEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetTriggerEvents()[0].state == TriggerEventState::Stay);
+    CHECK_EQ(enterCount, 1);
+    CHECK_EQ(stayCount, 1);
+    CHECK_EQ(exitCount, 0);
+
+    // Step 4: Runner leaves the trigger zone completely (x = 250) -> Exit event
+    rPtr->transform.x = 250.0f;
+    scene.Update(0.0f);
+    CHECK_NEAR(rPtr->transform.x, 250.0, 1e-4);
+    CHECK(!scene.IsTriggerOverlapping(zoneId, runnerId));
+    CHECK_EQ(scene.GetTriggerEvents().size(), static_cast<size_t>(1));
+    CHECK(scene.GetTriggerEvents()[0].state == TriggerEventState::Exit);
+    CHECK_EQ(enterCount, 1);
+    CHECK_EQ(stayCount, 1);
+    CHECK_EQ(exitCount, 1);
 }
 
 TEST_MAIN()

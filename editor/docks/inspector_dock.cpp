@@ -137,20 +137,24 @@ namespace Talos::Editor {
             y += 80.0f;
         }
 
-        // 6. Collider 2D Component (Box AABB / Circle + Narrow-Phase Physics)
+        // 6. Collider 2D Component (Box AABB / Circle + Narrow-Phase Physics & Trigger Sensors)
         gui.DrawCheckbox(x, y, "COLLIDER 2D (Box / Circle)", selected->collider.enabled);
         if (selected->collider.enabled) {
-            char colBadge[48];
+            char colBadge[56];
+            const char* modeLabel = selected->collider.isTrigger
+                ? "Trigger"
+                : (selected->collider.isStatic ? "Static" : "Dynamic");
             if (selected->collider.shape == Physics::ColliderShape::Circle) {
                 float effR = selected->collider.GetEffectiveRadius(selected->transform.width, selected->transform.height);
-                std::snprintf(colBadge, sizeof(colBadge), "[Circle R=%.0f | %s]",
-                              effR, selected->collider.isStatic ? "Static" : "Dynamic");
+                std::snprintf(colBadge, sizeof(colBadge), "[Circle R=%.0f | %s]", effR, modeLabel);
             } else {
-                std::snprintf(colBadge, sizeof(colBadge), "[Box | %s]",
-                              selected->collider.isStatic ? "Static" : "Dynamic");
+                std::snprintf(colBadge, sizeof(colBadge), "[Box | %s]", modeLabel);
             }
             int colW = Renderer2D::MeasureTextWidth(colBadge, 14);
-            Renderer2D::DrawLabel(colBadge, x + w - static_cast<float>(colW), y + 2.0f, 14, { 90, 225, 135, 255 });
+            ColorRGBA badgeColor = selected->collider.isTrigger
+                ? ColorRGBA{ 255, 195, 70, 255 }
+                : ColorRGBA{ 90, 225, 135, 255 };
+            Renderer2D::DrawLabel(colBadge, x + w - static_cast<float>(colW), y + 2.0f, 14, badgeColor);
         }
         y += 23.0f;
         if (selected->collider.enabled) {

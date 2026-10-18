@@ -331,9 +331,11 @@ namespace Talos::Editor {
         for (const auto& e : scene.GetEntities()) {
             if (!e.active) continue;
             if (e.collider.enabled) {
-                ColorRGBA colColor = e.collider.isStatic
-                    ? ColorRGBA{ 75, 220, 120, 155 }
-                    : ColorRGBA{ 90, 240, 195, 175 };
+                ColorRGBA colColor = e.collider.isTrigger
+                    ? ColorRGBA{ 255, 195, 65, 195 }
+                    : (e.collider.isStatic
+                        ? ColorRGBA{ 75, 220, 120, 155 }
+                        : ColorRGBA{ 90, 240, 195, 175 });
                 float lineThick = std::max(1.0f, 1.4f * invZoom);
                 if (e.collider.shape == Physics::ColliderShape::Circle) {
                     float cx = e.transform.x + e.transform.width * 0.5f;

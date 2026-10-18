@@ -3,9 +3,32 @@
 #include <vector>
 #include <string>
 #include <cstddef>
+#include <functional>
 #include "scene/entity.h"
 
 namespace Talos::Scene {
+
+    // =========================================================================
+    // Trigger / Sensor Overlap Events (Layer 3: Scene & Entity -> Scripting)
+    // =========================================================================
+    // Lifecycle phase of a non-blocking Trigger (isTrigger == true) overlap.
+    enum class TriggerEventState {
+        Enter = 0, // First frame of overlap between a trigger collider and another collider
+        Stay  = 1, // Subsequent frames while the two colliders remain overlapping
+        Exit  = 2  // First frame after the two colliders separate
+    };
+
+    // Event record generated during Scene::Update for script and gameplay dispatch.
+    struct TriggerOverlapEvent {
+        EntityID triggerId = 0;
+        EntityID otherId   = 0;
+        std::string triggerName;
+        std::string otherName;
+        TriggerEventState state = TriggerEventState::Enter;
+    };
+
+    // Callback signature used by the Scripting layer or gameplay listeners to receive trigger events.
+    using TriggerCallback = std::function<void(Entity& triggerEntity, Entity& otherEntity, TriggerEventState state)>;
 
     // =========================================================================
     // Per-Component Runtime Consumption Metrics (Layer 3: Scene & Entity)
@@ -45,7 +68,8 @@ namespace Talos::Scene {
     // Scene Container & Simulation Coordinator (Layer 3: Scene & Entity)
     // =========================================================================
     // Owns the contiguous array of Entities in the active game world and orchestrates
-    // their per-frame movement, collision resolution, camera tracking, and rendering submission.
+    // their per-frame movement, collision resolution, trigger detection, camera tracking,
+    // and rendering submission.
     class Scene {
     public:
         // Allocates a new Entity in the scene with a unique auto-incremented ID
@@ -62,6 +86,19 @@ namespace Talos::Scene {
         // Removes all entities from the scene and resets the ID counter to 1.
         // Used prior to loading a scene file from disk.
         void Clear();
+
+        // Clears transient runtime trigger overlap state (called on Play/Stop transitions).
+        void ResetTriggerState();
+
+        // Registers a callback invoked whenever a Trigger (isTrigger) enters, stays, or exits overlap.
+        void SetTriggerCallback(TriggerCallback callback);
+
+        // Returns the list of Trigger events (Enter / Stay / Exit) emitted during the latest Update() step.
+        const std::vector<TriggerOverlapEvent>& GetTriggerEvents() const { return m_frameTriggerEvents; }
+
+        // Returns true if the given trigger entity is currently overlapping 'otherId'
+        // (or any collider when otherId == 0).
+        bool IsTriggerOverlapping(EntityID triggerId, EntityID otherId = 0) const;
 
         // Path-independent lookup by name. Unlike hierarchical NodePath systems,
         // finding an entity by name never breaks if the scene order is reorganized.
@@ -94,7 +131,7 @@ namespace Talos::Scene {
         // for all active entities with sprite.enabled && sprite.frameCount > 1.
         void UpdateAnimations(float delta);
 
-        // Advances entity movement, sprite animations, solid collisions, and runtime camera tracking.
+        // Advances entity movement, sprite animations, solid collisions, trigger overlaps, and runtime camera tracking.
         void Update(float delta);
 
         // Submits all active visual and text components to the Renderer2D layer.
@@ -104,11 +141,27 @@ namespace Talos::Scene {
         const SceneDiagnostics& GetDiagnostics() const { return m_diagnostics; }
 
     private:
+        struct ActiveTriggerOverlap {
+            EntityID triggerId = 0;
+            EntityID otherId   = 0;
+            std::string triggerName;
+            std::string otherName;
+        };
+
         // Contiguous storage in memory for cache-friendly iteration every frame.
         std::vector<Entity> m_entities;
 
         // Monotonically increasing counter guaranteeing unique EntityIDs.
         EntityID m_nextId = 1;
+
+        // Active trigger overlaps from the previous simulation step (used to compute Enter/Stay/Exit).
+        std::vector<ActiveTriggerOverlap> m_activeTriggerOverlaps;
+
+        // Trigger events emitted during the most recent Update() call.
+        std::vector<TriggerOverlapEvent> m_frameTriggerEvents;
+
+        // Optional listener hook for Scripting / gameplay systems.
+        TriggerCallback m_triggerCallback;
 
         // Live per-component diagnostic metrics updated during Update() and Render().
         mutable SceneDiagnostics m_diagnostics;

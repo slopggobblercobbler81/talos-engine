@@ -51,7 +51,8 @@ namespace Talos::Editor {
                 std::fabs(ea.collider.radius - eb.collider.radius) > 0.01f ||
                 std::fabs(ea.collider.restitution - eb.collider.restitution) > 0.005f ||
                 ea.collider.isSolid != eb.collider.isSolid ||
-                ea.collider.isStatic != eb.collider.isStatic) return false;
+                ea.collider.isStatic != eb.collider.isStatic ||
+                ea.collider.isTrigger != eb.collider.isTrigger) return false;
             if (ea.movement.enabled != eb.movement.enabled ||
                 ea.movement.playerControlled != eb.movement.playerControlled ||
                 std::fabs(ea.movement.speed - eb.movement.speed) > 0.01f ||

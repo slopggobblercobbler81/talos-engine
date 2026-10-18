@@ -59,6 +59,7 @@ namespace Talos::Editor {
             m_undoRedo.CommitContinuousEdit(scene);
         }
 
+        scene.ResetTriggerState();
         m_editSnapshot = scene.GetEntities();
         m_isPlaying = true;
         m_gui.CancelSliderDrag();
@@ -73,6 +74,7 @@ namespace Talos::Editor {
     void Editor::StopPlayMode(Scene::Scene& scene) {
         if (!m_isPlaying) return;
 
+        scene.ResetTriggerState();
         scene.GetEntities() = m_editSnapshot;
         m_isPlaying = false;
         m_gui.CancelSliderDrag();

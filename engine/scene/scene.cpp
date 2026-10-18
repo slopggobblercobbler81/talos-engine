@@ -1,5 +1,6 @@
 #include "scene/scene.h"
 #include "core/input.h"
+#include "core/logger.h"
 #include "physics/physics2d.h"
 #include "renderer/renderer2d.h"
 #include <algorithm>
@@ -56,6 +57,25 @@ namespace Talos::Scene {
     void Scene::Clear() {
         m_entities.clear();
         m_nextId = 1;
+        ResetTriggerState();
+    }
+
+    void Scene::ResetTriggerState() {
+        m_activeTriggerOverlaps.clear();
+        m_frameTriggerEvents.clear();
+    }
+
+    void Scene::SetTriggerCallback(TriggerCallback callback) {
+        m_triggerCallback = std::move(callback);
+    }
+
+    bool Scene::IsTriggerOverlapping(EntityID triggerId, EntityID otherId) const {
+        for (const auto& active : m_activeTriggerOverlaps) {
+            if (active.triggerId == triggerId && (otherId == 0 || active.otherId == otherId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     Entity* Scene::FindEntity(const std::string& name) {
@@ -301,13 +321,13 @@ namespace Talos::Scene {
 
             for (size_t i = 0; i < entityCount; ++i) {
                 Entity& eA = m_entities[i];
-                if (!eA.active || !eA.collider.enabled || !eA.collider.isSolid) {
+                if (!eA.active || !eA.collider.enabled || !eA.collider.isSolid || eA.collider.isTrigger) {
                     continue;
                 }
 
                 for (size_t j = i + 1; j < entityCount; ++j) {
                     Entity& eB = m_entities[j];
-                    if (!eB.active || !eB.collider.enabled || !eB.collider.isSolid) {
+                    if (!eB.active || !eB.collider.enabled || !eB.collider.isSolid || eB.collider.isTrigger) {
                         continue;
                     }
 
@@ -373,6 +393,107 @@ namespace Talos::Scene {
                 break;
             }
         }
+
+        // =====================================================================
+        // 3b. Sensor / Trigger Overlap Detection & Event Dispatch (isTrigger)
+        //     Detects Box/Circle overlaps without blocking physical movement
+        //     and emits Enter / Stay / Exit events toward scripts & listeners.
+        // =====================================================================
+        m_frameTriggerEvents.clear();
+        std::vector<ActiveTriggerOverlap> currentOverlaps;
+
+        for (size_t i = 0; i < entityCount; ++i) {
+            Entity& eA = m_entities[i];
+            if (!eA.active || !eA.collider.enabled) {
+                continue;
+            }
+
+            for (size_t j = i + 1; j < entityCount; ++j) {
+                Entity& eB = m_entities[j];
+                if (!eB.active || !eB.collider.enabled) {
+                    continue;
+                }
+
+                // Only evaluate pairs where at least one collider is a Sensor / Trigger
+                if (!eA.collider.isTrigger && !eB.collider.isTrigger) {
+                    continue;
+                }
+
+                Shape2D shapeA = eA.collider.BuildShape2D(
+                    eA.transform.x, eA.transform.y, eA.transform.width, eA.transform.height
+                );
+                Shape2D shapeB = eB.collider.BuildShape2D(
+                    eB.transform.x, eB.transform.y, eB.transform.width, eB.transform.height
+                );
+
+                ++aabbChecksCount;
+                if (!Physics2D::CheckOverlap(shapeA, shapeB)) {
+                    continue;
+                }
+
+                if (eA.collider.isTrigger) {
+                    currentOverlaps.push_back({ eA.id, eB.id, eA.name, eB.name });
+                }
+                if (eB.collider.isTrigger) {
+                    currentOverlaps.push_back({ eB.id, eA.id, eB.name, eA.name });
+                }
+            }
+        }
+
+        // Emit Enter & Stay events for currently overlapping trigger pairs
+        for (const auto& cur : currentOverlaps) {
+            bool wasActive = false;
+            for (const auto& prev : m_activeTriggerOverlaps) {
+                if (prev.triggerId == cur.triggerId && prev.otherId == cur.otherId) {
+                    wasActive = true;
+                    break;
+                }
+            }
+
+            TriggerEventState state = wasActive ? TriggerEventState::Stay : TriggerEventState::Enter;
+            m_frameTriggerEvents.push_back({ cur.triggerId, cur.otherId, cur.triggerName, cur.otherName, state });
+
+            if (state == TriggerEventState::Enter) {
+                TALOS_LOG_INFO("[Trigger] '" + cur.otherName + "' entered trigger '" + cur.triggerName + "'");
+            }
+
+            if (m_triggerCallback) {
+                Entity* trigEnt  = FindEntityById(cur.triggerId);
+                Entity* otherEnt = FindEntityById(cur.otherId);
+                if (trigEnt && otherEnt) {
+                    m_triggerCallback(*trigEnt, *otherEnt, state);
+                }
+            }
+        }
+
+        // Emit Exit events for trigger pairs that separated on this frame
+        for (const auto& prev : m_activeTriggerOverlaps) {
+            bool stillActive = false;
+            for (const auto& cur : currentOverlaps) {
+                if (cur.triggerId == prev.triggerId && cur.otherId == prev.otherId) {
+                    stillActive = true;
+                    break;
+                }
+            }
+
+            if (!stillActive) {
+                m_frameTriggerEvents.push_back({
+                    prev.triggerId, prev.otherId, prev.triggerName, prev.otherName, TriggerEventState::Exit
+                });
+                TALOS_LOG_INFO("[Trigger] '" + prev.otherName + "' exited trigger '" + prev.triggerName + "'");
+
+                if (m_triggerCallback) {
+                    Entity* trigEnt  = FindEntityById(prev.triggerId);
+                    Entity* otherEnt = FindEntityById(prev.otherId);
+                    if (trigEnt && otherEnt) {
+                        m_triggerCallback(*trigEnt, *otherEnt, TriggerEventState::Exit);
+                    }
+                }
+            }
+        }
+
+        m_activeTriggerOverlaps = std::move(currentOverlaps);
+
         auto tColEnd = Clock::now();
         colliderUsAccum += std::chrono::duration<double, std::micro>(tColEnd - tColStart).count();
 

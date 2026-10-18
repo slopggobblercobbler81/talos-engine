@@ -17,9 +17,9 @@ To preserve unidirectional layer dependencies, `Physics2D` has **zero knowledge*
 
 ---
 
-## 2. Overlap Queries (`Physics2D::CheckOverlap`)
+## 2. Overlap Queries & Sensor / Trigger Detection (`Physics2D::CheckOverlap`)
 
-`Physics2D` provides fast boolean intersection tests for all shape combinations:
+`Physics2D::CheckOverlap` provides fast boolean intersection tests for all shape combinations (including a unified `CheckOverlap(const Shape2D& a, const Shape2D& b)` dispatcher used by `Scene` for pass-through **Sensor / Trigger** (`isTrigger = true`) colliders):
 
 1. **`Box vs Box` (`Rect2D` vs `Rect2D`):**
    Evaluates projection overlap on both $X$ and $Y$ axes via the Separating Axis Theorem (SAT).

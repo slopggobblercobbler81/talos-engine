@@ -61,6 +61,7 @@ collider.radius = 0.00
 collider.restitution = 0.00
 collider.isSolid = 1
 collider.isStatic = 0
+collider.isTrigger = 0
 movement.enabled = 1
 movement.playerControlled = 1
 movement.speed = 320.00

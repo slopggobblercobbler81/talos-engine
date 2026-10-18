@@ -48,9 +48,17 @@ namespace Talos::Editor {
         }
         cy += 24.0f;
 
-        // 2. Solid & Static Body Flags
+        // 2. Solid, Static & Trigger (Sensor) Flags
         DrawCheckbox(x, cy, "Solid Collision", collider.isSolid);
         DrawCheckbox(x + w * 0.52f, cy, "Static Body", collider.isStatic);
+        cy += 22.0f;
+
+        DrawCheckbox(x, cy, "Trigger (Sensor)", collider.isTrigger);
+        if (collider.isTrigger) {
+            const char* sensorHint = "[Pass-Through]";
+            int hintW = Renderer2D::MeasureTextWidth(sensorHint, 14);
+            Renderer2D::DrawLabel(sensorHint, x + w - static_cast<float>(hintW), cy + 2.0f, 14, { 255, 195, 70, 255 });
+        }
         cy += 23.0f;
 
         // 3. Circle Radius Slider + [Auto] Fit Button (shown when Shape == Circle)
@@ -77,10 +85,12 @@ namespace Talos::Editor {
         }
 
         // 4. Bounciness / Restitution Slider (0% = Inelastic, 100% = Elastic Bounce)
-        float bouncePct = std::round(collider.restitution * 100.0f);
-        DrawFloatSlider(x, cy, w, "Bounce (%)", bouncePct, 0.0f, 100.0f, baseSliderId + 1);
-        collider.restitution = std::max(0.0f, std::min(1.0f, std::round(bouncePct) / 100.0f));
-        cy += 23.0f;
+        if (!collider.isTrigger) {
+            float bouncePct = std::round(collider.restitution * 100.0f);
+            DrawFloatSlider(x, cy, w, "Bounce (%)", bouncePct, 0.0f, 100.0f, baseSliderId + 1);
+            collider.restitution = std::max(0.0f, std::min(1.0f, std::round(bouncePct) / 100.0f));
+            cy += 23.0f;
+        }
 
         return cy - y;
     }

@@ -113,6 +113,7 @@ namespace Talos::Scene {
             out << "collider.restitution = " << e.collider.restitution << "\n";
             out << "collider.isSolid = " << (e.collider.isSolid ? 1 : 0) << "\n";
             out << "collider.isStatic = " << (e.collider.isStatic ? 1 : 0) << "\n";
+            out << "collider.isTrigger = " << (e.collider.isTrigger ? 1 : 0) << "\n";
 
             // MovementComponent
             out << "movement.enabled = " << (e.movement.enabled ? 1 : 0) << "\n";
@@ -233,6 +234,7 @@ namespace Talos::Scene {
             else if (key == "collider.restitution") currentEntity.collider.restitution = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
             else if (key == "collider.isSolid")     currentEntity.collider.isSolid = (std::atoi(val.c_str()) != 0);
             else if (key == "collider.isStatic")    currentEntity.collider.isStatic = (std::atoi(val.c_str()) != 0);
+            else if (key == "collider.isTrigger")   currentEntity.collider.isTrigger = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.enabled")     currentEntity.movement.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.playerControlled") currentEntity.movement.playerControlled = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.speed")       currentEntity.movement.speed = std::strtof(val.c_str(), nullptr);

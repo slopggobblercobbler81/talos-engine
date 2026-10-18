@@ -125,12 +125,13 @@ namespace Talos::Scene {
         float offsetY = 0.0f; // Relative vertical offset from TransformComponent.y
     };
 
-    // Enables physical 2D collision (Box AABB or radial Circle) using the entity's Transform.
-    // Eliminates the need to manually create and attach separate CollisionShape child nodes.
+    // Enables physical 2D collision (Box AABB or radial Circle) or non-blocking sensor trigger zones
+    // using the entity's Transform. Eliminates the need to manually attach separate CollisionShape child nodes.
     struct ColliderComponent {
         bool enabled = false;
         bool isSolid = true;                                        // When true, prevents overlapping solid entities from passing through
         bool isStatic = false;                                      // When true, acts as an immovable obstacle (infinite mass)
+        bool isTrigger = false;                                     // When true, acts as a pass-through sensor that emits overlap events without blocking movement
         Physics::ColliderShape shape = Physics::ColliderShape::Box; // Geometric primitive: Box (AABB) or Circle
         float radius = 0.0f;                                        // Custom circle radius in pixels (0.0 = auto-fit min(width, height) * 0.5)
         float restitution = 0.0f;                                   // Bounciness coefficient (0.00 = inelastic .. 1.00 = elastic)
