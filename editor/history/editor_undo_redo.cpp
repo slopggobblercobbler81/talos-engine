@@ -26,7 +26,13 @@ namespace Talos::Editor {
                 ea.sprite.texturePath != eb.sprite.texturePath ||
                 !AreColorsEqual(ea.sprite.color, eb.sprite.color) ||
                 ea.sprite.sortingLayer != eb.sprite.sortingLayer ||
-                ea.sprite.zOrder != eb.sprite.zOrder) return false;
+                ea.sprite.zOrder != eb.sprite.zOrder ||
+                std::fabs(ea.sprite.sourceX - eb.sprite.sourceX) > 0.01f ||
+                std::fabs(ea.sprite.sourceY - eb.sprite.sourceY) > 0.01f ||
+                std::fabs(ea.sprite.sourceW - eb.sprite.sourceW) > 0.01f ||
+                std::fabs(ea.sprite.sourceH - eb.sprite.sourceH) > 0.01f ||
+                ea.sprite.flipX != eb.sprite.flipX ||
+                ea.sprite.flipY != eb.sprite.flipY) return false;
             if (ea.text.enabled != eb.text.enabled ||
                 ea.text.content != eb.text.content ||
                 ea.text.fontSize != eb.text.fontSize ||

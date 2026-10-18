@@ -132,6 +132,13 @@ namespace Talos::Scene {
                 if (Input::IsActionDown("move_left")  || Input::IsKeyDown(Key::A) || Input::IsKeyDown(Key::Left))  moveX -= entity.movement.speed;
                 if (Input::IsActionDown("move_down")  || Input::IsKeyDown(Key::S) || Input::IsKeyDown(Key::Down))  moveY += entity.movement.speed;
                 if (Input::IsActionDown("move_up")    || Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
+
+                // Automatically mirror the sprite horizontally to face the movement direction
+                if (moveX < -0.01f) {
+                    entity.sprite.flipX = true;
+                } else if (moveX > 0.01f) {
+                    entity.sprite.flipX = false;
+                }
             }
 
             float nextX = entity.transform.x + moveX * delta;
@@ -308,7 +315,13 @@ namespace Talos::Scene {
                         entity.transform.y,
                         entity.transform.width,
                         entity.transform.height,
-                        entity.sprite.color
+                        entity.sprite.color,
+                        entity.sprite.sourceX,
+                        entity.sprite.sourceY,
+                        entity.sprite.sourceW,
+                        entity.sprite.sourceH,
+                        entity.sprite.flipX,
+                        entity.sprite.flipY
                     );
                     activeTextures.insert(entity.sprite.texturePath);
                 } else {

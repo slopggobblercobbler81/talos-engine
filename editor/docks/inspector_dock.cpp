@@ -108,6 +108,9 @@ namespace Talos::Editor {
             gui.DrawTextureSelector(x, y, w, selected->sprite);
             y += 55.0f;
 
+            gui.DrawSpriteRegionControls(x, y, w, selected->sprite, 60);
+            y += 128.0f;
+
             const char* colorLabel = selected->sprite.texturePath.empty() ? "Box Color" : "Img Tint";
             gui.DrawColorPickerRow(x, y, w, colorLabel, selected->sprite.color, 20);
             y += 80.0f;
@@ -147,6 +150,18 @@ namespace Talos::Editor {
         }
 
         m_contentHeight = y - startY;
+
+        // Draw subtle scrollbar thumb when content exceeds panel height
+        if (maxScroll > 0.5f && viewH > 40.0f) {
+            float trackX = panelX + RIGHT_PANEL_WIDTH - 5.0f;
+            float thumbRatio = std::max(0.15f, std::min(1.0f, viewH / m_contentHeight));
+            float thumbH = viewH * thumbRatio;
+            float scrollT = (maxScroll > 0.0f) ? (m_scrollOffset / maxScroll) : 0.0f;
+            float thumbY = contentTopY + scrollT * (viewH - thumbH);
+            Renderer2D::DrawRect(trackX, contentTopY, 3.0f, viewH, { 34, 36, 45, 200 });
+            Renderer2D::DrawRect(trackX, thumbY, 3.0f, thumbH, { 95, 145, 215, 220 });
+        }
+
         Renderer2D::EndViewportScissor();
     }
 

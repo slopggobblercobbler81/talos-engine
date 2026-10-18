@@ -96,13 +96,25 @@ namespace Talos::Renderer {
 
         // Renders a 2D image/texture scaled to the target rectangle (x, y, width, height)
         // and multiplied by 'tint' (use {255, 255, 255, 255} for unmodified original colors).
+        // Supports optional UV sub-rectangle cropping (sourceX, sourceY, sourceW, sourceH in pixels;
+        // when sourceW <= 0 or sourceH <= 0, the full texture dimension is used) and
+        // horizontal/vertical mirroring (flipX, flipY).
         // The texture is automatically loaded from disk on first use and cached in VRAM.
         // If the file path does not exist, renders a visual checkerboard fallback pattern.
-        static void DrawSprite(const char* texturePath, float x, float y, float width, float height, ColorRGBA tint);
+        static void DrawSprite(const char* texturePath,
+                               float x, float y, float width, float height,
+                               ColorRGBA tint,
+                               float sourceX = 0.0f, float sourceY = 0.0f,
+                               float sourceW = 0.0f, float sourceH = 0.0f,
+                               bool flipX = false, bool flipY = false);
 
         // Returns true if 'texturePath' points to a valid texture that is either already
         // cached in VRAM or exists on disk and can be loaded into the texture cache.
         static bool HasTexture(const char* texturePath);
+
+        // Queries the native pixel dimensions (outWidth, outHeight) of a valid 2D texture.
+        // Returns true if the texture was found/loaded, or false if unavailable.
+        static bool GetTextureSize(const char* texturePath, int& outWidth, int& outHeight);
 
         // Renders anti-aliased TrueType text at the given top-left coordinates and pixel height.
         static void DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color);

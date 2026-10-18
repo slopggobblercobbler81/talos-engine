@@ -35,7 +35,17 @@ namespace Talos::Editor {
             // Render a 16x16 texture thumbnail if the entity has a texture assigned;
             // otherwise render a 16x16 solid color indicator swatch.
             if (entity.sprite.enabled && !entity.sprite.texturePath.empty()) {
-                Renderer2D::DrawSprite(entity.sprite.texturePath.c_str(), 16.0f, rowY + 7.0f, 16.0f, 16.0f, entity.sprite.color);
+                Renderer2D::DrawSprite(
+                    entity.sprite.texturePath.c_str(),
+                    16.0f, rowY + 7.0f, 16.0f, 16.0f,
+                    entity.sprite.color,
+                    entity.sprite.sourceX,
+                    entity.sprite.sourceY,
+                    entity.sprite.sourceW,
+                    entity.sprite.sourceH,
+                    entity.sprite.flipX,
+                    entity.sprite.flipY
+                );
             } else {
                 ColorRGBA swatch = entity.sprite.enabled ? entity.sprite.color : entity.text.color;
                 Renderer2D::DrawRect(16.0f, rowY + 7.0f, 16.0f, 16.0f, swatch);

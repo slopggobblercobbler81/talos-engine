@@ -78,18 +78,24 @@ namespace Talos::Renderer {
         std::filesystem::create_directories("examples/assets/textures", ec);
 
         // 1. Hero Character Sprite ("examples/assets/textures/hero.png")
-        if (!FileExists("examples/assets/textures/hero.png")) {
+        // Regenerate once if sheet.png is not yet created so hero.png has clear directional gaze/badge for flipX testing
+        if (!FileExists("examples/assets/textures/hero.png") || !FileExists("examples/assets/textures/sheet.png")) {
             Image img = GenImageColor(64, 64, { 0, 0, 0, 0 }); // Transparent background
+            // Right-side antenna / shoulder pauldron (makes horizontal/vertical flip unmistakably visible)
+            ImageDrawRectangle(&img, 46, 0, 6, 8, { 255, 205, 65, 255 });
             // Outer armor body
-            ImageDrawRectangle(&img, 4, 4, 56, 56, { 35, 95, 165, 255 });
-            ImageDrawRectangle(&img, 8, 8, 48, 48, { 65, 150, 235, 255 });
-            // Dark visor band
-            ImageDrawRectangle(&img, 12, 16, 40, 18, { 22, 28, 42, 255 });
-            // Glowing cyan eyes
-            ImageDrawRectangle(&img, 16, 20, 10, 10, { 110, 245, 255, 255 });
-            ImageDrawRectangle(&img, 38, 20, 10, 10, { 110, 245, 255, 255 });
-            // Chest core emblem
-            ImageDrawRectangle(&img, 24, 40, 16, 10, { 255, 210, 80, 255 });
+            ImageDrawRectangle(&img, 4, 6, 54, 54, { 35, 95, 165, 255 });
+            ImageDrawRectangle(&img, 8, 10, 46, 46, { 65, 150, 235, 255 });
+            // Dark visor band shifted slightly right (facing right by default)
+            ImageDrawRectangle(&img, 14, 18, 40, 18, { 22, 28, 42, 255 });
+            // Glowing cyan eyes + directional pupils looking right
+            ImageDrawRectangle(&img, 18, 22, 11, 10, { 110, 245, 255, 255 });
+            ImageDrawRectangle(&img, 24, 24, 5, 6, { 255, 255, 255, 255 });
+            ImageDrawRectangle(&img, 38, 22, 11, 10, { 110, 245, 255, 255 });
+            ImageDrawRectangle(&img, 44, 24, 5, 6, { 255, 255, 255, 255 });
+            // Chest core emblem + right-hand energy emitter
+            ImageDrawRectangle(&img, 22, 42, 18, 10, { 255, 210, 80, 255 });
+            ImageDrawRectangle(&img, 54, 28, 8, 16, { 95, 245, 255, 255 });
             ExportImage(img, "examples/assets/textures/hero.png");
             UnloadImage(img);
         }
@@ -143,6 +149,43 @@ namespace Talos::Renderer {
             ImageDrawRectangle(&img, 28, 18, 8, 28, { 215, 145, 20, 255 });
             ImageDrawRectangle(&img, 29, 19, 4, 24, { 255, 245, 160, 255 });
             ExportImage(img, "examples/assets/textures/coin.png");
+            UnloadImage(img);
+        }
+
+        // 5. 4-Frame 256x64 Sprite Sheet ("examples/assets/textures/sheet.png")
+        // Four 64x64 tiles at sourceX = 0, 64, 128, 192 for testing UV sub-rect cropping & flipping
+        if (!FileExists("examples/assets/textures/sheet.png")) {
+            Image img = GenImageColor(256, 64, { 0, 0, 0, 0 });
+
+            // Frame 0 (x = 0..63): Cyber Hero Idle (Blue/Cyan facing right)
+            ImageDrawRectangle(&img, 4, 6, 52, 52, { 35, 95, 165, 255 });
+            ImageDrawRectangle(&img, 8, 10, 44, 44, { 65, 150, 235, 255 });
+            ImageDrawRectangle(&img, 14, 18, 38, 16, { 22, 28, 42, 255 });
+            ImageDrawRectangle(&img, 20, 21, 9, 10, { 110, 245, 255, 255 });
+            ImageDrawRectangle(&img, 38, 21, 9, 10, { 110, 245, 255, 255 });
+            ImageDrawRectangle(&img, 22, 40, 16, 10, { 255, 210, 80, 255 });
+            ImageDrawRectangle(&img, 52, 24, 8, 18, { 95, 245, 255, 255 });
+
+            // Frame 1 (x = 64..127): Cyber Hero Dash/Attack (Emerald/Gold blade extended right)
+            ImageDrawRectangle(&img, 64 + 4, 8, 48, 48, { 28, 135, 85, 255 });
+            ImageDrawRectangle(&img, 64 + 8, 12, 40, 40, { 58, 205, 125, 255 });
+            ImageDrawRectangle(&img, 64 + 14, 18, 36, 15, { 20, 32, 28, 255 });
+            ImageDrawRectangle(&img, 64 + 22, 21, 9, 9, { 255, 235, 90, 255 });
+            ImageDrawRectangle(&img, 64 + 38, 21, 9, 9, { 255, 235, 90, 255 });
+            ImageDrawRectangle(&img, 64 + 48, 22, 14, 10, { 255, 220, 75, 255 });
+
+            // Frame 2 (x = 128..191): Royal Purple Power Shield / Gem
+            ImageDrawCircle(&img, 128 + 32, 32, 27, { 115, 50, 185, 255 });
+            ImageDrawCircle(&img, 128 + 32, 32, 21, { 175, 95, 250, 255 });
+            ImageDrawRectangle(&img, 128 + 24, 16, 16, 32, { 235, 195, 255, 255 });
+            ImageDrawRectangle(&img, 128 + 16, 24, 32, 16, { 235, 195, 255, 255 });
+
+            // Frame 3 (x = 192..255): Crimson Plasma Core / Hazard Orb
+            ImageDrawCircle(&img, 192 + 32, 32, 27, { 195, 45, 55, 255 });
+            ImageDrawCircle(&img, 192 + 32, 32, 20, { 250, 95, 70, 255 });
+            ImageDrawCircle(&img, 192 + 38, 26, 9, { 255, 230, 110, 255 });
+
+            ExportImage(img, "examples/assets/textures/sheet.png");
             UnloadImage(img);
         }
     }
@@ -281,7 +324,12 @@ namespace Talos::Renderer {
         );
     }
 
-    void Renderer2D::DrawSprite(const char* texturePath, float x, float y, float width, float height, ColorRGBA tint) {
+    void Renderer2D::DrawSprite(const char* texturePath,
+                                float x, float y, float width, float height,
+                                ColorRGBA tint,
+                                float sourceX, float sourceY,
+                                float sourceW, float sourceH,
+                                bool flipX, bool flipY) {
         // If no texture path is assigned, fall back to a solid colored rectangle.
         if (!texturePath || texturePath[0] == '\0') {
             DrawRect(x, y, width, height, tint);
@@ -290,7 +338,14 @@ namespace Talos::Renderer {
 
         const Texture2D* tex = GetOrLoadTexture(texturePath);
         if (tex && tex->id != 0) {
-            Rectangle sourceRect = { 0.0f, 0.0f, static_cast<float>(tex->width), static_cast<float>(tex->height) };
+            float srcW = (sourceW > 0.0f) ? sourceW : static_cast<float>(tex->width);
+            float srcH = (sourceH > 0.0f) ? sourceH : static_cast<float>(tex->height);
+            Rectangle sourceRect = {
+                sourceX,
+                sourceY,
+                flipX ? -srcW : srcW,
+                flipY ? -srcH : srcH
+            };
             Rectangle destRect = { x, y, width, height };
             Vector2 origin = { 0.0f, 0.0f };
             DrawTexturePro(*tex, sourceRect, destRect, origin, 0.0f, { tint.r, tint.g, tint.b, tint.a });
@@ -310,6 +365,18 @@ namespace Talos::Renderer {
 
     bool Renderer2D::HasTexture(const char* texturePath) {
         return GetOrLoadTexture(texturePath) != nullptr;
+    }
+
+    bool Renderer2D::GetTextureSize(const char* texturePath, int& outWidth, int& outHeight) {
+        const Texture2D* tex = GetOrLoadTexture(texturePath);
+        if (tex && tex->id != 0) {
+            outWidth  = tex->width;
+            outHeight = tex->height;
+            return true;
+        }
+        outWidth  = 0;
+        outHeight = 0;
+        return false;
     }
 
     void Renderer2D::DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color) {

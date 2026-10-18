@@ -81,6 +81,12 @@ namespace Talos::Scene {
                 << static_cast<int>(e.sprite.color.a) << "\n";
             out << "sprite.sortingLayer = " << e.sprite.sortingLayer << "\n";
             out << "sprite.zOrder = " << e.sprite.zOrder << "\n";
+            out << "sprite.sourceX = " << e.sprite.sourceX << "\n";
+            out << "sprite.sourceY = " << e.sprite.sourceY << "\n";
+            out << "sprite.sourceW = " << e.sprite.sourceW << "\n";
+            out << "sprite.sourceH = " << e.sprite.sourceH << "\n";
+            out << "sprite.flipX = " << (e.sprite.flipX ? 1 : 0) << "\n";
+            out << "sprite.flipY = " << (e.sprite.flipY ? 1 : 0) << "\n";
 
             // TextComponent
             out << "text.enabled = " << (e.text.enabled ? 1 : 0) << "\n";
@@ -176,6 +182,12 @@ namespace Talos::Scene {
             else if (key == "sprite.color")         currentEntity.sprite.color = ParseColor(val);
             else if (key == "sprite.sortingLayer" || key == "sortingLayer") currentEntity.sprite.sortingLayer = std::atoi(val.c_str());
             else if (key == "sprite.zOrder" || key == "zOrder")             currentEntity.sprite.zOrder = std::atoi(val.c_str());
+            else if (key == "sprite.sourceX")       currentEntity.sprite.sourceX = std::strtof(val.c_str(), nullptr);
+            else if (key == "sprite.sourceY")       currentEntity.sprite.sourceY = std::strtof(val.c_str(), nullptr);
+            else if (key == "sprite.sourceW")       currentEntity.sprite.sourceW = std::strtof(val.c_str(), nullptr);
+            else if (key == "sprite.sourceH")       currentEntity.sprite.sourceH = std::strtof(val.c_str(), nullptr);
+            else if (key == "sprite.flipX")         currentEntity.sprite.flipX = (std::atoi(val.c_str()) != 0);
+            else if (key == "sprite.flipY")         currentEntity.sprite.flipY = (std::atoi(val.c_str()) != 0);
             else if (key == "text.enabled")         currentEntity.text.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "text.content")         currentEntity.text.content = val;
             else if (key == "text.fontSize")        currentEntity.text.fontSize = std::atoi(val.c_str());

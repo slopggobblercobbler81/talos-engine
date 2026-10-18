@@ -61,6 +61,12 @@ namespace Talos::Scene {
         Renderer::ColorRGBA color = { 80, 180, 250, 255 };
         int sortingLayer = SortingLayer::Characters; // Explicit depth layer (0 = Background .. 4 = Overlay)
         int zOrder = 0;                              // Fine-grained draw order within the layer (-100 .. +100)
+        float sourceX = 0.0f;                        // UV sub-rectangle top-left X in pixels
+        float sourceY = 0.0f;                        // UV sub-rectangle top-left Y in pixels
+        float sourceW = 0.0f;                        // UV sub-rectangle width in pixels (0 = full texture width)
+        float sourceH = 0.0f;                        // UV sub-rectangle height in pixels (0 = full texture height)
+        bool flipX = false;                          // Horizontal mirror (left <-> right)
+        bool flipY = false;                          // Vertical mirror (top <-> bottom)
     };
 
     // Provides first-level text rendering directly on an entity without requiring

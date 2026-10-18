@@ -24,6 +24,7 @@ namespace Talos::Editor {
     const TexturePreset EditorGui::TEXTURE_PRESETS[EditorGui::NUM_TEXTURE_PRESETS] = {
         { "None",  "" },
         { "Hero",  "examples/assets/textures/hero.png" },
+        { "Sheet", "examples/assets/textures/sheet.png" },
         { "Crate", "examples/assets/textures/crate.png" },
         { "Brick", "examples/assets/textures/brick.png" },
         { "Coin",  "examples/assets/textures/coin.png" }
@@ -278,7 +279,8 @@ namespace Talos::Editor {
 
     bool EditorGui::DrawCheckbox(float x, float y, const char* label, bool& value) {
         float boxSize = 18.0f;
-        bool hovered = IsMouseOver(x, y, boxSize + 190.0f, boxSize);
+        float hitW = boxSize + 10.0f + static_cast<float>(Renderer2D::MeasureTextWidth(label, 15));
+        bool hovered = IsMouseOver(x, y, hitW, boxSize);
 
         Renderer2D::DrawRect(x, y, boxSize, boxSize, { 40, 43, 54, 255 });
         Renderer2D::DrawRectOutline(x, y, boxSize, boxSize, 1.0f, { 95, 100, 120, 255 });
@@ -415,7 +417,7 @@ namespace Talos::Editor {
 
         float btnStartX = x + 54.0f;
         float availW = w - 54.0f;
-        float gap = 4.0f;
+        float gap = 3.0f;
         float btnW = (availW - gap * (NUM_TEXTURE_PRESETS - 1)) / static_cast<float>(NUM_TEXTURE_PRESETS);
 
         for (int i = 0; i < NUM_TEXTURE_PRESETS; ++i) {
@@ -434,6 +436,22 @@ namespace Talos::Editor {
                 sprite.texturePath = TEXTURE_PRESETS[i].path;
                 m_focusedTextFieldId = -1;
 
+                // When selecting the 256x64 4-frame sprite sheet preset, default to a 64x64 frame crop
+                if (std::string(TEXTURE_PRESETS[i].label) == "Sheet") {
+                    if (sprite.sourceW <= 0.0f && sprite.sourceH <= 0.0f) {
+                        sprite.sourceX = 0.0f;
+                        sprite.sourceY = 0.0f;
+                        sprite.sourceW = 64.0f;
+                        sprite.sourceH = 64.0f;
+                    }
+                } else {
+                    int texW = 0, texH = 0;
+                    if (Renderer2D::GetTextureSize(sprite.texturePath.c_str(), texW, texH) &&
+                        sprite.sourceX >= static_cast<float>(texW)) {
+                        sprite.sourceX = 0.0f;
+                    }
+                }
+
                 if (wasSolidBox && !sprite.texturePath.empty()) {
                     sprite.color = { 255, 255, 255, 255 };
                 } else if (!wasSolidBox && sprite.texturePath.empty() &&
@@ -444,6 +462,98 @@ namespace Talos::Editor {
         }
 
         DrawTextInputBox(x, y + 27.0f, w, "Image:", sprite.texturePath, 3);
+    }
+
+    void EditorGui::DrawSpriteRegionControls(float x, float y, float w, Scene::SpriteComponent& sprite, int baseSliderId) {
+        // 1. Horizontal & Vertical Mirroring Toggles (Flip X / Flip Y)
+        DrawCheckbox(x, y, "Flip X (Horiz)", sprite.flipX);
+        DrawCheckbox(x + w * 0.52f, y, "Flip Y (Vert)", sprite.flipY);
+
+        // 2. UV Sub-Rectangle Header + Quick Crop / Frame Step Buttons
+        float uvHeaderY = y + 23.0f;
+        int texW = 0, texH = 0;
+        bool hasTex = Renderer2D::GetTextureSize(sprite.texturePath.c_str(), texW, texH);
+        float maxW = (hasTex && texW > 0) ? static_cast<float>(texW) : 256.0f;
+        float maxH = (hasTex && texH > 0) ? static_cast<float>(texH) : 256.0f;
+
+        char headerLabel[48];
+        if (hasTex) {
+            std::snprintf(headerLabel, sizeof(headerLabel), "UV Sub-Rect (%dx%d)", texW, texH);
+        } else {
+            std::snprintf(headerLabel, sizeof(headerLabel), "UV Sub-Rect (px)");
+        }
+        Renderer2D::DrawLabel(headerLabel, x, uvHeaderY + 2.0f, 14, { 160, 200, 245, 255 });
+
+        // Quick helper buttons on the right side of the UV header: [Full] [64x64] [<] [>]
+        float btnH = 19.0f;
+        float rightEdge = x + w;
+        float stepBtnW = 22.0f;
+        float cropBtnW = 44.0f;
+        float fullBtnW = 38.0f;
+        float gap = 3.0f;
+
+        float nextBtnX = rightEdge - stepBtnW;
+        float prevBtnX = nextBtnX - gap - stepBtnW;
+        float cropBtnX = prevBtnX - gap - cropBtnW;
+        float fullBtnX = cropBtnX - gap - fullBtnW;
+
+        bool isFullUV = (sprite.sourceX == 0.0f && sprite.sourceY == 0.0f &&
+                         sprite.sourceW <= 0.0f && sprite.sourceH <= 0.0f);
+        if (DrawButton(fullBtnX, uvHeaderY, fullBtnW, btnH, "Full",
+                       isFullUV ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                       { 64, 128, 210, 255 })) {
+            PushUndoIfActive();
+            sprite.sourceX = 0.0f;
+            sprite.sourceY = 0.0f;
+            sprite.sourceW = 0.0f;
+            sprite.sourceH = 0.0f;
+            m_focusedTextFieldId = -1;
+        }
+
+        bool is64x64 = (std::fabs(sprite.sourceW - 64.0f) < 0.5f && std::fabs(sprite.sourceH - 64.0f) < 0.5f);
+        if (DrawButton(cropBtnX, uvHeaderY, cropBtnW, btnH, "64x64",
+                       is64x64 ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                       { 64, 128, 210, 255 })) {
+            PushUndoIfActive();
+            sprite.sourceW = 64.0f;
+            sprite.sourceH = 64.0f;
+            m_focusedTextFieldId = -1;
+        }
+
+        float stepW = (sprite.sourceW > 0.0f) ? sprite.sourceW : 64.0f;
+        if (DrawButton(prevBtnX, uvHeaderY, stepBtnW, btnH, "<", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
+            if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
+            sprite.sourceX -= stepW;
+            if (sprite.sourceX < 0.0f) {
+                sprite.sourceX = std::max(0.0f, maxW - stepW);
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        if (DrawButton(nextBtnX, uvHeaderY, stepBtnW, btnH, ">", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
+            if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
+            sprite.sourceX += stepW;
+            if (sprite.sourceX >= maxW) {
+                sprite.sourceX = 0.0f;
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        // 3. UV Sub-Rectangle Sliders (Source X, Source Y, Source W, Source H)
+        float sy = uvHeaderY + 22.0f;
+        DrawFloatSlider(x, sy,         w, "Source X", sprite.sourceX, 0.0f, maxW, baseSliderId + 0);
+        DrawFloatSlider(x, sy + 20.0f, w, "Source Y", sprite.sourceY, 0.0f, maxH, baseSliderId + 1);
+        DrawFloatSlider(x, sy + 40.0f, w, "Source W", sprite.sourceW, 0.0f, maxW, baseSliderId + 2);
+        DrawFloatSlider(x, sy + 60.0f, w, "Source H", sprite.sourceH, 0.0f, maxH, baseSliderId + 3);
+
+        sprite.sourceX = std::round(sprite.sourceX);
+        sprite.sourceY = std::round(sprite.sourceY);
+        sprite.sourceW = std::round(sprite.sourceW);
+        sprite.sourceH = std::round(sprite.sourceH);
     }
 
     void EditorGui::DrawColorPickerRow(float x, float y, float w, const char* label,
