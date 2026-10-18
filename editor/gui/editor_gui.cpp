@@ -436,19 +436,34 @@ namespace Talos::Editor {
                 sprite.texturePath = TEXTURE_PRESETS[i].path;
                 m_focusedTextFieldId = -1;
 
-                // When selecting the 256x64 4-frame sprite sheet preset, default to a 64x64 frame crop
+                // When selecting the 256x64 4-frame sprite sheet preset, default to a 4-frame 64x64 animation
                 if (std::string(TEXTURE_PRESETS[i].label) == "Sheet") {
-                    if (sprite.sourceW <= 0.0f && sprite.sourceH <= 0.0f) {
+                    sprite.sourceX = 0.0f;
+                    sprite.sourceY = 0.0f;
+                    sprite.sourceW = 64.0f;
+                    sprite.sourceH = 64.0f;
+                    sprite.frameCount = 4;
+                    sprite.currentFrame = 0;
+                    if (sprite.fps <= 0.0f) sprite.fps = 8.0f;
+                    sprite.loop = true;
+                    sprite.isPlaying = true;
+                    sprite.frameTimer = 0.0f;
+                } else {
+                    if (sprite.frameCount > 1) {
+                        sprite.frameCount = 1;
+                        sprite.currentFrame = 0;
+                        sprite.isPlaying = false;
+                        sprite.frameTimer = 0.0f;
                         sprite.sourceX = 0.0f;
                         sprite.sourceY = 0.0f;
-                        sprite.sourceW = 64.0f;
-                        sprite.sourceH = 64.0f;
-                    }
-                } else {
-                    int texW = 0, texH = 0;
-                    if (Renderer2D::GetTextureSize(sprite.texturePath.c_str(), texW, texH) &&
-                        sprite.sourceX >= static_cast<float>(texW)) {
-                        sprite.sourceX = 0.0f;
+                        sprite.sourceW = 0.0f;
+                        sprite.sourceH = 0.0f;
+                    } else {
+                        int texW = 0, texH = 0;
+                        if (Renderer2D::GetTextureSize(sprite.texturePath.c_str(), texW, texH) &&
+                            sprite.sourceX >= static_cast<float>(texW)) {
+                            sprite.sourceX = 0.0f;
+                        }
                     }
                 }
 
@@ -507,6 +522,10 @@ namespace Talos::Editor {
             sprite.sourceY = 0.0f;
             sprite.sourceW = 0.0f;
             sprite.sourceH = 0.0f;
+            sprite.frameCount = 1;
+            sprite.currentFrame = 0;
+            sprite.isPlaying = false;
+            sprite.frameTimer = 0.0f;
             m_focusedTextFieldId = -1;
         }
 
@@ -523,22 +542,34 @@ namespace Talos::Editor {
         float stepW = (sprite.sourceW > 0.0f) ? sprite.sourceW : 64.0f;
         if (DrawButton(prevBtnX, uvHeaderY, stepBtnW, btnH, "<", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
             PushUndoIfActive();
-            if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
-            if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
-            sprite.sourceX -= stepW;
-            if (sprite.sourceX < 0.0f) {
-                sprite.sourceX = std::max(0.0f, maxW - stepW);
+            if (sprite.frameCount > 1) {
+                sprite.isPlaying = false;
+                sprite.currentFrame = (sprite.currentFrame - 1 + sprite.frameCount) % sprite.frameCount;
+                sprite.SyncFrameUV(texW, texH);
+            } else {
+                if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
+                if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
+                sprite.sourceX -= stepW;
+                if (sprite.sourceX < 0.0f) {
+                    sprite.sourceX = std::max(0.0f, maxW - stepW);
+                }
             }
             m_focusedTextFieldId = -1;
         }
 
         if (DrawButton(nextBtnX, uvHeaderY, stepBtnW, btnH, ">", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
             PushUndoIfActive();
-            if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
-            if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
-            sprite.sourceX += stepW;
-            if (sprite.sourceX >= maxW) {
-                sprite.sourceX = 0.0f;
+            if (sprite.frameCount > 1) {
+                sprite.isPlaying = false;
+                sprite.currentFrame = (sprite.currentFrame + 1) % sprite.frameCount;
+                sprite.SyncFrameUV(texW, texH);
+            } else {
+                if (sprite.sourceW <= 0.0f) sprite.sourceW = 64.0f;
+                if (sprite.sourceH <= 0.0f) sprite.sourceH = 64.0f;
+                sprite.sourceX += stepW;
+                if (sprite.sourceX >= maxW) {
+                    sprite.sourceX = 0.0f;
+                }
             }
             m_focusedTextFieldId = -1;
         }
@@ -554,6 +585,123 @@ namespace Talos::Editor {
         sprite.sourceY = std::round(sprite.sourceY);
         sprite.sourceW = std::round(sprite.sourceW);
         sprite.sourceH = std::round(sprite.sourceH);
+    }
+
+    void EditorGui::DrawSpriteAnimatorControls(float x, float y, float w, Scene::SpriteComponent& sprite, int baseSliderId) {
+        int texW = 0, texH = 0;
+        bool hasTex = Renderer2D::GetTextureSize(sprite.texturePath.c_str(), texW, texH);
+
+        sprite.frameCount = std::max(1, sprite.frameCount);
+        sprite.currentFrame = std::max(0, std::min(sprite.currentFrame, sprite.frameCount - 1));
+
+        // 1. Section Sub-Header + Live Frame/FPS Badge
+        Renderer2D::DrawLabel("2D Sprite Animator", x, y + 1.0f, 14, { 110, 225, 195, 255 });
+
+        char badgeBuf[48];
+        if (sprite.frameCount > 1) {
+            std::snprintf(badgeBuf, sizeof(badgeBuf), "[F %d/%d | %.0f FPS]",
+                          sprite.currentFrame + 1, sprite.frameCount, sprite.fps);
+        } else {
+            std::snprintf(badgeBuf, sizeof(badgeBuf), "[Static 1f]");
+        }
+        int badgeW = Renderer2D::MeasureTextWidth(badgeBuf, 14);
+        Renderer2D::DrawLabel(badgeBuf, x + w - static_cast<float>(badgeW), y + 1.0f, 14,
+                              sprite.isPlaying ? ColorRGBA{ 105, 235, 150, 255 } : ColorRGBA{ 155, 165, 185, 255 });
+
+        // 2. Playback Row: [Playing] checkbox, [Loop] checkbox, and [|<] [<] [>] transport buttons
+        float row2Y = y + 21.0f;
+        bool wasPlaying = sprite.isPlaying;
+        if (DrawCheckbox(x, row2Y, "Playing", sprite.isPlaying)) {
+            if (!wasPlaying && sprite.isPlaying) {
+                if (sprite.frameCount <= 1) {
+                    if (hasTex && texH > 0 && texW > texH && (texW % texH == 0)) {
+                        sprite.frameCount = texW / texH;
+                    } else {
+                        sprite.frameCount = 4;
+                    }
+                    if (hasTex && texW > 0) {
+                        sprite.sourceW = std::round(static_cast<float>(texW) / static_cast<float>(sprite.frameCount));
+                        if (sprite.sourceH <= 0.0f) sprite.sourceH = static_cast<float>(texH);
+                    }
+                }
+                if (!sprite.loop && sprite.currentFrame >= sprite.frameCount - 1) {
+                    sprite.currentFrame = 0;
+                }
+                sprite.frameTimer = 0.0f;
+                sprite.SyncFrameUV(texW, texH);
+            }
+        }
+
+        DrawCheckbox(x + 96.0f, row2Y, "Loop", sprite.loop);
+
+        float btnH = 18.0f;
+        float stepBtnW = 24.0f;
+        float gap = 3.0f;
+        float rightEdge = x + w;
+        float nextFrameX = rightEdge - stepBtnW;
+        float prevFrameX = nextFrameX - gap - stepBtnW;
+        float firstFrameX = prevFrameX - gap - 26.0f;
+
+        if (DrawButton(firstFrameX, row2Y, 26.0f, btnH, "|<", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            sprite.currentFrame = 0;
+            sprite.frameTimer = 0.0f;
+            sprite.SyncFrameUV(texW, texH);
+            m_focusedTextFieldId = -1;
+        }
+        if (DrawButton(prevFrameX, row2Y, stepBtnW, btnH, "<", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            sprite.isPlaying = false;
+            sprite.frameTimer = 0.0f;
+            if (sprite.frameCount > 1) {
+                sprite.currentFrame = (sprite.currentFrame - 1 + sprite.frameCount) % sprite.frameCount;
+                sprite.SyncFrameUV(texW, texH);
+            }
+            m_focusedTextFieldId = -1;
+        }
+        if (DrawButton(nextFrameX, row2Y, stepBtnW, btnH, ">", { 40, 44, 56, 255 }, { 62, 68, 86, 255 })) {
+            PushUndoIfActive();
+            sprite.isPlaying = false;
+            sprite.frameTimer = 0.0f;
+            if (sprite.frameCount > 1) {
+                sprite.currentFrame = (sprite.currentFrame + 1) % sprite.frameCount;
+                sprite.SyncFrameUV(texW, texH);
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        // 3. Frame Count, Current Frame Scrubber, and Playback Speed (FPS) Sliders
+        float sy = row2Y + 23.0f;
+        int prevFrameCount = sprite.frameCount;
+        DrawIntSlider(x, sy, w, "Frames", sprite.frameCount, 1, 16, baseSliderId + 0);
+        if (sprite.frameCount != prevFrameCount) {
+            sprite.currentFrame = std::max(0, std::min(sprite.currentFrame, sprite.frameCount - 1));
+            if (sprite.frameCount > 1) {
+                if (hasTex && texW > 0) {
+                    sprite.sourceW = std::round(static_cast<float>(texW) / static_cast<float>(sprite.frameCount));
+                    if (sprite.sourceH <= 0.0f) sprite.sourceH = static_cast<float>(texH);
+                } else if (sprite.sourceW <= 0.0f) {
+                    sprite.sourceW = 64.0f;
+                    sprite.sourceH = 64.0f;
+                }
+                sprite.SyncFrameUV(texW, texH);
+            } else {
+                sprite.currentFrame = 0;
+                sprite.isPlaying = false;
+            }
+        }
+
+        int prevFrame = sprite.currentFrame;
+        int maxFrameIdx = std::max(1, sprite.frameCount - 1);
+        DrawIntSlider(x, sy + 20.0f, w, "Frame #", sprite.currentFrame, 0, maxFrameIdx, baseSliderId + 1);
+        sprite.currentFrame = std::max(0, std::min(sprite.currentFrame, sprite.frameCount - 1));
+        if (sprite.currentFrame != prevFrame) {
+            sprite.frameTimer = 0.0f;
+            sprite.SyncFrameUV(texW, texH);
+        }
+
+        DrawFloatSlider(x, sy + 40.0f, w, "Speed FPS", sprite.fps, 1.0f, 30.0f, baseSliderId + 2);
+        sprite.fps = std::round(sprite.fps);
     }
 
     void EditorGui::DrawColorPickerRow(float x, float y, float w, const char* label,

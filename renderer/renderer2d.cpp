@@ -152,38 +152,57 @@ namespace Talos::Renderer {
             UnloadImage(img);
         }
 
-        // 5. 4-Frame 256x64 Sprite Sheet ("examples/assets/textures/sheet.png")
-        // Four 64x64 tiles at sourceX = 0, 64, 128, 192 for testing UV sub-rect cropping & flipping
+        // 5. 4-Frame 256x64 Animated Sprite Sheet ("examples/assets/textures/sheet.png")
+        // Four 64x64 animation frames at sourceX = 0, 64, 128, 192 depicting a 4-frame character walk & pulse cycle
         if (!FileExists("examples/assets/textures/sheet.png")) {
             Image img = GenImageColor(256, 64, { 0, 0, 0, 0 });
 
-            // Frame 0 (x = 0..63): Cyber Hero Idle (Blue/Cyan facing right)
-            ImageDrawRectangle(&img, 4, 6, 52, 52, { 35, 95, 165, 255 });
-            ImageDrawRectangle(&img, 8, 10, 44, 44, { 65, 150, 235, 255 });
-            ImageDrawRectangle(&img, 14, 18, 38, 16, { 22, 28, 42, 255 });
-            ImageDrawRectangle(&img, 20, 21, 9, 10, { 110, 245, 255, 255 });
-            ImageDrawRectangle(&img, 38, 21, 9, 10, { 110, 245, 255, 255 });
-            ImageDrawRectangle(&img, 22, 40, 16, 10, { 255, 210, 80, 255 });
-            ImageDrawRectangle(&img, 52, 24, 8, 18, { 95, 245, 255, 255 });
+            const int bobOffsets[4]     = { 0, -2, 0, 2 };
+            const int leftLegX[4]       = { 10, 18, 28, 18 };
+            const int rightLegX[4]      = { 34, 28, 14, 28 };
+            const int emitterWidths[4]  = { 7, 11, 8, 12 };
+            const Color coreColors[4]   = {
+                { 255, 210, 75, 255 },
+                { 115, 250, 255, 255 },
+                { 255, 225, 95, 255 },
+                { 255, 150, 65, 255 }
+            };
 
-            // Frame 1 (x = 64..127): Cyber Hero Dash/Attack (Emerald/Gold blade extended right)
-            ImageDrawRectangle(&img, 64 + 4, 8, 48, 48, { 28, 135, 85, 255 });
-            ImageDrawRectangle(&img, 64 + 8, 12, 40, 40, { 58, 205, 125, 255 });
-            ImageDrawRectangle(&img, 64 + 14, 18, 36, 15, { 20, 32, 28, 255 });
-            ImageDrawRectangle(&img, 64 + 22, 21, 9, 9, { 255, 235, 90, 255 });
-            ImageDrawRectangle(&img, 64 + 38, 21, 9, 9, { 255, 235, 90, 255 });
-            ImageDrawRectangle(&img, 64 + 48, 22, 14, 10, { 255, 220, 75, 255 });
+            for (int f = 0; f < 4; ++f) {
+                int bx = f * 64;
+                int by = bobOffsets[f];
 
-            // Frame 2 (x = 128..191): Royal Purple Power Shield / Gem
-            ImageDrawCircle(&img, 128 + 32, 32, 27, { 115, 50, 185, 255 });
-            ImageDrawCircle(&img, 128 + 32, 32, 21, { 175, 95, 250, 255 });
-            ImageDrawRectangle(&img, 128 + 24, 16, 16, 32, { 235, 195, 255, 255 });
-            ImageDrawRectangle(&img, 128 + 16, 24, 32, 16, { 235, 195, 255, 255 });
+                // Animated walking boots at bottom of frame
+                ImageDrawRectangle(&img, bx + leftLegX[f],  52, 12, 10, { 26, 68, 122, 255 });
+                ImageDrawRectangle(&img, bx + rightLegX[f], 52, 12, 10, { 42, 105, 180, 255 });
 
-            // Frame 3 (x = 192..255): Crimson Plasma Core / Hazard Orb
-            ImageDrawCircle(&img, 192 + 32, 32, 27, { 195, 45, 55, 255 });
-            ImageDrawCircle(&img, 192 + 32, 32, 20, { 250, 95, 70, 255 });
-            ImageDrawCircle(&img, 192 + 38, 26, 9, { 255, 230, 110, 255 });
+                // Right-side antenna / shoulder pauldron (moves with body bob)
+                ImageDrawRectangle(&img, bx + 44, 2 + by, 6, 7, coreColors[f]);
+
+                // Outer & inner armor torso
+                ImageDrawRectangle(&img, bx + 6,  8 + by, 48, 44, { 35, 95, 165, 255 });
+                ImageDrawRectangle(&img, bx + 10, 12 + by, 40, 36, { 65, 150, 235, 255 });
+
+                // Dark visor band shifted right (facing right by default)
+                ImageDrawRectangle(&img, bx + 15, 18 + by, 35, 15, { 20, 26, 40, 255 });
+
+                // Glowing cyan eyes + directional pupils
+                ImageDrawRectangle(&img, bx + 19, 21 + by, 9, 9, { 110, 245, 255, 255 });
+                ImageDrawRectangle(&img, bx + 24, 23 + by, 4, 5, { 255, 255, 255, 255 });
+                ImageDrawRectangle(&img, bx + 36, 21 + by, 9, 9, { 110, 245, 255, 255 });
+                ImageDrawRectangle(&img, bx + 41, 23 + by, 4, 5, { 255, 255, 255, 255 });
+
+                // Pulsing chest reactor core
+                ImageDrawRectangle(&img, bx + 21, 37 + by, 16, 8, coreColors[f]);
+
+                // Right-hand animated plasma emitter
+                ImageDrawRectangle(&img, bx + 51, 26 + by, emitterWidths[f], 14, { 95, 245, 255, 255 });
+
+                // Frame indicator pip bar along top-left of torso (1..4 pips)
+                for (int p = 0; p <= f; ++p) {
+                    ImageDrawRectangle(&img, bx + 12 + p * 6, 13 + by, 4, 3, { 255, 240, 130, 255 });
+                }
+            }
 
             ExportImage(img, "examples/assets/textures/sheet.png");
             UnloadImage(img);

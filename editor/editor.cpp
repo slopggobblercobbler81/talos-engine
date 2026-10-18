@@ -124,6 +124,12 @@ namespace Talos::Editor {
             return;
         }
 
+        // Advance active sprite frame animations in Edit Mode for live preview
+        // (paused while the user is actively dragging a slider or viewport gizmo).
+        if (!m_undoRedo.HasPendingSnapshot()) {
+            scene.UpdateAnimations(delta);
+        }
+
         // Universal Undo / Redo keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) in Edit Mode
         bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
                         Core::Input::IsKeyDown(Core::Key::RightControl);

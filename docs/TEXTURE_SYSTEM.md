@@ -45,10 +45,11 @@ If an entity specifies a non-empty `texturePath` that cannot be found on disk, `
 
 ## 5. Built-In Starter `.png` Assets
 
-On startup, `Renderer2D::Init()` verifies whether the starter textures exist on disk and automatically generates four real, editable `64x64` `.png` files if absent:
-* **`hero.png`:** Stylized character sprite with visor, glowing cyan eyes, and transparent outer corners.
-* **`crate.png`:** Wooden storage crate with plank seams, vertical brace, and corner bolts.
-* **`brick.png`:** Staggered stone brick wall pattern with mortar lines.
-* **`coin.png`:** Golden coin icon with a fully transparent alpha background (`alpha = 0`).
+On startup, `Renderer2D::Init()` verifies whether the starter textures exist on disk and automatically generates five real, editable `.png` files if absent:
+* **`hero.png` (`64x64`):** Stylized character sprite with visor, glowing cyan eyes, and transparent outer corners.
+* **`crate.png` (`64x64`):** Wooden storage crate with plank seams, vertical brace, and corner bolts.
+* **`brick.png` (`64x64`):** Staggered stone brick wall pattern with mortar lines.
+* **`coin.png` (`64x64`):** Golden coin icon with a fully transparent alpha background (`alpha = 0`).
+* **`sheet.png` (`256x64`):** 4-frame horizontal sprite sheet (`4 x 64x64` cells) featuring a cohesive Cyber Hero walk/pulse animation cycle for immediate testing of UV sub-rectangles and the 2D Frame Animator.
 
-Developers can switch between `None`, `Hero`, `Crate`, `Brick`, and `Coin` with a single click in the Inspector, edit those `.png` files in any image editor, or drop their own `.png` files into the project and type the path in the `Image:` box.
+Developers can switch between `None`, `Hero`, `Crate`, `Brick`, `Coin`, and `Sheet` with a single click in the Inspector, edit those `.png` files in any image editor, or drop their own `.png` files into the project and type the path in the `Image:` box.

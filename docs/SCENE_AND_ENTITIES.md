@@ -17,7 +17,7 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
 * **`active` (`bool`):** A master switch to enable or disable the entity across both update and render passes.
 * **Direct Toggleable Components:**
   1. **`TransformComponent`:** Position `(x, y)` and dimensions `(width, height)`.
-  2. **`SpriteComponent`:** Visual rectangle/sprite rendering (`enabled`, `color`).
+  2. **`SpriteComponent`:** Visual rectangle/sprite rendering (`enabled`, `texturePath`, `color`), explicit depth sorting (`sortingLayer`, `zOrder`), UV sub-rectangle & mirror flipping (`sourceX`, `sourceY`, `sourceW`, `sourceH`, `flipX`, `flipY`), and integrated 2D frame-by-frame animation (`frameCount`, `currentFrame`, `fps`, `loop`, `isPlaying`, `frameTimer`, and `SyncFrameUV`).
   3. **`TextComponent`:** First-level typography (`enabled`, `content`, `fontSize`, `color`, `offsetX/Y`). All essential text properties live directly on the component without nested theme override menus.
   4. **`ColliderComponent`:** Solid 2D AABB collision (`enabled`, `isSolid`, `isStatic`) that automatically uses the entity's `TransformComponent` dimensions.
   5. **`MovementComponent`:** Velocity and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `velocityX/Y`).
@@ -38,12 +38,15 @@ Reordering entities or grouping them visually in the editor never invalidates co
 
 ---
 
-## 3. Deterministic Frame Pipeline (`Scene::Update` & `Scene::Render`)
+## 3. Deterministic Frame Pipeline (`Scene::Update`, `Scene::UpdateAnimations` & `Scene::Render`)
 
-During each iteration of the main loop, `Scene` executes two strictly separated passes:
+During each iteration of the main loop, `Scene` executes strictly separated passes:
 
 1. **`Scene::Update(float delta)`:**
-   Iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
-2. **`Scene::Render()`:**
-   Iterates sequentially through all active entities and submits enabled `SpriteComponent` and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
+   Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`), then iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
+2. **`Scene::UpdateAnimations(float delta)`:**
+   Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.
+3. **`Scene::Render()`:**
+   Sorts active entities deterministically by `(sortingLayer, zOrder)` via `std::stable_sort` and submits enabled `SpriteComponent` and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
+
 

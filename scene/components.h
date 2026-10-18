@@ -67,6 +67,49 @@ namespace Talos::Scene {
         float sourceH = 0.0f;                        // UV sub-rectangle height in pixels (0 = full texture height)
         bool flipX = false;                          // Horizontal mirror (left <-> right)
         bool flipY = false;                          // Vertical mirror (top <-> bottom)
+
+        // 2D Frame-Based Sprite Sheet Animator (integrated directly on the entity's SpriteComponent)
+        int frameCount = 1;                          // Total animation frames in the sprite sheet (>= 1)
+        int currentFrame = 0;                        // Active 0-based frame index (0 .. frameCount - 1)
+        float fps = 8.0f;                            // Playback speed in frames per second (0 .. 60)
+        bool loop = true;                            // Wrap back to frame 0 after reaching frameCount - 1
+        bool isPlaying = false;                      // Advance animation frames automatically over time
+        float frameTimer = 0.0f;                     // Transient runtime frame accumulator in seconds
+
+        // Synchronizes the UV sub-rectangle (sourceX, sourceY, sourceW, sourceH) with
+        // currentFrame and frameCount when frameCount > 1.
+        void SyncFrameUV(int texWidth = 0, int texHeight = 0) {
+            if (frameCount <= 1) {
+                frameCount = 1;
+                currentFrame = 0;
+                return;
+            }
+            if (currentFrame < 0) currentFrame = 0;
+            if (currentFrame >= frameCount) currentFrame = frameCount - 1;
+
+            if (sourceW <= 0.0f) {
+                sourceW = (texWidth > 0) ? (static_cast<float>(texWidth) / static_cast<float>(frameCount)) : 64.0f;
+            }
+            if (sourceH <= 0.0f) {
+                sourceH = (texHeight > 0) ? static_cast<float>(texHeight) : 64.0f;
+            }
+
+            if (texWidth > 0 && sourceW > 0.0f) {
+                int frameWInt = static_cast<int>(sourceW > 1.0f ? sourceW : 1.0f);
+                int cols = texWidth / frameWInt;
+                if (cols < 1) cols = 1;
+                if (frameCount <= cols) {
+                    sourceX = static_cast<float>(currentFrame) * sourceW;
+                } else {
+                    int col = currentFrame % cols;
+                    int row = currentFrame / cols;
+                    sourceX = static_cast<float>(col) * sourceW;
+                    sourceY = static_cast<float>(row) * sourceH;
+                }
+            } else {
+                sourceX = static_cast<float>(currentFrame) * sourceW;
+            }
+        }
     };
 
     // Provides first-level text rendering directly on an entity without requiring

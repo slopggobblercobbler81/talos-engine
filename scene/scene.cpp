@@ -83,6 +83,48 @@ namespace Talos::Scene {
         return m_entities;
     }
 
+    void Scene::UpdateAnimations(float delta) {
+        using namespace Talos::Renderer;
+
+        for (auto& entity : m_entities) {
+            if (!entity.active || !entity.sprite.enabled) {
+                continue;
+            }
+
+            if (entity.sprite.frameCount <= 1) {
+                entity.sprite.frameCount = 1;
+                entity.sprite.currentFrame = 0;
+                continue;
+            }
+
+            int texW = 0, texH = 0;
+            Renderer2D::GetTextureSize(entity.sprite.texturePath.c_str(), texW, texH);
+
+            if (entity.sprite.isPlaying && entity.sprite.fps > 0.0f && delta > 0.0f) {
+                float frameDuration = 1.0f / entity.sprite.fps;
+                entity.sprite.frameTimer += delta;
+
+                while (entity.sprite.frameTimer >= frameDuration) {
+                    entity.sprite.frameTimer -= frameDuration;
+                    ++entity.sprite.currentFrame;
+
+                    if (entity.sprite.currentFrame >= entity.sprite.frameCount) {
+                        if (entity.sprite.loop) {
+                            entity.sprite.currentFrame = 0;
+                        } else {
+                            entity.sprite.currentFrame = entity.sprite.frameCount - 1;
+                            entity.sprite.isPlaying = false;
+                            entity.sprite.frameTimer = 0.0f;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            entity.sprite.SyncFrameUV(texW, texH);
+        }
+    }
+
     void Scene::Update(float delta) {
         using namespace Talos::Core;
         using namespace Talos::Physics;
@@ -97,6 +139,9 @@ namespace Talos::Scene {
         size_t activeColliderCount  = 0;
         size_t movementOpsCount     = 0;
         size_t aabbChecksCount      = 0;
+
+        // 0. Advance 2D sprite sheet frame animations
+        UpdateAnimations(delta);
 
         // 1. Evaluate active Transform & Collider component counts
         auto tTransformStart = Clock::now();

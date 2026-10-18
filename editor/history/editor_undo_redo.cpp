@@ -22,17 +22,24 @@ namespace Talos::Editor {
                 std::fabs(ea.transform.y - eb.transform.y) > 0.01f ||
                 std::fabs(ea.transform.width - eb.transform.width) > 0.01f ||
                 std::fabs(ea.transform.height - eb.transform.height) > 0.01f) return false;
+            bool animAutoStepping = (ea.sprite.isPlaying && eb.sprite.isPlaying &&
+                                     ea.sprite.frameCount > 1 && eb.sprite.frameCount > 1);
             if (ea.sprite.enabled != eb.sprite.enabled ||
                 ea.sprite.texturePath != eb.sprite.texturePath ||
                 !AreColorsEqual(ea.sprite.color, eb.sprite.color) ||
                 ea.sprite.sortingLayer != eb.sprite.sortingLayer ||
                 ea.sprite.zOrder != eb.sprite.zOrder ||
-                std::fabs(ea.sprite.sourceX - eb.sprite.sourceX) > 0.01f ||
-                std::fabs(ea.sprite.sourceY - eb.sprite.sourceY) > 0.01f ||
+                (!animAutoStepping && std::fabs(ea.sprite.sourceX - eb.sprite.sourceX) > 0.01f) ||
+                (!animAutoStepping && std::fabs(ea.sprite.sourceY - eb.sprite.sourceY) > 0.01f) ||
                 std::fabs(ea.sprite.sourceW - eb.sprite.sourceW) > 0.01f ||
                 std::fabs(ea.sprite.sourceH - eb.sprite.sourceH) > 0.01f ||
                 ea.sprite.flipX != eb.sprite.flipX ||
-                ea.sprite.flipY != eb.sprite.flipY) return false;
+                ea.sprite.flipY != eb.sprite.flipY ||
+                ea.sprite.frameCount != eb.sprite.frameCount ||
+                (!animAutoStepping && ea.sprite.currentFrame != eb.sprite.currentFrame) ||
+                std::fabs(ea.sprite.fps - eb.sprite.fps) > 0.01f ||
+                ea.sprite.loop != eb.sprite.loop ||
+                ea.sprite.isPlaying != eb.sprite.isPlaying) return false;
             if (ea.text.enabled != eb.text.enabled ||
                 ea.text.content != eb.text.content ||
                 ea.text.fontSize != eb.text.fontSize ||

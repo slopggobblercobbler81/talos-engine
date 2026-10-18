@@ -47,3 +47,13 @@ flowchart LR
    Upper layers (such as `Scene::Render` or `Editor`) submit 2D rectangles, outlines, grid lines, and anti-aliased TrueType text in deterministic order (back-to-front).
 3. **End Frame (`Renderer2D::EndFrame`):**
    Flushes all queued draw commands to the GPU and swaps the hidden backbuffer with the visible frontbuffer (Double Buffering), ensuring tear-free presentation on the monitor.
+
+---
+
+## 4. Sprite Sheet UV Sub-Rectangles, Mirror Flipping & 2D Frame Animations
+
+`Renderer2D::DrawSprite` supports full sprite sheet slicing and hardware UV mirror flipping:
+* **UV Sub-Rectangle (`sourceX`, `sourceY`, `sourceW`, `sourceH`):** When `sourceW > 0` and `sourceH > 0`, `DrawSprite` samples that exact pixel sub-region from the texture atlas; when `sourceW <= 0` or `sourceH <= 0`, it defaults to the full texture dimensions (`GetTextureDimensions`).
+* **Horizontal & Vertical Mirroring (`flipX`, `flipY`):** Negates the source rectangle's width (`-srcW`) and/or height (`-srcH`) on the GPU (`DrawTexturePro`) with zero CPU pixel copying.
+* **2D Frame Animator Synchronization (`SpriteComponent::SyncFrameUV`):** Entities with `frameCount > 1` automatically compute their active cell dimensions (`sourceW = texWidth / frameCount`, `sourceH = texHeight`) and advance `currentFrame` at `fps` frames per second via `Scene::UpdateAnimations(delta)`, updating `sourceX` and `sourceY` across horizontal strips or multi-row grids.
+

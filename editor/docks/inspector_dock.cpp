@@ -111,6 +111,9 @@ namespace Talos::Editor {
             gui.DrawSpriteRegionControls(x, y, w, selected->sprite, 60);
             y += 128.0f;
 
+            gui.DrawSpriteAnimatorControls(x, y, w, selected->sprite, 70);
+            y += 110.0f;
+
             const char* colorLabel = selected->sprite.texturePath.empty() ? "Box Color" : "Img Tint";
             gui.DrawColorPickerRow(x, y, w, colorLabel, selected->sprite.color, 20);
             y += 80.0f;

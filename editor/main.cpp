@@ -41,14 +41,21 @@ int main() {
         title.text.fontSize = 28;
         title.text.color = { 240, 240, 245, 255 };
 
-        // Player Entity: Uses 2D Hero texture and is controllable with WASD/Arrows in Play Mode
+        // Player Entity: Uses 4-frame animated sheet texture and is controllable with WASD/Arrows in Play Mode
         Entity& player = world.CreateEntity("Player", 360.0f, 340.0f);
         player.transform.width = 72.0f;
         player.transform.height = 72.0f;
-        player.sprite.texturePath = "examples/assets/textures/hero.png";
+        player.sprite.texturePath = "examples/assets/textures/sheet.png";
         player.sprite.color = { 255, 255, 255, 255 };
         player.sprite.sortingLayer = SortingLayer::Characters;
         player.sprite.zOrder = 10;
+        player.sprite.sourceW = 64.0f;
+        player.sprite.sourceH = 64.0f;
+        player.sprite.frameCount = 4;
+        player.sprite.currentFrame = 0;
+        player.sprite.fps = 8.0f;
+        player.sprite.loop = true;
+        player.sprite.isPlaying = true;
         player.collider.enabled = true;
         player.movement.enabled = true;
         player.movement.playerControlled = true;

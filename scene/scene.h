@@ -73,7 +73,11 @@ namespace Talos::Scene {
         std::vector<Entity>& GetEntities();
         const std::vector<Entity>& GetEntities() const;
 
-        // Advances entity movement and resolves solid collisions via the Physics2D layer.
+        // Advances 2D sprite sheet frame animations (currentFrame, frameTimer, UV sub-rect)
+        // for all active entities with sprite.enabled && sprite.frameCount > 1.
+        void UpdateAnimations(float delta);
+
+        // Advances entity movement, sprite animations, and resolves solid collisions via the Physics2D layer.
         void Update(float delta);
 
         // Submits all active visual and text components to the Renderer2D layer.
