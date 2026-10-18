@@ -15,7 +15,7 @@ Rules and documentation index for AI agents working on **Talos Engine**.
    - Lower layers must **never** include or depend on higher layers.
    - Each engine layer is a static library in `engine/CMakeLists.txt` (`talos_core`, `talos_renderer`, `talos_physics`, `talos_scene`). Link dependencies must mirror the layering above.
 3. **Complete Backend Encapsulation:**
-   - Never include third-party headers (e.g., `raylib.h`) in public `.h` headers or outside the `.cpp` files of `engine/core/` and `engine/renderer/`.
+   - Never include third-party headers (e.g., `raylib.h`) in public `.h` headers or outside the `.cpp` files of the layer that owns them: `engine/core/` and `engine/renderer/` for raylib, and `engine/scripting/` for the Lua VM once it exists. The Lua fork lives in `third_party/lua/`; document every modification of it in `third_party/lua/TALOS_CHANGES.md`.
    - raylib is linked `PRIVATE` only to `talos_core` and `talos_renderer`. Do not link it anywhere else.
    - All drawing and GPU calls must go exclusively through `Renderer2D` (`engine/renderer/renderer2d.h`).
 4. **No Monolithic Files (Godot-Style Modular Tree):**

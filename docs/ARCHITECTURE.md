@@ -65,7 +65,10 @@ Manages the active world state and the objects within it.
 * **Deterministic Update Pipeline:** Coordinates how entities are updated and submitted to the Physics and Renderer layers each frame.
 
 ### Layer 4: Scripting Layer
-Bridges the compiled C++ engine core with high-level game logic (Python).
+Bridges the compiled C++ engine core with high-level game logic written in **Talos Lua**: a project-owned fork of Lua (MIT license), vendored in `third_party/lua/`, trimmed of what the engine does not need and adapted for ease of use.
+* **Encapsulated VM:** The Lua headers are included only inside `engine/scripting/` `.cpp` files (same rule as raylib). Public headers expose Talos types only.
+* **Forked, Not Wrapped:** Removals (e.g., `io`, `os`, `debug`, `package`) and syntax changes are made in the vendored source. Every change to `third_party/lua/` must be listed in `third_party/lua/TALOS_CHANGES.md` so the fork stays maintainable and the MIT copyright notice is preserved.
+* **Talos Layer on Top of Lua:** Game-facing API (input, entity access, physics, audio, scene control), event hooks (`OnStart`, `OnUpdate`, `OnCollision`), sandboxing (no OS/file access, instruction budget) and friendly errors with script file and line reported to the Debug Console.
 * **Zero Compilation Wait:** Scripts are interpreted and bound directly to the Scene and Core APIs without requiring project recompilation or domain reloads.
 * **Live Hot-Reloading:** Modifications to script logic take effect immediately, preserving rapid creative iteration.
 
