@@ -92,9 +92,9 @@ Every frame executes a deterministic, strictly ordered pipeline across layers:
 
 ## 4. Modular Tree Structure (Central Orchestrator + Branches)
 
-Each engine layer is built as a static library (`engine/CMakeLists.txt`): `talos_core`, `talos_renderer` (-> core), `talos_physics`, and `talos_scene` (-> core, renderer, physics). The editor executable links against them. raylib is linked `PRIVATE` only to `talos_core` and `talos_renderer`, so no other target can see its headers.
+Each engine layer is built as a static library (`engine/CMakeLists.txt`): `talos_core`, `talos_renderer` (-> core), `talos_physics`, `talos_audio` (-> core), and `talos_scene` (-> core, renderer, physics, audio). The editor executable links against them. raylib is linked `PRIVATE` only to `talos_core`, `talos_renderer`, and `talos_audio`, so no other target can see its headers.
 
-Unit tests live in `tests/` (mirroring `engine/`) and run with `ctest --test-dir build --output-on-failure`. They use a minimal in-repo harness (`tests/test_framework.h`) and need no window or GPU. Disable with `-DTALOS_BUILD_TESTS=OFF`. Covered so far: `Physics2D` (overlap, manifolds, impulse resolution) and `SceneSerializer` (round-trip, clamping, legacy keys, error handling).
+Unit tests live in `tests/` (mirroring `engine/`) and run with `ctest --test-dir build --output-on-failure`. They use a minimal in-repo harness (`tests/test_framework.h`) and need no window or GPU. Disable with `-DTALOS_BUILD_TESTS=OFF`. Covered so far: `Physics2D` (overlap, manifolds, impulse resolution), `AudioSystem` (device lifecycle, in-memory WAV/OGG `Sound` cache, streaming OGG/MP3/WAV `Music`), and `SceneSerializer` (round-trip, clamping, legacy keys, error handling).
 
 Within each architectural layer, subsystems follow a **Godot-style modular tree organization** (`Central Orchestrator -> Specialized Branches`) to prevent monolithic files:
 
@@ -110,6 +110,8 @@ talos-engine/
 │   │   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture cache
 │   ├── physics/                      # Layer 2: Physics Subsystem
 │   │   └── physics2d.h / .cpp        # 2D AABB overlap & movement resolution
+│   ├── audio/                        # Layer 2: Audio Subsystem
+│   │   └── audio_system.h / .cpp     # Audio device lifecycle, WAV/OGG Sound cache & OGG/MP3/WAV Music streaming
 │   ├── scene/                        # Layer 3: Scene & Entity Layer
 │   │   ├── entity.h                  # Flat zero-inheritance Entity & Component structs
 │   │   ├── scene.h / .cpp            # World state & per-component telemetry counters

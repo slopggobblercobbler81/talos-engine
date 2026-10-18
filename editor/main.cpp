@@ -1,6 +1,7 @@
 // Application entry point: window setup, starter assets and main loop
 #include "core/window.h"
 #include "renderer/renderer2d.h"
+#include "audio/audio_system.h"
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"
 #include "editor/editor.h"
@@ -8,20 +9,23 @@
 int main() {
     using namespace Talos::Core;
     using namespace Talos::Renderer;
+    using namespace Talos::Audio;
     using namespace Talos::Scene;
     using namespace Talos::Editor;
 
     // =========================================================================
-    // 1. Engine & Renderer Initialization (Core & Renderer Layers)
+    // 1. Engine, Renderer & Audio Initialization (Core, Renderer & Audio Layers)
     // =========================================================================
     // Opens the OS display window at 1360x780, initializes the TrueType
-    // typography cache, and generates starter .png textures in "assets/textures/".
+    // typography cache, generates starter .png textures and .wav audio clips,
+    // and initializes the audio hardware device.
     constexpr int WINDOW_WIDTH = 1360;
     constexpr int WINDOW_HEIGHT = 780;
     const char* DEFAULT_SCENE_PATH = "examples/scenes/main.talos";
 
     Window::Init(WINDOW_WIDTH, WINDOW_HEIGHT, "Talos Engine - Visual Editor & 2D Textures");
     Renderer2D::Init();
+    AudioSystem::Init();
 
     // =========================================================================
     // 2. World Initialization: Load Saved Scene or Create Default (Scene Layer)
@@ -155,6 +159,9 @@ int main() {
         // Update Editor tooling (or advance Scene simulation if in Play Mode)
         editor.Update(world, delta);
 
+        // Feed active Music streaming buffers
+        AudioSystem::Update();
+
         // Render the 2D Viewport and Editor UI panels
         Renderer2D::BeginFrame({ 30, 31, 38, 255 });
             editor.Render(world);
@@ -162,8 +169,9 @@ int main() {
     }
 
     // =========================================================================
-    // 5. Engine Shutdown (Renderer & Core Layers)
+    // 5. Engine Shutdown (Audio, Renderer & Core Layers)
     // =========================================================================
+    AudioSystem::Shutdown();
     Renderer2D::Shutdown();
     Window::Close();
     return 0;

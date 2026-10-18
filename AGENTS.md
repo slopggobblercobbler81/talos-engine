@@ -13,10 +13,10 @@ Rules and documentation index for AI agents working on **Talos Engine**.
 2. **Strict Layered Dependencies (Top-Down Only):**
    - `Editor` $\rightarrow$ `Scripting` $\rightarrow$ `Scene` $\rightarrow$ `Subsystems (Renderer / Physics / Audio)` $\rightarrow$ `Core`.
    - Lower layers must **never** include or depend on higher layers.
-   - Each engine layer is a static library in `engine/CMakeLists.txt` (`talos_core`, `talos_renderer`, `talos_physics`, `talos_scene`). Link dependencies must mirror the layering above.
+   - Each engine layer is a static library in `engine/CMakeLists.txt` (`talos_core`, `talos_renderer`, `talos_physics`, `talos_audio`, `talos_scene`). Link dependencies must mirror the layering above.
 3. **Complete Backend Encapsulation:**
-   - Never include third-party headers (e.g., `raylib.h`) in public `.h` headers or outside the `.cpp` files of the layer that owns them: `engine/core/` and `engine/renderer/` for raylib, and `engine/scripting/` for the Lua VM once it exists. The Lua fork lives in `third_party/lua/`; document every modification of it in `third_party/lua/TALOS_CHANGES.md`.
-   - raylib is linked `PRIVATE` only to `talos_core` and `talos_renderer`. Do not link it anywhere else.
+   - Never include third-party headers (e.g., `raylib.h`) in public `.h` headers or outside the `.cpp` files of the layer that owns them: `engine/core/`, `engine/renderer/`, and `engine/audio/` for raylib, and `engine/scripting/` for the Lua VM once it exists. The Lua fork lives in `third_party/lua/`; document every modification of it in `third_party/lua/TALOS_CHANGES.md`.
+   - raylib is linked `PRIVATE` only to `talos_core`, `talos_renderer`, and `talos_audio`. Do not link it anywhere else.
    - All drawing and GPU calls must go exclusively through `Renderer2D` (`engine/renderer/renderer2d.h`).
 4. **No Monolithic Files (Godot-Style Modular Tree):**
    - Keep files small and focused. Use a central orchestrator per layer with specialized branch folders/files (e.g., `editor/editor.cpp` coordinating `docks/`, `viewport/`, `toolbar/`, `dialogs/`, `gui/`, `history/`).
@@ -105,11 +105,12 @@ Consult only the entry matching the system you are changing.
 - [`docs/CORE_SYSTEM.md`](docs/CORE_SYSTEM.md) — Window lifecycle (`Window`), frame timing (`delta`), hardware input (`Input`), and logging (`Logger`).
 - [`docs/INPUT_MAP_SYSTEM.md`](docs/INPUT_MAP_SYSTEM.md) — Logical input actions (`InputMap`), key bindings, and `.talos` input persistence.
 
-### Layer 2: Domain Subsystems (`engine/renderer/`, `engine/physics/`)
+### Layer 2: Domain Subsystems (`engine/renderer/`, `engine/physics/`, `engine/audio/`)
 - [`docs/RENDERER_SYSTEM.md`](docs/RENDERER_SYSTEM.md) — 2D rendering pipeline (`Renderer2D`), sorting layers (`sortingLayer`, `zOrder`), UV sub-rectangles, and sprite flipping.
 - [`docs/TEXTURE_SYSTEM.md`](docs/TEXTURE_SYSTEM.md) — GPU texture cache, lazy loading, starter assets, and procedural checkerboard fallback.
 - [`docs/CAMERA_2D_SYSTEM.md`](docs/CAMERA_2D_SYSTEM.md) — 2D camera projection (`Camera2DData`), editor pan/zoom, and runtime active camera.
 - [`docs/PHYSICS_SYSTEM.md`](docs/PHYSICS_SYSTEM.md) — 2D collision detection and resolution (`Physics2D`).
+- [`docs/AUDIO_SYSTEM.md`](docs/AUDIO_SYSTEM.md) — Audio device lifecycle, in-memory `Sound` caching (WAV/OGG), and streaming `Music` playback (OGG/MP3/WAV) (`AudioSystem`).
 
 ### Layer 3: Scene & Entities (`engine/scene/`)
 - [`docs/SCENE_AND_ENTITIES.md`](docs/SCENE_AND_ENTITIES.md) — Flat `Entity` and component data structures (`Transform`, `Sprite`, `Label`, `Collider2D`, `Camera`, `Script`) and `Scene` execution loop.

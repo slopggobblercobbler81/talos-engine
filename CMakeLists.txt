@@ -39,7 +39,7 @@ add_executable(TalosEngine
 
 # Editor resolves "editor/..." from the repository root; engine headers come from the libraries
 target_include_directories(TalosEngine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(TalosEngine PRIVATE talos_scene talos_renderer talos_physics talos_core)
+target_link_libraries(TalosEngine PRIVATE talos_scene talos_renderer talos_physics talos_audio talos_core)
 
 # Tests (disable with -DTALOS_BUILD_TESTS=OFF)
 option(TALOS_BUILD_TESTS "Build engine unit tests" ON)

@@ -1,4 +1,5 @@
 #include "editor/editor.h"
+#include "audio/audio_system.h"
 #include "core/logger.h"
 #include "core/input.h"
 
@@ -74,6 +75,8 @@ namespace Talos::Editor {
     void Editor::StopPlayMode(Scene::Scene& scene) {
         if (!m_isPlaying) return;
 
+        Audio::AudioSystem::StopAllSounds();
+        Audio::AudioSystem::StopAllMusic();
         scene.ResetTriggerState();
         scene.GetEntities() = m_editSnapshot;
         m_isPlaying = false;
