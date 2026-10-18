@@ -79,6 +79,15 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 1
+audio.clipPath = examples/assets/audio/coin.wav
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 ```
 
 ---

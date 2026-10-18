@@ -56,7 +56,7 @@ namespace Talos::Editor {
         float boxX = LEFT_PANEL_WIDTH + 10.0f;
         float boxY = TOOLBAR_HEIGHT + 10.0f;
         float boxW = std::min(680.0f, static_cast<float>(vpW) - 20.0f);
-        float boxH = 244.0f;
+        float boxH = 266.0f;
 
         Renderer2D::DrawRect(boxX, boxY, boxW, boxH, { 14, 16, 22, 232 });
         Renderer2D::DrawRectOutline(boxX, boxY, boxW, boxH, 1.0f, { 70, 130, 180, 220 });
@@ -116,11 +116,12 @@ namespace Talos::Editor {
             ColorRGBA accent;
         };
 
-        const RowEntry rows[6] = {
+        const RowEntry rows[7] = {
             { "Transform 2D", &diag.transform, "bounds", { 95,  195, 255, 255 } },
             { "Movement 2D",  &diag.movement,  "moving", { 105, 230, 145, 255 } },
             { "Collider 2D",  &diag.collider,  "AABB",   { 250, 200, 75,  255 } },
             { "Camera 2D",    &diag.camera,    "tracks", { 110, 225, 215, 255 } },
+            { "Audio Source", &diag.audio,     "plays",  { 255, 165, 110, 255 } },
             { "Sprite 2D",    &diag.sprite,    "draws",  { 245, 130, 95,  255 } },
             { "Text Label",   &diag.text,      "draws",  { 195, 135, 255, 255 } }
         };
@@ -129,6 +130,7 @@ namespace Talos::Editor {
                                 diag.movement.cpuTimeUs +
                                 diag.collider.cpuTimeUs +
                                 diag.camera.cpuTimeUs +
+                                diag.audio.cpuTimeUs +
                                 diag.sprite.cpuTimeUs +
                                 diag.text.cpuTimeUs;
         size_t totalActiveRam = 0;

@@ -28,6 +28,7 @@ namespace Talos::Scene {
         ColliderComponent collider;
         MovementComponent movement;
         CameraComponent camera;
+        AudioComponent audio;
 
         // Returns true if this entity carries the specified non-empty gameplay tag.
         bool HasTag(const std::string& expectedTag) const {

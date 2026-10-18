@@ -31,6 +31,7 @@ TEST(RoundTrip_PreservesEntityData) {
     CHECK(!e.collider.enabled);
     CHECK(!e.movement.enabled);
     CHECK(!e.camera.enabled);
+    CHECK(!e.audio.enabled);
     e.tag = "Player";
     e.active = false;
     e.transform.width = 64.0f;
@@ -59,6 +60,15 @@ TEST(RoundTrip_PreservesEntityData) {
     e.camera.enabled = true;
     e.camera.targetName = "Player";
     e.camera.zoom = 1.5f;
+    e.audio.enabled = true;
+    e.audio.clipPath = "examples/assets/audio/coin.wav";
+    e.audio.isMusic = true;
+    e.audio.playOnStart = false;
+    e.audio.loop = true;
+    e.audio.playOnCollision = true;
+    e.audio.volume = 0.75f;
+    e.audio.pitch = 1.25f;
+    e.audio.pan = 0.25f;
 
     std::string path = (TempDir() / "roundtrip.talos").string();
     CHECK(SceneSerializer::Save(original, path));
@@ -98,6 +108,15 @@ TEST(RoundTrip_PreservesEntityData) {
     CHECK_NEAR(r.movement.mass, 2.5, 0.01);
     CHECK_EQ(r.camera.targetName, std::string("Player"));
     CHECK_NEAR(r.camera.zoom, 1.5, 0.01);
+    CHECK(r.audio.enabled);
+    CHECK_EQ(r.audio.clipPath, std::string("examples/assets/audio/coin.wav"));
+    CHECK(r.audio.isMusic);
+    CHECK(!r.audio.playOnStart);
+    CHECK(r.audio.loop);
+    CHECK(r.audio.playOnCollision);
+    CHECK_NEAR(r.audio.volume, 0.75, 0.01);
+    CHECK_NEAR(r.audio.pitch, 1.25, 0.01);
+    CHECK_NEAR(r.audio.pan, 0.25, 0.01);
 }
 
 TEST(RoundTrip_PreservesEntityOrderAndIds) {
@@ -165,7 +184,10 @@ TEST(Load_ClampsOutOfRangeValues) {
         "camera.zoom = 0.0\n"
         "sprite.frameCount = -3\n"
         "movement.mass = 0\n"
-        "sprite.color = 300,-5,128,255\n");
+        "sprite.color = 300,-5,128,255\n"
+        "audio.volume = 2.5\n"
+        "audio.pitch = 0.01\n"
+        "audio.pan = -1.0\n");
 
     Scene scene;
     CHECK(SceneSerializer::Load(scene, path));
@@ -179,6 +201,9 @@ TEST(Load_ClampsOutOfRangeValues) {
     CHECK_EQ(static_cast<int>(e->sprite.color.r), 255);
     CHECK_EQ(static_cast<int>(e->sprite.color.g), 0);
     CHECK_EQ(static_cast<int>(e->sprite.color.b), 128);
+    CHECK_NEAR(e->audio.volume, 1.0, 1e-5);
+    CHECK_NEAR(e->audio.pitch, 0.05, 1e-5);
+    CHECK_NEAR(e->audio.pan, 0.0, 1e-5);
 }
 
 TEST(Load_ToleratesCommentsBlankLinesAndUnknownKeys) {

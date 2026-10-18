@@ -84,6 +84,7 @@ namespace Talos::Scene {
         ComponentDiagnostics movement;
         ComponentDiagnostics collider;
         ComponentDiagnostics camera;
+        ComponentDiagnostics audio;
         ComponentDiagnostics sprite;
         ComponentDiagnostics text;
 

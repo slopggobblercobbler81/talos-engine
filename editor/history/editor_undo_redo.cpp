@@ -69,6 +69,15 @@ namespace Talos::Editor {
                 std::fabs(ea.camera.zoom - eb.camera.zoom) > 0.001f ||
                 std::fabs(ea.camera.offsetX - eb.camera.offsetX) > 0.01f ||
                 std::fabs(ea.camera.offsetY - eb.camera.offsetY) > 0.01f) return false;
+            if (ea.audio.enabled != eb.audio.enabled ||
+                ea.audio.clipPath != eb.audio.clipPath ||
+                ea.audio.isMusic != eb.audio.isMusic ||
+                ea.audio.playOnStart != eb.audio.playOnStart ||
+                ea.audio.loop != eb.audio.loop ||
+                ea.audio.playOnCollision != eb.audio.playOnCollision ||
+                std::fabs(ea.audio.volume - eb.audio.volume) > 0.005f ||
+                std::fabs(ea.audio.pitch - eb.audio.pitch) > 0.005f ||
+                std::fabs(ea.audio.pan - eb.audio.pan) > 0.005f) return false;
         }
         return true;
     }

@@ -23,8 +23,9 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
   4. **`ColliderComponent`:** Solid 2D collision or non-blocking sensor/trigger area (`enabled`, `shape` = `Box` or `Circle`, `radius`, `restitution`, `isSolid`, `isStatic`, `isTrigger`) that automatically fits the entity's `TransformComponent` dimensions (or uses an explicit custom circle radius when `radius > 0`).
   5. **`MovementComponent`:** Velocity, rigid-body properties, and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `mass`, `gravityScale`, `velocityX/Y`).
   6. **`CameraComponent`:** Configurable 2D runtime game camera (`enabled`, `isPrimary`, `followTarget`, `smoothFollow`, `targetName`, `followSpeed`, `zoom`, `offsetX`, `offsetY`) supporting both fixed framing and frame-rate-independent smooth target tracking.
+  7. **`AudioComponent` (`Audio Source`):** Configurable 2D entity sound effect (`Sound` in RAM) or streaming music (`Music` stream) source (`enabled`, `clipPath`, `isMusic`, `playOnStart`, `loop`, `playOnCollision`, `volume`, `pitch`, `pan`).
 
-Attaching a visual sprite, text label, solid obstacle, pass-through sensor/trigger zone, controllable character movement, or runtime camera is done either from the **`+ Add Component`** dropdown at the bottom of the Inspector or in code (`entity.sprite.enabled = true;`).
+Attaching a visual sprite, text label, solid obstacle, pass-through sensor/trigger zone, controllable character movement, runtime camera, or audio source is done either from the **`+ Add Component`** dropdown at the bottom of the Inspector or in code (`entity.audio.enabled = true;`).
 
 ---
 
@@ -54,6 +55,7 @@ During each iteration of the main loop, `Scene` executes strictly separated pass
    - Tracks solid collision pairs across frames, emits `CollisionEvent` transitions (`CollisionEventState::Enter`, `Stay`, and `Exit`) complete with entity IDs, names, tags (`entityATag`, `entityBTag`), contact normal, penetration depth, and world contact point, notifies the scripting/listener system via `CollisionCallback` (`Scene::SetCollisionCallback`), and supports tag-aware queries (`Scene::IsColliding`, `Scene::IsCollidingWithTag`).
    - Evaluates non-blocking **Sensor / Trigger** overlaps (`isTrigger == true`) via `Physics2D::CheckOverlap(shapeA, shapeB)`, tracks active overlaps across frames, emits `TriggerOverlapEvent` transitions (`TriggerEventState::Enter`, `Stay`, and `Exit`) enriched with `triggerTag` and `otherTag`, dispatches `TriggerCallback` toward scripts/listeners, and supports `Scene::IsTriggerOverlapping` / `Scene::IsTriggerOverlappingWithTag`.
    - Advances all active `CameraComponent` instances (resolving fixed positions or smoothly interpolating `(currentX, currentY)` toward `targetName` after movement has settled) and records telemetry into `SceneDiagnostics::camera`.
+   - Evaluates all active `AudioComponent` instances (triggering playback on `playOnStart`, re-triggering on `loop`, firing on `CollisionEventState::Enter` / `TriggerEventState::Enter` when `playOnCollision` is enabled, and live-updating `volume`, `pitch`, and `pan` via `AudioSystem`) and records telemetry into `SceneDiagnostics::audio`.
 2. **`Scene::UpdateAnimations(float delta)`:**
    Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.
 3. **`Scene::Render()`:**

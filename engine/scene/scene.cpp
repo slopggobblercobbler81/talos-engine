@@ -1,4 +1,5 @@
 #include "scene/scene.h"
+#include "audio/audio_system.h"
 #include "core/input.h"
 #include "core/logger.h"
 #include "physics/physics2d.h"
@@ -65,6 +66,10 @@ namespace Talos::Scene {
         m_activeTriggerOverlaps.clear();
         m_frameTriggerEvents.clear();
         ResetCollisionState();
+        for (auto& entity : m_entities) {
+            entity.camera.runtimeInitialized = false;
+            entity.audio.runtimeStarted = false;
+        }
     }
 
     void Scene::ResetCollisionState() {
@@ -768,6 +773,111 @@ namespace Talos::Scene {
             cameraUsAccum += std::chrono::duration<double, std::micro>(tCamEnd - tCamStart).count();
         }
 
+        // 5. Process AudioComponent (Sound Effects & Music Streams)
+        double audioUsAccum = 0.0;
+        size_t activeAudioCount = 0;
+        size_t audioOpsCount = 0;
+
+        for (auto& entity : m_entities) {
+            if (!entity.active || !entity.audio.enabled) {
+                if (entity.audio.runtimeStarted && !entity.audio.clipPath.empty()) {
+                    if (entity.audio.isMusic) {
+                        Audio::AudioSystem::StopMusic(entity.audio.clipPath);
+                    } else {
+                        Audio::AudioSystem::StopSound(entity.audio.clipPath);
+                    }
+                    entity.audio.runtimeStarted = false;
+                }
+                continue;
+            }
+
+            auto tAudioStart = Clock::now();
+            ++activeAudioCount;
+
+            if (!entity.audio.clipPath.empty()) {
+                bool triggeredByCollision = false;
+                if (entity.audio.playOnCollision) {
+                    for (const auto& ev : m_frameCollisionEvents) {
+                        if (ev.state == CollisionEventState::Enter &&
+                            (ev.entityAId == entity.id || ev.entityBId == entity.id)) {
+                            triggeredByCollision = true;
+                            break;
+                        }
+                    }
+                    if (!triggeredByCollision) {
+                        for (const auto& trig : m_frameTriggerEvents) {
+                            if (trig.state == TriggerEventState::Enter &&
+                                (trig.triggerId == entity.id || trig.otherId == entity.id)) {
+                                triggeredByCollision = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (entity.audio.isMusic) {
+                    if (!entity.audio.runtimeStarted) {
+                        entity.audio.runtimeStarted = true;
+                        if (entity.audio.playOnStart) {
+                            Audio::AudioSystem::PlayMusic(entity.audio.clipPath,
+                                                          entity.audio.loop,
+                                                          entity.audio.volume,
+                                                          entity.audio.pitch,
+                                                          entity.audio.pan);
+                            ++audioOpsCount;
+                        }
+                    }
+                    if (triggeredByCollision) {
+                        Audio::AudioSystem::PlayMusic(entity.audio.clipPath,
+                                                      entity.audio.loop,
+                                                      entity.audio.volume,
+                                                      entity.audio.pitch,
+                                                      entity.audio.pan);
+                        ++audioOpsCount;
+                    }
+                    if (Audio::AudioSystem::IsMusicPlaying(entity.audio.clipPath)) {
+                        Audio::AudioSystem::SetMusicLooping(entity.audio.clipPath, entity.audio.loop);
+                        Audio::AudioSystem::SetMusicVolume(entity.audio.clipPath, entity.audio.volume);
+                        Audio::AudioSystem::SetMusicPitch(entity.audio.clipPath, entity.audio.pitch);
+                        Audio::AudioSystem::SetMusicPan(entity.audio.clipPath, entity.audio.pan);
+                        ++audioOpsCount;
+                    }
+                } else {
+                    if (!entity.audio.runtimeStarted) {
+                        entity.audio.runtimeStarted = true;
+                        if (entity.audio.playOnStart) {
+                            Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                                                          entity.audio.volume,
+                                                          entity.audio.pitch,
+                                                          entity.audio.pan);
+                            ++audioOpsCount;
+                        }
+                    } else if (entity.audio.loop && !Audio::AudioSystem::IsSoundPlaying(entity.audio.clipPath)) {
+                        Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                                                      entity.audio.volume,
+                                                      entity.audio.pitch,
+                                                      entity.audio.pan);
+                        ++audioOpsCount;
+                    }
+                    if (triggeredByCollision) {
+                        Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                                                      entity.audio.volume,
+                                                      entity.audio.pitch,
+                                                      entity.audio.pan);
+                        ++audioOpsCount;
+                    }
+                    if (Audio::AudioSystem::IsSoundPlaying(entity.audio.clipPath)) {
+                        Audio::AudioSystem::SetSoundVolume(entity.audio.clipPath, entity.audio.volume);
+                        Audio::AudioSystem::SetSoundPitch(entity.audio.clipPath, entity.audio.pitch);
+                        Audio::AudioSystem::SetSoundPan(entity.audio.clipPath, entity.audio.pan);
+                    }
+                }
+            }
+
+            auto tAudioEnd = Clock::now();
+            audioUsAccum += std::chrono::duration<double, std::micro>(tAudioEnd - tAudioStart).count();
+        }
+
         // Commit simulation component metrics to m_diagnostics
         const size_t totalCount = m_entities.size();
         m_diagnostics.totalEntities  = totalCount;
@@ -797,11 +907,18 @@ namespace Talos::Scene {
         m_diagnostics.camera.cpuTimeUs          = SmoothMicros(m_diagnostics.camera.cpuTimeUs, cameraUsAccum);
         m_diagnostics.camera.operationsCount    = cameraOpsCount;
 
+        m_diagnostics.audio.activeCount         = activeAudioCount;
+        m_diagnostics.audio.totalCount          = totalCount;
+        m_diagnostics.audio.rawCpuTimeUs        = audioUsAccum;
+        m_diagnostics.audio.cpuTimeUs           = SmoothMicros(m_diagnostics.audio.cpuTimeUs, audioUsAccum);
+        m_diagnostics.audio.operationsCount     = audioOpsCount;
+
         m_diagnostics.totalUpdateUs =
             m_diagnostics.transform.cpuTimeUs +
             m_diagnostics.movement.cpuTimeUs +
             m_diagnostics.collider.cpuTimeUs +
-            m_diagnostics.camera.cpuTimeUs;
+            m_diagnostics.camera.cpuTimeUs +
+            m_diagnostics.audio.cpuTimeUs;
     }
 
     void Scene::Render() const {
@@ -816,6 +933,7 @@ namespace Talos::Scene {
         size_t activeMovementCnt   = 0;
         size_t activeColliderCnt   = 0;
         size_t activeCameraCnt     = 0;
+        size_t activeAudioCnt      = 0;
         size_t activeSpriteCount   = 0;
         size_t activeTextCount     = 0;
         size_t spriteDrawCalls     = 0;
@@ -827,6 +945,8 @@ namespace Talos::Scene {
         size_t activeTextHeap      = 0;
         size_t cameraHeapBytes     = 0;
         size_t activeCameraHeap    = 0;
+        size_t audioHeapBytes      = 0;
+        size_t activeAudioHeap     = 0;
         size_t entityNameHeapBytes = 0;
 
         std::unordered_set<std::string> activeTextures;
@@ -842,6 +962,7 @@ namespace Talos::Scene {
             spriteHeapBytes     += entity.sprite.texturePath.capacity();
             textHeapBytes       += entity.text.content.capacity();
             cameraHeapBytes     += entity.camera.targetName.capacity();
+            audioHeapBytes      += entity.audio.clipPath.capacity();
 
             if (!entity.active) {
                 continue;
@@ -854,6 +975,10 @@ namespace Talos::Scene {
             if (entity.camera.enabled) {
                 ++activeCameraCnt;
                 activeCameraHeap += entity.camera.targetName.capacity();
+            }
+            if (entity.audio.enabled) {
+                ++activeAudioCnt;
+                activeAudioHeap += entity.audio.clipPath.capacity();
             }
             renderOrder.push_back(i);
         }
@@ -974,6 +1099,16 @@ namespace Talos::Scene {
         m_diagnostics.camera.activeRamBytes    = activeCameraCnt * sizeof(CameraComponent) + activeCameraHeap;
         m_diagnostics.camera.vramBytes         = 0;
 
+        m_diagnostics.audio.totalCount         = totalCount;
+        m_diagnostics.audio.activeCount        = activeAudioCnt;
+        m_diagnostics.audio.ramBytes           = totalCount * sizeof(AudioComponent) + audioHeapBytes +
+                                                 Audio::AudioSystem::GetTotalSoundMemoryBytes() +
+                                                 Audio::AudioSystem::GetTotalMusicMemoryBytes();
+        m_diagnostics.audio.activeRamBytes     = activeAudioCnt * sizeof(AudioComponent) + activeAudioHeap +
+                                                 Audio::AudioSystem::GetTotalSoundMemoryBytes() +
+                                                 Audio::AudioSystem::GetTotalMusicMemoryBytes();
+        m_diagnostics.audio.vramBytes          = 0;
+
         // Compute exact GPU VRAM for unique textures referenced by active SpriteComponents
         size_t spriteVram = 0;
         for (const auto& texPath : activeTextures) {
@@ -1007,7 +1142,8 @@ namespace Talos::Scene {
         m_diagnostics.totalRenderUs = m_diagnostics.sprite.cpuTimeUs + m_diagnostics.text.cpuTimeUs;
         m_diagnostics.totalSceneRamBytes =
             (m_entities.capacity() * sizeof(Entity)) +
-            entityNameHeapBytes + spriteHeapBytes + textHeapBytes + cameraHeapBytes;
+            entityNameHeapBytes + spriteHeapBytes + textHeapBytes + cameraHeapBytes + audioHeapBytes +
+            Audio::AudioSystem::GetTotalSoundMemoryBytes() + Audio::AudioSystem::GetTotalMusicMemoryBytes();
         m_diagnostics.totalSceneVramBytes = spriteVram + textVram;
     }
 

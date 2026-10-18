@@ -77,6 +77,7 @@ namespace Talos::Editor {
         float DrawColliderControls(float x, float y, float w, Scene::ColliderComponent& collider,
                                    const Scene::TransformComponent& transform, int baseSliderId);
         float DrawCameraControls(float x, float y, float w, Scene::CameraComponent& camera, int baseSliderId);
+        float DrawAudioControls(float x, float y, float w, Scene::AudioComponent& audio, int baseSliderId);
         void DrawSortingControls(float x, float y, float w, int& sortingLayer, int& zOrder, int zSliderId);
         void DrawTextInputBox(float x, float y, float w, const char* label,
                               std::string& textBuffer, int fieldId);

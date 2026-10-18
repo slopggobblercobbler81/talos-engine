@@ -47,8 +47,9 @@ To keep the Inspector clean and avoid showing inactive checkboxes for every poss
    - **Collider 2D:** Box / Circle shape selector, custom radius, bounciness (`Restitution`), and `Dynamic` / `Static` / `Trigger` mode toggles.
    - **Movement 2D:** `Player Controlled (WASD)` toggle, `Speed` / `Velocity`, `Mass`, and `Gravity (%)`.
    - **Camera 2D:** Primary toggle, `Follow` / `Fixed` framing, target entity, damping speed, zoom, and framing offsets.
+   - **Audio Source:** `SFX` (RAM) / `Music` (Stream) mode toggle, live `[Play]` / `[Stop]` preview buttons, editable `Clip` path, starter preset buttons (`Coin`, `Jump`, `Hit`, `Music`, `None`), `Play On Start` / `Loop` / `Play On Collision` toggles, and `Volume (%)`, `Pitch (%)`, and `Pan (L/R)` sliders.
    - Each attached optional component header features a right-aligned **`[X]`** button to remove the component (`enabled = false`) with full Undo/Redo support.
-4. **`+ Add Component` Dropdown Button:** Located at the bottom of the Inspector, unfolding a list of unattached components (`Sprite 2D`, `Text Label`, `Collider 2D`, `Movement 2D`, `Camera 2D`) that can be added to the selected entity with a single click.
+4. **`+ Add Component` Dropdown Button:** Located at the bottom of the Inspector, unfolding a list of unattached components (`Sprite 2D`, `Text Label`, `Collider 2D`, `Movement 2D`, `Camera 2D`, `Audio Source`) that can be added to the selected entity with a single click.
 
 ---
 

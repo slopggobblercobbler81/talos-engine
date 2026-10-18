@@ -185,5 +185,21 @@ namespace Talos::Scene {
         bool runtimeInitialized = false;
     };
 
+    // Configures an audio emitter (in-memory Sound effect or streaming Music track) attached to an entity.
+    struct AudioComponent {
+        bool enabled = false;
+        std::string clipPath = "";      // Path to audio file (e.g., "examples/assets/audio/coin.wav")
+        bool isMusic = false;           // false = Sound Effect (WAV/OGG in-memory), true = Music Stream (OGG/MP3/WAV)
+        bool playOnStart = true;        // Automatically start playback when Play Mode begins
+        bool loop = false;              // Continuously repeat playback while active in Play Mode
+        bool playOnCollision = false;   // Trigger playback when this entity enters a solid collision or trigger overlap
+        float volume = 1.0f;            // Playback volume multiplier (0.00 .. 1.00)
+        float pitch = 1.0f;             // Playback pitch multiplier (0.25 .. 2.50, 1.00 = normal)
+        float pan = 0.5f;               // Stereo pan balance (0.00 = right, 0.50 = center, 1.00 = left)
+
+        // Transient runtime state (not serialized to .talos files)
+        bool runtimeStarted = false;
+    };
+
 }
 

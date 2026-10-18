@@ -63,3 +63,13 @@ Editor -> Scripting -> Scene -> Audio (talos_audio) -> Core (talos_core)
   * `SetMusicVolume`, `SetMusicPitch`, `SetMusicPan`, `GetMusicTimeLength(path)`, `GetMusicTimePlayed(path)`, `GetMusicInfo(path)`
 * **Diagnostics & Telemetry:**
   * `GetCachedSoundCount()`, `GetCachedMusicCount()`, `GetActiveMusicStreamCount()`, `GetTotalSoundMemoryBytes()`, `GetTotalMusicMemoryBytes()`
+
+---
+
+## 5. Entity Integration (`AudioComponent` & Inspector UI)
+
+Entities attach audio playback declaratively through `Scene::AudioComponent` (`entity.audio`) via the **`+ Add Component -> Audio Source (Sound / Music)`** button in the Inspector:
+* **Modes:** `SFX` (`isMusic = false`, in-memory `Sound`) or `Music` (`isMusic = true`, streaming `Music`).
+* **Triggers:** `playOnStart` (plays automatically when Play Mode begins), `loop` (continuously loops the clip or music stream), and `playOnCollision` (triggers playback automatically on solid collision `Enter` or sensor trigger `Enter`).
+* **Parameters:** `volume` (`0.0`–`1.0`), `pitch` (`0.1`–`4.0`), and stereo `pan` (`0.0` = Left, `0.5` = Center, `1.0` = Right), plus live `[Play]` / `[Stop]` preview buttons and one-click starter presets (`Coin`, `Jump`, `Hit`, `Music`, `None`).
+

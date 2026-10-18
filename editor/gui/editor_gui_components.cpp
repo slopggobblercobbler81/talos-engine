@@ -1,11 +1,13 @@
-// EditorGui: collider and camera inspector controls
+// EditorGui: collider, camera, and audio source inspector controls
 #include "editor/gui/editor_gui.h"
+#include "audio/audio_system.h"
 #include "core/input.h"
 #include <algorithm>
 #include <cmath>
 
 namespace Talos::Editor {
 
+    using namespace Talos::Audio;
     using namespace Talos::Core;
     using namespace Talos::Renderer;
     using namespace Talos::Scene;
@@ -199,4 +201,166 @@ namespace Talos::Editor {
         return cy - y;
     }
 
+    float EditorGui::DrawAudioControls(float x, float y, float w, Scene::AudioComponent& audio, int baseSliderId) {
+        float cy = y;
+
+        // 1. Mode Toggle Row: [Sound (SFX)] / [Music] + [Play] / [Stop] live preview buttons
+        Renderer2D::DrawLabel("Mode:", x, cy + 3.0f, 14, { 185, 190, 205, 255 });
+
+        bool isSfx   = !audio.isMusic;
+        bool isMusic = audio.isMusic;
+
+        if (DrawButton(x + 46.0f, cy, 62.0f, 20.0f, "SFX",
+                       isSfx ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+                       { 68, 135, 220, 255 })) {
+            if (!isSfx) {
+                PushUndoIfActive();
+                if (!audio.clipPath.empty()) {
+                    AudioSystem::StopMusic(audio.clipPath.c_str());
+                }
+            }
+            audio.isMusic = false;
+            audio.runtimeStarted = false;
+            m_focusedTextFieldId = -1;
+        }
+
+        if (DrawButton(x + 112.0f, cy, 62.0f, 20.0f, "Music",
+                       isMusic ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+                       { 68, 135, 220, 255 })) {
+            if (!isMusic) {
+                PushUndoIfActive();
+                if (!audio.clipPath.empty()) {
+                    AudioSystem::StopSound(audio.clipPath.c_str());
+                }
+            }
+            audio.isMusic = true;
+            audio.runtimeStarted = false;
+            m_focusedTextFieldId = -1;
+        }
+
+        // Live preview [Play] / [Stop] buttons on the right
+        float stopBtnW = 42.0f;
+        float playBtnW = 44.0f;
+        float stopBtnX = x + w - stopBtnW;
+        float playBtnX = stopBtnX - playBtnW - 4.0f;
+
+        if (DrawButton(playBtnX, cy, playBtnW, 20.0f, "Play",
+                       { 42, 128, 78, 255 }, { 56, 160, 98, 255 })) {
+            if (!audio.clipPath.empty()) {
+                if (audio.isMusic) {
+                    AudioSystem::PlayMusic(audio.clipPath.c_str(), audio.loop, audio.volume, audio.pitch, audio.pan);
+                } else {
+                    AudioSystem::PlaySound(audio.clipPath.c_str(), audio.volume, audio.pitch, audio.pan);
+                }
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        if (DrawButton(stopBtnX, cy, stopBtnW, 20.0f, "Stop",
+                       { 130, 50, 55, 255 }, { 168, 65, 72, 255 })) {
+            if (!audio.clipPath.empty()) {
+                AudioSystem::StopSound(audio.clipPath.c_str());
+                AudioSystem::StopMusic(audio.clipPath.c_str());
+            }
+            m_focusedTextFieldId = -1;
+        }
+        cy += 25.0f;
+
+        // 2. Audio Clip Path Text Input (fieldId == 7)
+        DrawTextInputBox(x, cy, w, "Clip:", audio.clipPath, 7);
+        cy += 26.0f;
+
+        // 3. Built-in Starter Audio Clip Presets ("Coin", "Jump", "Hit", "Music", "None")
+        struct AudioPreset {
+            const char* label;
+            const char* path;
+            bool isMusic;
+            bool loop;
+        };
+        static const AudioPreset AUDIO_PRESETS[5] = {
+            { "Coin",  "examples/assets/audio/coin.wav",       false, false },
+            { "Jump",  "examples/assets/audio/jump.wav",       false, false },
+            { "Hit",   "examples/assets/audio/hit.wav",        false, false },
+            { "Music", "examples/assets/audio/music_loop.wav", true,  true  },
+            { "None",  "",                                     false, false }
+        };
+
+        float presetGap = 4.0f;
+        float presetBtnW = (w - presetGap * 4.0f) / 5.0f;
+        for (int i = 0; i < 5; ++i) {
+            const auto& p = AUDIO_PRESETS[i];
+            bool isSelected = (audio.clipPath == p.path);
+            ColorRGBA bg = isSelected ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 };
+            ColorRGBA hv = isSelected ? ColorRGBA{ 68, 135, 220, 255 } : ColorRGBA{ 52, 56, 70, 255 };
+            if (DrawButton(x + static_cast<float>(i) * (presetBtnW + presetGap), cy, presetBtnW, 20.0f, p.label, bg, hv)) {
+                if (audio.clipPath != p.path || audio.isMusic != p.isMusic) {
+                    PushUndoIfActive();
+                    if (!audio.clipPath.empty()) {
+                        AudioSystem::StopSound(audio.clipPath.c_str());
+                        AudioSystem::StopMusic(audio.clipPath.c_str());
+                    }
+                    audio.clipPath = p.path;
+                    audio.isMusic  = p.isMusic;
+                    if (p.isMusic) {
+                        audio.loop = true;
+                    }
+                    audio.runtimeStarted = false;
+                }
+                if (m_focusedTextFieldId == 7) {
+                    ResetTextCaret();
+                }
+            }
+        }
+        cy += 25.0f;
+
+        // 4. Playback Trigger Checkboxes
+        DrawCheckbox(x, cy, "Play On Start", audio.playOnStart);
+        DrawCheckbox(x + w * 0.54f, cy, "Loop", audio.loop);
+        cy += 22.0f;
+
+        DrawCheckbox(x, cy, "Play On Collision / Trigger", audio.playOnCollision);
+        cy += 24.0f;
+
+        // 5. Volume, Pitch & Pan Sliders
+        float volPct = std::round(audio.volume * 100.0f);
+        DrawFloatSlider(x, cy, w, "Volume (%)", volPct, 0.0f, 100.0f, baseSliderId + 0);
+        audio.volume = std::max(0.0f, std::min(1.0f, std::round(volPct) / 100.0f));
+        cy += 21.0f;
+
+        float pitchPct = std::round(audio.pitch * 100.0f);
+        DrawFloatSlider(x, cy, w - 42.0f, "Pitch (%)", pitchPct, 25.0f, 250.0f, baseSliderId + 1);
+        audio.pitch = std::max(0.1f, std::min(4.0f, std::round(pitchPct) / 100.0f));
+
+        bool isPitch1x = (std::fabs(audio.pitch - 1.0f) < 0.01f);
+        if (DrawButton(x + w - 38.0f, cy, 38.0f, 17.0f, "100%",
+                       isPitch1x ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                       { 64, 128, 210, 255 })) {
+            if (!isPitch1x) {
+                PushUndoIfActive();
+            }
+            audio.pitch = 1.0f;
+            m_focusedTextFieldId = -1;
+        }
+        cy += 21.0f;
+
+        float panPct = std::round(audio.pan * 100.0f);
+        DrawFloatSlider(x, cy, w - 42.0f, "Pan (L/R)", panPct, 0.0f, 100.0f, baseSliderId + 2);
+        audio.pan = std::max(0.0f, std::min(1.0f, std::round(panPct) / 100.0f));
+
+        bool isPanCenter = (std::fabs(audio.pan - 0.5f) < 0.01f);
+        if (DrawButton(x + w - 38.0f, cy, 38.0f, 17.0f, "50%",
+                       isPanCenter ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                       { 64, 128, 210, 255 })) {
+            if (!isPanCenter) {
+                PushUndoIfActive();
+            }
+            audio.pan = 0.5f;
+            m_focusedTextFieldId = -1;
+        }
+        cy += 23.0f;
+
+        return cy - y;
+    }
+
 }
+

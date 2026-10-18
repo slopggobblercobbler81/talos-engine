@@ -1,4 +1,5 @@
 #include "editor/docks/inspector_dock.h"
+#include "audio/audio_system.h"
 #include "core/input.h"
 #include "renderer/renderer2d.h"
 #include <algorithm>
@@ -7,6 +8,7 @@
 
 namespace Talos::Editor {
 
+    using namespace Talos::Audio;
     using namespace Talos::Core;
     using namespace Talos::Renderer;
     using namespace Talos::Scene;
@@ -265,7 +267,37 @@ namespace Talos::Editor {
             }
         }
 
-        // 9. Bottom "Add Component" Button & Dropdown List
+        // 9. Audio Source Component (only rendered when added to the entity)
+        if (selected->audio.enabled) {
+            const char* audioBadge = "[No Clip]";
+            ColorRGBA audioBadgeColor = { 135, 140, 155, 255 };
+            if (!selected->audio.clipPath.empty()) {
+                bool isPlaying = selected->audio.isMusic
+                    ? AudioSystem::IsMusicPlaying(selected->audio.clipPath.c_str())
+                    : AudioSystem::IsSoundPlaying(selected->audio.clipPath.c_str());
+                if (isPlaying) {
+                    audioBadge = selected->audio.isMusic ? "[Music | Playing]" : "[SFX | Playing]";
+                    audioBadgeColor = { 90, 225, 135, 255 };
+                } else {
+                    audioBadge = selected->audio.isMusic ? "[Music Stream]" : "[SFX Clip]";
+                    audioBadgeColor = { 255, 185, 95, 255 };
+                }
+            }
+
+            drawComponentHeader("AUDIO SOURCE", audioBadge, audioBadgeColor, selected->audio.enabled);
+            if (!selected->audio.enabled) {
+                if (!selected->audio.clipPath.empty()) {
+                    AudioSystem::StopSound(selected->audio.clipPath.c_str());
+                    AudioSystem::StopMusic(selected->audio.clipPath.c_str());
+                }
+                selected->audio.runtimeStarted = false;
+            } else {
+                y += gui.DrawAudioControls(x, y, w, selected->audio, 100);
+                y += 4.0f;
+            }
+        }
+
+        // 10. Bottom "Add Component" Button & Dropdown List
         Renderer2D::DrawLine2D(x, y, x + w, y, { 50, 54, 68, 255 });
         y += 10.0f;
 
@@ -282,13 +314,15 @@ namespace Talos::Editor {
                 const char* label;
                 bool* enabledPtr;
                 bool isMovement;
+                bool isAudio;
             };
-            ComponentOption options[5] = {
-                { "+  Sprite 2D (Image / Shape)",     &selected->sprite.enabled,   false },
-                { "+  Text Label (2D Typography)",    &selected->text.enabled,     false },
-                { "+  Collider 2D (Box / Circle)",    &selected->collider.enabled, false },
-                { "+  Movement 2D (WASD / Physics)",  &selected->movement.enabled, true  },
-                { "+  Camera 2D (Runtime View)",      &selected->camera.enabled,   false }
+            ComponentOption options[6] = {
+                { "+  Sprite 2D (Image / Shape)",     &selected->sprite.enabled,   false, false },
+                { "+  Text Label (2D Typography)",    &selected->text.enabled,     false, false },
+                { "+  Collider 2D (Box / Circle)",    &selected->collider.enabled, false, false },
+                { "+  Movement 2D (WASD / Physics)",  &selected->movement.enabled, true,  false },
+                { "+  Camera 2D (Runtime View)",      &selected->camera.enabled,   false, false },
+                { "+  Audio Source (Sound / Music)",  &selected->audio.enabled,    false, true  }
             };
 
             int availableCount = 0;
@@ -317,6 +351,9 @@ namespace Talos::Editor {
                         *opt.enabledPtr = true;
                         if (opt.isMovement) {
                             selected->movement.playerControlled = true;
+                        }
+                        if (opt.isAudio && selected->audio.clipPath.empty()) {
+                            selected->audio.clipPath = "examples/assets/audio/coin.wav";
                         }
                         m_addComponentMenuOpen = false;
                     }
