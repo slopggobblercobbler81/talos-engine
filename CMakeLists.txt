@@ -23,6 +23,10 @@ add_executable(TalosEngine
     editor/editor.cpp
     editor/main.cpp
     editor/gui/editor_gui.cpp
+    editor/gui/editor_gui_text.cpp
+    editor/gui/editor_gui_widgets.cpp
+    editor/gui/editor_gui_sprite.cpp
+    editor/gui/editor_gui_components.cpp
     editor/history/editor_undo_redo.cpp
     editor/toolbar/editor_toolbar.cpp
     editor/viewport/canvas_viewport.cpp

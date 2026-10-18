@@ -113,7 +113,12 @@ talos-engine/
     ├── main.cpp                  # Engine bootstrap & main loop
     ├── editor.h / .cpp           # Central Editor Orchestrator (EditorNode)
     ├── gui/                      # Branch: Immediate-mode UI widgets & text controller
-    │   └── editor_gui.h / .cpp
+    │   ├── editor_gui.h              # EditorGui class declaration (single public header)
+    │   ├── editor_gui.cpp            # Presets, frame context, undo hooks, hit-testing
+    │   ├── editor_gui_text.cpp       # Text field editing (caret, selection) & text input box
+    │   ├── editor_gui_widgets.cpp    # Button, checkbox, sliders, color picker
+    │   ├── editor_gui_sprite.cpp     # Sorting, texture, UV region & animator controls
+    │   └── editor_gui_components.cpp # Collider & camera controls
     ├── history/                  # Branch: Universal Undo/Redo & drag snapshot manager
     │   └── editor_undo_redo.h / .cpp
     ├── toolbar/                  # Branch: Top command bar & status notification banner
