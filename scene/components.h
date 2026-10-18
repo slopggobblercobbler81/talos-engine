@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include "physics/physics2d.h"
 #include "renderer/renderer2d.h"
 
 namespace Talos::Scene {
@@ -123,21 +124,44 @@ namespace Talos::Scene {
         float offsetY = 0.0f; // Relative vertical offset from TransformComponent.y
     };
 
-    // Enables physical 2D bounding-box collision using the entity's Transform dimensions.
+    // Enables physical 2D collision (Box AABB or radial Circle) using the entity's Transform.
     // Eliminates the need to manually create and attach separate CollisionShape child nodes.
     struct ColliderComponent {
         bool enabled = false;
-        bool isSolid = true;   // When true, prevents overlapping solid entities from passing through
-        bool isStatic = false; // When true, the entity acts as an immovable obstacle (e.g., walls/floors)
+        bool isSolid = true;                                        // When true, prevents overlapping solid entities from passing through
+        bool isStatic = false;                                      // When true, acts as an immovable obstacle (infinite mass)
+        Physics::ColliderShape shape = Physics::ColliderShape::Box; // Geometric primitive: Box (AABB) or Circle
+        float radius = 0.0f;                                        // Custom circle radius in pixels (0.0 = auto-fit min(width, height) * 0.5)
+        float restitution = 0.0f;                                   // Bounciness coefficient (0.00 = inelastic .. 1.00 = elastic)
+
+        // Resolves the effective world-space circle radius for this entity given its Transform dimensions.
+        float GetEffectiveRadius(float transformWidth, float transformHeight) const {
+            if (radius > 0.5f) {
+                return radius;
+            }
+            float minDim = (transformWidth < transformHeight) ? transformWidth : transformHeight;
+            return (minDim > 1.0f) ? (minDim * 0.5f) : 1.0f;
+        }
+
+        // Constructs a Physics::Shape2D in world space at (worldX, worldY) with (width, height).
+        Physics::Shape2D BuildShape2D(float worldX, float worldY, float width, float height) const {
+            if (shape == Physics::ColliderShape::Circle) {
+                float r = GetEffectiveRadius(width, height);
+                return Physics::Shape2D::MakeCircle(worldX + width * 0.5f, worldY + height * 0.5f, r);
+            }
+            return Physics::Shape2D::MakeBox(worldX, worldY, width, height);
+        }
     };
 
-    // Stores velocity and optional built-in directional input control for rapid prototyping.
+    // Stores velocity, physical mass/gravity, and optional built-in directional input control.
     struct MovementComponent {
         bool enabled = false;
         bool playerControlled = true;  // Automatically binds WASD / Arrow Keys / InputMap move_* when true
-        float speed = 300.0f;          // Movement speed in pixels per second
-        float velocityX = 0.0f;        // Programmatic horizontal velocity (pixels/sec)
-        float velocityY = 0.0f;        // Programmatic vertical velocity (pixels/sec)
+        float speed = 300.0f;          // Player movement speed in pixels per second
+        float velocityX = 0.0f;        // Horizontal linear velocity (pixels/sec)
+        float velocityY = 0.0f;        // Vertical linear velocity (pixels/sec)
+        float mass = 1.0f;             // Physical mass for impulse collision resolution (>= 0.1)
+        float gravityScale = 0.0f;     // Gravity multiplier (0.0 = top-down / weightless, 1.0 = standard 2D gravity)
     };
 
     // Configures a 2D runtime game camera for Play Mode and exported standalone games.

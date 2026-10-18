@@ -331,11 +331,23 @@ namespace Talos::Editor {
         for (const auto& e : scene.GetEntities()) {
             if (!e.active) continue;
             if (e.collider.enabled) {
-                Renderer2D::DrawRectOutline(
-                    e.transform.x, e.transform.y,
-                    e.transform.width, e.transform.height,
-                    std::max(1.0f, 1.0f * invZoom), { 75, 220, 120, 140 }
-                );
+                ColorRGBA colColor = e.collider.isStatic
+                    ? ColorRGBA{ 75, 220, 120, 155 }
+                    : ColorRGBA{ 90, 240, 195, 175 };
+                float lineThick = std::max(1.0f, 1.4f * invZoom);
+                if (e.collider.shape == Physics::ColliderShape::Circle) {
+                    float cx = e.transform.x + e.transform.width * 0.5f;
+                    float cy = e.transform.y + e.transform.height * 0.5f;
+                    float r  = e.collider.GetEffectiveRadius(e.transform.width, e.transform.height);
+                    Renderer2D::DrawCircleOutline(cx, cy, r, lineThick, colColor);
+                    Renderer2D::DrawLine2D(cx, cy, cx + r, cy, colColor);
+                } else {
+                    Renderer2D::DrawRectOutline(
+                        e.transform.x, e.transform.y,
+                        e.transform.width, e.transform.height,
+                        lineThick, colColor
+                    );
+                }
             }
 
             // Render Runtime Camera 2D Frustum Gizmo in Edit Mode

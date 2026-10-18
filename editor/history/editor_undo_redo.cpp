@@ -47,11 +47,18 @@ namespace Talos::Editor {
                 std::fabs(ea.text.offsetX - eb.text.offsetX) > 0.01f ||
                 std::fabs(ea.text.offsetY - eb.text.offsetY) > 0.01f) return false;
             if (ea.collider.enabled != eb.collider.enabled ||
+                ea.collider.shape != eb.collider.shape ||
+                std::fabs(ea.collider.radius - eb.collider.radius) > 0.01f ||
+                std::fabs(ea.collider.restitution - eb.collider.restitution) > 0.005f ||
                 ea.collider.isSolid != eb.collider.isSolid ||
                 ea.collider.isStatic != eb.collider.isStatic) return false;
             if (ea.movement.enabled != eb.movement.enabled ||
                 ea.movement.playerControlled != eb.movement.playerControlled ||
-                std::fabs(ea.movement.speed - eb.movement.speed) > 0.01f) return false;
+                std::fabs(ea.movement.speed - eb.movement.speed) > 0.01f ||
+                std::fabs(ea.movement.mass - eb.movement.mass) > 0.01f ||
+                std::fabs(ea.movement.gravityScale - eb.movement.gravityScale) > 0.005f ||
+                std::fabs(ea.movement.velocityX - eb.movement.velocityX) > 0.01f ||
+                std::fabs(ea.movement.velocityY - eb.movement.velocityY) > 0.01f) return false;
             if (ea.camera.enabled != eb.camera.enabled ||
                 ea.camera.isPrimary != eb.camera.isPrimary ||
                 ea.camera.followTarget != eb.camera.followTarget ||

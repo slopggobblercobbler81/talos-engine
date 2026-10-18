@@ -90,6 +90,13 @@ namespace Talos::Renderer {
         // Used for selection gizmos, collider visualization, and Editor panel borders.
         static void DrawRectOutline(float x, float y, float width, float height, float thickness, ColorRGBA color);
 
+        // Renders a solid 2D circle in screen/world coordinates centered at (centerX, centerY).
+        static void DrawCircle(float centerX, float centerY, float radius, ColorRGBA color);
+
+        // Renders a hollow 2D circle border with configurable line thickness.
+        // Used for circular collider visualization and radial selection gizmos.
+        static void DrawCircleOutline(float centerX, float centerY, float radius, float thickness, ColorRGBA color);
+
         // Renders a 1-pixel geometric line segment between two 2D points.
         // Used for viewport reference grids and alignment guides.
         static void DrawLine2D(float startX, float startY, float endX, float endY, ColorRGBA color);

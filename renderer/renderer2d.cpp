@@ -333,6 +333,23 @@ namespace Talos::Renderer {
         DrawRectangleLinesEx(rect, thickness, { color.r, color.g, color.b, color.a });
     }
 
+    void Renderer2D::DrawCircle(float centerX, float centerY, float radius, ColorRGBA color) {
+        if (radius <= 0.0f) {
+            return;
+        }
+        DrawCircleV({ centerX, centerY }, radius, { color.r, color.g, color.b, color.a });
+    }
+
+    void Renderer2D::DrawCircleOutline(float centerX, float centerY, float radius, float thickness, ColorRGBA color) {
+        if (radius <= 0.0f) {
+            return;
+        }
+        float halfThick = (thickness > 1.0f) ? (thickness * 0.5f) : 0.5f;
+        float innerR = (radius > halfThick) ? (radius - halfThick) : 0.0f;
+        float outerR = radius + halfThick;
+        DrawRing({ centerX, centerY }, innerR, outerR, 0.0f, 360.0f, 48, { color.r, color.g, color.b, color.a });
+    }
+
     void Renderer2D::DrawLine2D(float startX, float startY, float endX, float endY, ColorRGBA color) {
         DrawLine(
             static_cast<int>(startX),

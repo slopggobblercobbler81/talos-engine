@@ -19,11 +19,11 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
   1. **`TransformComponent`:** Position `(x, y)` and dimensions `(width, height)`.
   2. **`SpriteComponent`:** Visual rectangle/sprite rendering (`enabled`, `texturePath`, `color`), explicit depth sorting (`sortingLayer`, `zOrder`), UV sub-rectangle & mirror flipping (`sourceX`, `sourceY`, `sourceW`, `sourceH`, `flipX`, `flipY`), and integrated 2D frame-by-frame animation (`frameCount`, `currentFrame`, `fps`, `loop`, `isPlaying`, `frameTimer`, and `SyncFrameUV`).
   3. **`TextComponent`:** First-level typography (`enabled`, `content`, `fontSize`, `color`, `offsetX/Y`). All essential text properties live directly on the component without nested theme override menus.
-  4. **`ColliderComponent`:** Solid 2D AABB collision (`enabled`, `isSolid`, `isStatic`) that automatically uses the entity's `TransformComponent` dimensions.
-  5. **`MovementComponent`:** Velocity and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `velocityX/Y`).
+  4. **`ColliderComponent`:** Solid 2D collision (`enabled`, `shape` = `Box` or `Circle`, `radius`, `restitution`, `isSolid`, `isStatic`) that automatically fits the entity's `TransformComponent` dimensions (or uses an explicit custom circle radius when `radius > 0`).
+  5. **`MovementComponent`:** Velocity, rigid-body properties, and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `mass`, `gravityScale`, `velocityX/Y`).
   6. **`CameraComponent`:** Configurable 2D runtime game camera (`enabled`, `isPrimary`, `followTarget`, `smoothFollow`, `targetName`, `followSpeed`, `zoom`, `offsetX`, `offsetY`) supporting both fixed framing and frame-rate-independent smooth target tracking.
 
-Turning an ordinary visual box into a solid obstacle, a controllable character, or the active game camera requires flipping a single boolean flag (`entity.camera.enabled = true;`) rather than restructuring a node tree.
+Turning an ordinary visual box into a solid obstacle, a bouncing circular object, a controllable character, or the active game camera requires flipping a single boolean flag (`entity.camera.enabled = true;`) rather than restructuring a node tree.
 
 ---
 
@@ -46,11 +46,12 @@ During each iteration of the main loop, `Scene` executes strictly separated pass
 
 1. **`Scene::Update(float delta)`:**
    - Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`).
-   - Iterates sequentially through all active entities with `movement.enabled`, samples directional input (if `playerControlled` is active), and resolves solid collisions along the $X$ and $Y$ axes via `Physics2D::CheckOverlap`.
+   - Performs semi-implicit Euler integration on all active dynamic entities with `movement.enabled` (sampling directional input if `playerControlled` is active, integrating `gravityScale`, or applying top-down linear damping).
+   - Runs an iterative narrow-phase collision solver (`Physics2D::ComputeManifold` + `Physics2D::ResolveCollision`) across all active solid collider pairs (`Box vs Box`, `Circle vs Circle`, and mixed `Circle vs Box`).
    - Advances all active `CameraComponent` instances (resolving fixed positions or smoothly interpolating `(currentX, currentY)` toward `targetName` after movement has settled) and records telemetry into `SceneDiagnostics::camera`.
 2. **`Scene::UpdateAnimations(float delta)`:**
    Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.
 3. **`Scene::Render()`:**
-   Sorts active entities deterministically by `(sortingLayer, zOrder)` via `std::stable_sort` and submits enabled `SpriteComponent` and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
+   Sorts active entities deterministically by `(sortingLayer, zOrder)` via `std::stable_sort` and submits enabled `SpriteComponent` (textured sprites, solid boxes, or solid circles) and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
 
 

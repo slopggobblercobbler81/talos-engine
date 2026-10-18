@@ -224,103 +224,159 @@ namespace Talos::Scene {
         auto tTransformEnd = Clock::now();
         transformUsAccum += std::chrono::duration<double, std::micro>(tTransformEnd - tTransformStart).count();
 
-        // 2. Process MovementComponent & ColliderComponent per active entity
+        // 2. Semi-Implicit Euler Integration (MovementComponent: Input, Gravity & Velocity)
+        constexpr float GRAVITY_2D = 580.0f;
+
         for (auto& entity : m_entities) {
             if (!entity.active || !entity.movement.enabled) {
                 continue;
             }
+            if (entity.collider.enabled && entity.collider.isStatic) {
+                continue;
+            }
 
-            // --- MovementComponent execution timing ---
             auto tMoveStart = Clock::now();
             ++activeMovementCount;
             ++movementOpsCount;
 
-            float moveX = entity.movement.velocityX;
-            float moveY = entity.movement.velocityY;
-
-            // If built-in player control is enabled, sample directional input from Core::Input / InputMap.
             if (entity.movement.playerControlled) {
-                moveX = 0.0f;
-                moveY = 0.0f;
-                if (Input::IsActionDown("move_right") || Input::IsKeyDown(Key::D) || Input::IsKeyDown(Key::Right)) moveX += entity.movement.speed;
-                if (Input::IsActionDown("move_left")  || Input::IsKeyDown(Key::A) || Input::IsKeyDown(Key::Left))  moveX -= entity.movement.speed;
-                if (Input::IsActionDown("move_down")  || Input::IsKeyDown(Key::S) || Input::IsKeyDown(Key::Down))  moveY += entity.movement.speed;
-                if (Input::IsActionDown("move_up")    || Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    moveY -= entity.movement.speed;
+                float inputVx = 0.0f;
+                float inputVy = 0.0f;
+                if (Input::IsActionDown("move_right") || Input::IsKeyDown(Key::D) || Input::IsKeyDown(Key::Right)) inputVx += entity.movement.speed;
+                if (Input::IsActionDown("move_left")  || Input::IsKeyDown(Key::A) || Input::IsKeyDown(Key::Left))  inputVx -= entity.movement.speed;
+                if (Input::IsActionDown("move_down")  || Input::IsKeyDown(Key::S) || Input::IsKeyDown(Key::Down))  inputVy += entity.movement.speed;
+                if (Input::IsActionDown("move_up")    || Input::IsKeyDown(Key::W) || Input::IsKeyDown(Key::Up))    inputVy -= entity.movement.speed;
+
+                entity.movement.velocityX = inputVx;
+                if (std::fabs(entity.movement.gravityScale) > 0.001f) {
+                    entity.movement.velocityY += GRAVITY_2D * entity.movement.gravityScale * delta;
+                    if (std::fabs(inputVy) > 0.001f) {
+                        entity.movement.velocityY = inputVy;
+                    }
+                } else {
+                    entity.movement.velocityY = inputVy;
+                }
 
                 // Automatically mirror the sprite horizontally to face the movement direction
-                if (moveX < -0.01f) {
+                if (inputVx < -0.01f) {
                     entity.sprite.flipX = true;
-                } else if (moveX > 0.01f) {
+                } else if (inputVx > 0.01f) {
                     entity.sprite.flipX = false;
+                }
+            } else {
+                // Autonomous physics body: integrate 2D gravity into vertical velocity,
+                // or apply gentle top-down linear damping when gravityScale == 0.
+                if (std::fabs(entity.movement.gravityScale) > 0.001f) {
+                    entity.movement.velocityY += GRAVITY_2D * entity.movement.gravityScale * delta;
+                } else if (delta > 0.0f) {
+                    float damping = std::exp(-1.25f * delta);
+                    entity.movement.velocityX *= damping;
+                    entity.movement.velocityY *= damping;
+                    if (std::fabs(entity.movement.velocityX) < 0.5f) entity.movement.velocityX = 0.0f;
+                    if (std::fabs(entity.movement.velocityY) < 0.5f) entity.movement.velocityY = 0.0f;
                 }
             }
 
-            float nextX = entity.transform.x + moveX * delta;
             auto tMoveEnd = Clock::now();
             movementUsAccum += std::chrono::duration<double, std::micro>(tMoveEnd - tMoveStart).count();
 
-            // =================================================================
-            // Separated-Axis Collision Resolution (X then Y)
-            // =================================================================
-            // 1. Horizontal (X) Axis Step
-            auto tColXStart = Clock::now();
-            bool blockedX = false;
-            if (entity.collider.enabled && entity.collider.isSolid) {
-                Rect2D nextBoxX = { nextX, entity.transform.y, entity.transform.width, entity.transform.height };
-                for (const auto& other : m_entities) {
-                    if (other.id == entity.id || !other.active || !other.collider.enabled || !other.collider.isSolid) {
-                        continue;
-                    }
-                    Rect2D otherBox = { other.transform.x, other.transform.y, other.transform.width, other.transform.height };
-                    ++aabbChecksCount;
-                    if (Physics2D::CheckOverlap(nextBoxX, otherBox)) {
-                        blockedX = true;
-                        break;
-                    }
-                }
-            }
-            auto tColXEnd = Clock::now();
-            colliderUsAccum += std::chrono::duration<double, std::micro>(tColXEnd - tColXStart).count();
-
-            // --- TransformComponent X Commit + Next Y Calculation ---
-            auto tTransXStart = Clock::now();
-            if (!blockedX) {
-                entity.transform.x = nextX;
-            }
-            float nextY = entity.transform.y + moveY * delta;
-            auto tTransXEnd = Clock::now();
-            transformUsAccum += std::chrono::duration<double, std::micro>(tTransXEnd - tTransXStart).count();
-
-            // 2. Vertical (Y) Axis Step
-            auto tColYStart = Clock::now();
-            bool blockedY = false;
-            if (entity.collider.enabled && entity.collider.isSolid) {
-                Rect2D nextBoxY = { entity.transform.x, nextY, entity.transform.width, entity.transform.height };
-                for (const auto& other : m_entities) {
-                    if (other.id == entity.id || !other.active || !other.collider.enabled || !other.collider.isSolid) {
-                        continue;
-                    }
-                    Rect2D otherBox = { other.transform.x, other.transform.y, other.transform.width, other.transform.height };
-                    ++aabbChecksCount;
-                    if (Physics2D::CheckOverlap(nextBoxY, otherBox)) {
-                        blockedY = true;
-                        break;
-                    }
-                }
-            }
-            auto tColYEnd = Clock::now();
-            colliderUsAccum += std::chrono::duration<double, std::micro>(tColYEnd - tColYStart).count();
-
-            // --- TransformComponent Y Commit ---
-            auto tTransYStart = Clock::now();
-            if (!blockedY) {
-                entity.transform.y = nextY;
-            }
-            auto tTransYEnd = Clock::now();
-            transformUsAccum += std::chrono::duration<double, std::micro>(tTransYEnd - tTransYStart).count();
+            // Integrate world-space Transform position
+            auto tTransStart = Clock::now();
+            entity.transform.x += entity.movement.velocityX * delta;
+            entity.transform.y += entity.movement.velocityY * delta;
+            auto tTransEnd = Clock::now();
+            transformUsAccum += std::chrono::duration<double, std::micro>(tTransEnd - tTransStart).count();
         }
 
-        // 3. Process CameraComponent (Fixed or Smooth Target Follow)
+        // =====================================================================
+        // 3. Narrow-Phase 2D Collision Detection & Physical Resolution
+        //    (Box vs Box, Circle vs Circle, and Mixed Circle vs Box)
+        // =====================================================================
+        auto tColStart = Clock::now();
+        constexpr int SOLVER_ITERATIONS = 3;
+        const size_t entityCount = m_entities.size();
+
+        for (int iter = 0; iter < SOLVER_ITERATIONS; ++iter) {
+            bool anyCollisionInPass = false;
+
+            for (size_t i = 0; i < entityCount; ++i) {
+                Entity& eA = m_entities[i];
+                if (!eA.active || !eA.collider.enabled || !eA.collider.isSolid) {
+                    continue;
+                }
+
+                for (size_t j = i + 1; j < entityCount; ++j) {
+                    Entity& eB = m_entities[j];
+                    if (!eB.active || !eB.collider.enabled || !eB.collider.isSolid) {
+                        continue;
+                    }
+
+                    // Skip pairs where both colliders are immovable static obstacles
+                    if (eA.collider.isStatic && eB.collider.isStatic) {
+                        continue;
+                    }
+
+                    Shape2D shapeA = eA.collider.BuildShape2D(
+                        eA.transform.x, eA.transform.y, eA.transform.width, eA.transform.height
+                    );
+                    Shape2D shapeB = eB.collider.BuildShape2D(
+                        eB.transform.x, eB.transform.y, eB.transform.width, eB.transform.height
+                    );
+
+                    ++aabbChecksCount;
+                    CollisionManifold manifold = Physics2D::ComputeManifold(shapeA, shapeB);
+                    if (!manifold.colliding) {
+                        continue;
+                    }
+
+                    anyCollisionInPass = true;
+
+                    PhysicsBodyState bodyA = {
+                        eA.transform.x,
+                        eA.transform.y,
+                        eA.movement.enabled ? eA.movement.velocityX : 0.0f,
+                        eA.movement.enabled ? eA.movement.velocityY : 0.0f,
+                        eA.movement.mass,
+                        eA.collider.restitution,
+                        eA.collider.isStatic
+                    };
+
+                    PhysicsBodyState bodyB = {
+                        eB.transform.x,
+                        eB.transform.y,
+                        eB.movement.enabled ? eB.movement.velocityX : 0.0f,
+                        eB.movement.enabled ? eB.movement.velocityY : 0.0f,
+                        eB.movement.mass,
+                        eB.collider.restitution,
+                        eB.collider.isStatic
+                    };
+
+                    Physics2D::ResolveCollision(bodyA, bodyB, manifold);
+
+                    eA.transform.x = bodyA.x;
+                    eA.transform.y = bodyA.y;
+                    if (eA.movement.enabled) {
+                        eA.movement.velocityX = bodyA.velocityX;
+                        eA.movement.velocityY = bodyA.velocityY;
+                    }
+
+                    eB.transform.x = bodyB.x;
+                    eB.transform.y = bodyB.y;
+                    if (eB.movement.enabled) {
+                        eB.movement.velocityX = bodyB.velocityX;
+                        eB.movement.velocityY = bodyB.velocityY;
+                    }
+                }
+            }
+
+            if (!anyCollisionInPass) {
+                break;
+            }
+        }
+        auto tColEnd = Clock::now();
+        colliderUsAccum += std::chrono::duration<double, std::micro>(tColEnd - tColStart).count();
+
+        // 4. Process CameraComponent (Fixed or Smooth Target Follow)
         double cameraUsAccum = 0.0;
         size_t activeCameraCount = 0;
         size_t cameraOpsCount = 0;
@@ -509,6 +565,14 @@ namespace Talos::Scene {
                         entity.sprite.flipY
                     );
                     activeTextures.insert(entity.sprite.texturePath);
+                } else if (entity.collider.enabled && entity.collider.shape == Physics::ColliderShape::Circle) {
+                    float r = entity.collider.GetEffectiveRadius(entity.transform.width, entity.transform.height);
+                    Renderer2D::DrawCircle(
+                        entity.transform.x + entity.transform.width * 0.5f,
+                        entity.transform.y + entity.transform.height * 0.5f,
+                        r,
+                        entity.sprite.color
+                    );
                 } else {
                     Renderer2D::DrawRect(
                         entity.transform.x,

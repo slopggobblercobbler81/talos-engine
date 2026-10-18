@@ -705,6 +705,81 @@ namespace Talos::Editor {
         sprite.fps = std::round(sprite.fps);
     }
 
+    float EditorGui::DrawColliderControls(float x, float y, float w,
+                                          Scene::ColliderComponent& collider,
+                                          const Scene::TransformComponent& transform,
+                                          int baseSliderId) {
+        float cy = y;
+
+        // 1. Shape Toggle Row: [Box (AABB)] / [Circle]
+        Renderer2D::DrawLabel("Shape:", x, cy + 3.0f, 14, { 185, 190, 205, 255 });
+
+        bool isBox    = (collider.shape == Physics::ColliderShape::Box);
+        bool isCircle = (collider.shape == Physics::ColliderShape::Circle);
+
+        float btnStartX = x + 54.0f;
+        float availW    = w - 54.0f;
+        float gap       = 6.0f;
+        float btnW      = (availW - gap) * 0.5f;
+
+        if (DrawButton(btnStartX, cy, btnW, 20.0f, "Box (AABB)",
+                       isBox ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+                       { 68, 135, 220, 255 })) {
+            if (!isBox) {
+                PushUndoIfActive();
+            }
+            collider.shape = Physics::ColliderShape::Box;
+            m_focusedTextFieldId = -1;
+        }
+
+        if (DrawButton(btnStartX + btnW + gap, cy, btnW, 20.0f, "Circle",
+                       isCircle ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+                       { 68, 135, 220, 255 })) {
+            if (!isCircle) {
+                PushUndoIfActive();
+            }
+            collider.shape = Physics::ColliderShape::Circle;
+            m_focusedTextFieldId = -1;
+        }
+        cy += 24.0f;
+
+        // 2. Solid & Static Body Flags
+        DrawCheckbox(x, cy, "Solid Collision", collider.isSolid);
+        DrawCheckbox(x + w * 0.52f, cy, "Static Body", collider.isStatic);
+        cy += 23.0f;
+
+        // 3. Circle Radius Slider + [Auto] Fit Button (shown when Shape == Circle)
+        if (collider.shape == Physics::ColliderShape::Circle) {
+            bool isAutoRadius = (collider.radius <= 0.5f);
+            float displayRadius = collider.GetEffectiveRadius(transform.width, transform.height);
+            float prevRadius = displayRadius;
+
+            DrawFloatSlider(x, cy, w - 44.0f, "Radius", displayRadius, 4.0f, 250.0f, baseSliderId + 0);
+            if (std::fabs(displayRadius - prevRadius) > 0.01f) {
+                collider.radius = std::max(4.0f, std::round(displayRadius));
+            }
+
+            if (DrawButton(x + w - 40.0f, cy, 40.0f, 17.0f, "Auto",
+                           isAutoRadius ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                           { 64, 128, 210, 255 })) {
+                if (!isAutoRadius) {
+                    PushUndoIfActive();
+                }
+                collider.radius = 0.0f;
+                m_focusedTextFieldId = -1;
+            }
+            cy += 21.0f;
+        }
+
+        // 4. Bounciness / Restitution Slider (0% = Inelastic, 100% = Elastic Bounce)
+        float bouncePct = std::round(collider.restitution * 100.0f);
+        DrawFloatSlider(x, cy, w, "Bounce (%)", bouncePct, 0.0f, 100.0f, baseSliderId + 1);
+        collider.restitution = std::max(0.0f, std::min(1.0f, std::round(bouncePct) / 100.0f));
+        cy += 23.0f;
+
+        return cy - y;
+    }
+
     float EditorGui::DrawCameraControls(float x, float y, float w, Scene::CameraComponent& camera, int baseSliderId) {
         float cy = y;
 

@@ -1,44 +1,56 @@
 # 2D Physics & Collision Subsystem (`Physics2D`)
 
-The **2D Physics Subsystem** sits in the Domain Subsystems Layer (Layer 2) and provides fast, deterministic geometric intersection queries for 2D space.
+The **2D Physics Subsystem** sits in the Domain Subsystems Layer (Layer 2) and provides fast, deterministic geometric intersection queries, narrow-phase contact manifold generation, and physical collision resolution for **`Box` (AABB)** and **`Circle`** shapes in 2D space.
 
 ---
 
 ## 1. Strict Decoupling from Scene Entities
 
-To preserve unidirectional layer dependencies, `Physics2D` has **zero knowledge** of `Entity`, `Scene`, or gameplay components. Instead, it operates exclusively on a pure mathematical primitive:
+To preserve unidirectional layer dependencies, `Physics2D` has **zero knowledge** of `Entity`, `Scene`, or gameplay components. Instead, it operates exclusively on pure mathematical primitives (`physics/physics2d.h`):
 
-* **`Rect2D` (Axis-Aligned Bounding Box / AABB):**
-  Defined by a top-left origin `(x, y)` and dimensions `(width, height)`. Any higher-level system (such as the `Scene` layer) constructs temporary `Rect2D` primitives from entity transforms and queries `Physics2D`.
-
----
-
-## 2. AABB Intersection Mathematics (`Physics2D::CheckOverlap`)
-
-Two unrotated rectangles `A` and `B` overlap in 2D space if and only if their projections overlap on **both** the horizontal ($X$) axis and the vertical ($Y$) axis (a direct application of the **Separating Axis Theorem**):
-
-```cpp
-(a.x < b.x + b.width)  && // A's left edge is left of B's right edge
-(a.x + a.width > b.x)  && // A's right edge is right of B's left edge
-(a.y < b.y + b.height) && // A's top edge is above B's bottom edge
-(a.y + a.height > b.y)    // A's bottom edge is below B's top edge
-```
-
-If any single condition evaluates to `false`, a separating gap exists between the two boxes and they cannot be colliding. Because this check requires only four floating-point comparisons, thousands of pairs can be evaluated per millisecond.
+* **`ColliderShape`:** Enumerates `Box = 0` (Axis-Aligned Bounding Box) and `Circle = 1`.
+* **`Rect2D` (Axis-Aligned Bounding Box / AABB):** Defined by a top-left origin `(x, y)` and dimensions `(width, height)`.
+* **`Circle2D`:** Defined by a world-space center `(centerX, centerY)` and `radius`.
+* **`Shape2D`:** Unified 2D collider primitive (`Shape2D::MakeBox(...)` and `Shape2D::MakeCircle(...)`) used to dispatch narrow-phase queries across any shape pair (`Box vs Box`, `Circle vs Circle`, `Circle vs Box`, and `Box vs Circle`).
+* **`CollisionManifold`:** Narrow-phase contact result containing `colliding`, unit collision normal `(normalX, normalY)` pointing from shape **A** toward shape **B**, `penetration` depth (MTV magnitude), and world-space contact point `(contactX, contactY)`.
+* **`PhysicsBodyState`:** Lightweight kinematic/dynamic state (`x`, `y`, `velocityX`, `velocityY`, `mass`, `restitution`, `isStatic`) passed into `Physics2D::ResolveCollision`.
 
 ---
 
-## 3. Separated-Axis Collision Resolution (Sliding Along Walls)
+## 2. Overlap Queries (`Physics2D::CheckOverlap`)
 
-When moving a solid entity in `Scene::Update`, movement is resolved in **two independent steps** rather than a single diagonal step:
+`Physics2D` provides fast boolean intersection tests for all shape combinations:
 
-1. **Horizontal Step ($X$):**
-   Compute the candidate position `nextX = x + velocityX * delta`. Construct a candidate `Rect2D` at `(nextX, y)` and test against all solid colliders via `Physics2D::CheckOverlap`. If no collision occurs, commit `x = nextX`.
-2. **Vertical Step ($Y$):**
-   Compute the candidate position `nextY = y + velocityY * delta`. Construct a candidate `Rect2D` at `(x, nextY)` and test against all solid colliders. If no collision occurs, commit `y = nextY`.
+1. **`Box vs Box` (`Rect2D` vs `Rect2D`):**
+   Evaluates projection overlap on both $X$ and $Y$ axes via the Separating Axis Theorem (SAT).
+2. **`Circle vs Circle` (`Circle2D` vs `Circle2D`):**
+   Compares squared center-to-center distance $d^2 = \Delta x^2 + \Delta y^2$ against $(r_A + r_B)^2$ without requiring a square root.
+3. **`Mixed Circle vs Box` (`Circle2D` vs `Rect2D` & `Rect2D` vs `Circle2D`):**
+   Clamps the circle center $(c_x, c_y)$ to the closest point $(p_x, p_y)$ inside the box bounds $[b_x, b_x + b_w] \times [b_y, b_y + b_h]$ and tests whether $(c_x - p_x)^2 + (c_y - p_y)^2 < r^2$.
 
-### Why Separate X and Y?
-If a player holds both **Right (`D`)** and **Up (`W`)** while pushing against a vertical wall on their right:
-* A combined diagonal check would detect a collision and cancel **both** $X$ and $Y$ movement, causing the character to "stick" to the wall.
-* Separating $X$ and $Y$ blocks only the horizontal $X$ step while allowing the vertical $Y$ step to succeed, producing smooth, natural wall-sliding behavior out of the box.
+---
+
+## 3. Narrow-Phase Contact Manifolds (`Physics2D::ComputeManifold`)
+
+* **`ComputeBoxBox(a, b)`:** Computes overlap along both axes (`overlapX`, `overlapY`) and selects the axis of minimum penetration as the Minimum Translation Vector (MTV).
+* **`ComputeCircleCircle(a, b)`:** Computes the unit vector from center $A$ to center $B$ and penetration depth $(r_A + r_B) - d$.
+* **`ComputeCircleBox(circle, box)` & `ComputeBoxCircle(box, circle)`:**
+  Handles both **exterior contacts** and **deep interior penetration**:
+  1. **Exterior Contact ($d^2 > 0$):** Clamps the circle center to the nearest point on the box perimeter. The contact normal points from the circle center toward the clamped perimeter point with penetration $r - d$, enabling smooth rounded corner sliding when a circle brushes past a box corner or vice versa.
+  2. **Interior Center Penetration ($d^2 = 0$):** When the circle's center lies strictly inside the box, computes the distance to all four box faces (`left`, `right`, `top`, `bottom`), selects the nearest face as the exit normal, and sets penetration to $r + \text{distToNearestFace}$ to eject the circle cleanly without tunneling.
+
+---
+
+## 4. Physical Collision Resolution (`Physics2D::ResolveCollision`)
+
+Given two bodies `bodyA` and `bodyB` and their `CollisionManifold`:
+
+1. **Inverse-Mass Weighted Positional Correction (MTV):**
+   Separates overlapping bodies along `(normalX, normalY)` proportionally to their inverse masses ($w_A = m_A^{-1}$, $w_B = m_B^{-1}$, with $w = 0$ for `isStatic == true`):
+   $$\Delta \mathbf{x}_A = -\mathbf{n} \cdot p \cdot \frac{w_A}{w_A + w_B}, \qquad \Delta \mathbf{x}_B = +\mathbf{n} \cdot p \cdot \frac{w_B}{w_A + w_B}$$
+2. **Impulse Velocity Resolution with Restitution ($e$):**
+   Computes relative velocity along the contact normal $v_{\text{rel}} = (\mathbf{v}_B - \mathbf{v}_A) \cdot \mathbf{n}$. If the bodies are approaching ($v_{\text{rel}} < 0$), applies the normal impulse scalar:
+   $$j = \frac{-(1 + e) \, v_{\text{rel}}}{w_A + w_B}, \qquad e = \max(e_A, e_B)$$
+   This produces natural wall sliding when $e = 0$ and realistic elastic bouncing between circles and boxes when $e > 0$.
+
 

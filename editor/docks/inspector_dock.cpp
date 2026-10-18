@@ -91,11 +91,15 @@ namespace Talos::Editor {
         gui.DrawSortingControls(x, y, w, selected->sprite.sortingLayer, selected->sprite.zOrder, 15);
         y += 49.0f;
 
-        // 4. Sprite Component (2D Texture / Solid Box + Color / Tint)
-        gui.DrawCheckbox(x, y, "SPRITE (2D Image / Box)", selected->sprite.enabled);
+        // 4. Sprite Component (2D Texture / Solid Shape + Color / Tint)
+        gui.DrawCheckbox(x, y, "SPRITE (2D Image / Shape)", selected->sprite.enabled);
         if (selected->sprite.enabled) {
             if (selected->sprite.texturePath.empty()) {
-                Renderer2D::DrawLabel("[Solid Box]", x + w - 74.0f, y + 2.0f, 14, { 135, 140, 155, 255 });
+                if (selected->collider.enabled && selected->collider.shape == Physics::ColliderShape::Circle) {
+                    Renderer2D::DrawLabel("[Solid Circle]", x + w - 92.0f, y + 2.0f, 14, { 135, 140, 155, 255 });
+                } else {
+                    Renderer2D::DrawLabel("[Solid Box]", x + w - 74.0f, y + 2.0f, 14, { 135, 140, 155, 255 });
+                }
             } else if (Renderer2D::HasTexture(selected->sprite.texturePath.c_str())) {
                 Renderer2D::DrawLabel("[Texture OK]", x + w - 82.0f, y + 2.0f, 14, { 90, 225, 135, 255 });
             } else {
@@ -114,7 +118,7 @@ namespace Talos::Editor {
             gui.DrawSpriteAnimatorControls(x, y, w, selected->sprite, 70);
             y += 110.0f;
 
-            const char* colorLabel = selected->sprite.texturePath.empty() ? "Box Color" : "Img Tint";
+            const char* colorLabel = selected->sprite.texturePath.empty() ? "Shape Color" : "Img Tint";
             gui.DrawColorPickerRow(x, y, w, colorLabel, selected->sprite.color, 20);
             y += 80.0f;
         }
@@ -133,22 +137,51 @@ namespace Talos::Editor {
             y += 80.0f;
         }
 
-        // 6. Collider 2D Component
-        gui.DrawCheckbox(x, y, "COLLIDER 2D (Solid Box)", selected->collider.enabled);
+        // 6. Collider 2D Component (Box AABB / Circle + Narrow-Phase Physics)
+        gui.DrawCheckbox(x, y, "COLLIDER 2D (Box / Circle)", selected->collider.enabled);
+        if (selected->collider.enabled) {
+            char colBadge[48];
+            if (selected->collider.shape == Physics::ColliderShape::Circle) {
+                float effR = selected->collider.GetEffectiveRadius(selected->transform.width, selected->transform.height);
+                std::snprintf(colBadge, sizeof(colBadge), "[Circle R=%.0f | %s]",
+                              effR, selected->collider.isStatic ? "Static" : "Dynamic");
+            } else {
+                std::snprintf(colBadge, sizeof(colBadge), "[Box | %s]",
+                              selected->collider.isStatic ? "Static" : "Dynamic");
+            }
+            int colW = Renderer2D::MeasureTextWidth(colBadge, 14);
+            Renderer2D::DrawLabel(colBadge, x + w - static_cast<float>(colW), y + 2.0f, 14, { 90, 225, 135, 255 });
+        }
         y += 23.0f;
+        if (selected->collider.enabled) {
+            y += gui.DrawColliderControls(x, y, w, selected->collider, selected->transform, 90);
+        }
 
-        // 7. Movement 2D Component
+        // 7. Movement 2D Component (WASD Control & Rigid-Body Physics)
         bool wasMoveEnabled = selected->movement.enabled;
-        if (gui.DrawCheckbox(x, y, "MOVEMENT (WASD Control)", selected->movement.enabled)) {
+        if (gui.DrawCheckbox(x, y, "MOVEMENT (WASD / Physics)", selected->movement.enabled)) {
             if (!wasMoveEnabled && selected->movement.enabled) {
                 selected->movement.playerControlled = true;
             }
         }
         y += 21.0f;
         if (selected->movement.enabled) {
-            gui.DrawCheckbox(x + 14.0f, y, "Player Controlled", selected->movement.playerControlled);
+            gui.DrawCheckbox(x + 14.0f, y, "Player Controlled (WASD)", selected->movement.playerControlled);
             y += 21.0f;
-            gui.DrawFloatSlider(x, y, w, "Speed", selected->movement.speed, 50.0f, 700.0f, 50);
+            if (selected->movement.playerControlled) {
+                gui.DrawFloatSlider(x, y, w, "Speed", selected->movement.speed, 50.0f, 700.0f, 50);
+                y += 21.0f;
+            } else {
+                gui.DrawFloatSlider(x, y, w, "Velocity X", selected->movement.velocityX, -500.0f, 500.0f, 51);
+                y += 21.0f;
+                gui.DrawFloatSlider(x, y, w, "Velocity Y", selected->movement.velocityY, -500.0f, 500.0f, 52);
+                y += 21.0f;
+            }
+            gui.DrawFloatSlider(x, y, w, "Mass", selected->movement.mass, 1.0f, 20.0f, 53);
+            y += 21.0f;
+            float gravPct = std::round(selected->movement.gravityScale * 100.0f);
+            gui.DrawFloatSlider(x, y, w, "Gravity (%)", gravPct, -200.0f, 200.0f, 54);
+            selected->movement.gravityScale = std::round(gravPct) / 100.0f;
             y += 22.0f;
         }
 

@@ -57,9 +57,11 @@ int main() {
         player.sprite.loop = true;
         player.sprite.isPlaying = true;
         player.collider.enabled = true;
+        player.collider.shape = Talos::Physics::ColliderShape::Box;
         player.movement.enabled = true;
         player.movement.playerControlled = true;
         player.movement.speed = 320.0f;
+        player.movement.mass = 2.0f;
         player.camera.enabled = true;
         player.camera.isPrimary = true;
         player.camera.followTarget = true;
@@ -81,6 +83,7 @@ int main() {
         crate.sprite.sortingLayer = SortingLayer::Scenery;
         crate.sprite.zOrder = 0;
         crate.collider.enabled = true;
+        crate.collider.shape = Talos::Physics::ColliderShape::Box;
         crate.collider.isStatic = true;
         crate.text.enabled = true;
         crate.text.content = "Crate";
@@ -96,13 +99,14 @@ int main() {
         wall.sprite.sortingLayer = SortingLayer::Scenery;
         wall.sprite.zOrder = 5;
         wall.collider.enabled = true;
+        wall.collider.shape = Talos::Physics::ColliderShape::Box;
         wall.collider.isStatic = true;
         wall.text.enabled = true;
         wall.text.content = "Brick Wall";
         wall.text.fontSize = 18;
         wall.text.offsetY = -24.0f;
 
-        // Gold Coin Entity: Demonstrates PNG alpha transparency and depth sorting
+        // Gold Coin Entity: Dynamic Circle collider demonstrating mixed Circle vs Box collisions & bouncing
         Entity& coin = world.CreateEntity("GoldCoin", 540.0f, 250.0f);
         coin.transform.width = 56.0f;
         coin.transform.height = 56.0f;
@@ -110,6 +114,14 @@ int main() {
         coin.sprite.color = { 255, 255, 255, 255 };
         coin.sprite.sortingLayer = SortingLayer::Scenery;
         coin.sprite.zOrder = 10;
+        coin.collider.enabled = true;
+        coin.collider.shape = Talos::Physics::ColliderShape::Circle;
+        coin.collider.radius = 0.0f; // Auto-fit to min(W, H) * 0.5 = 28px
+        coin.collider.restitution = 0.85f;
+        coin.collider.isStatic = false;
+        coin.movement.enabled = true;
+        coin.movement.playerControlled = false;
+        coin.movement.mass = 1.0f;
         coin.text.enabled = true;
         coin.text.content = "Coin";
         coin.text.fontSize = 16;

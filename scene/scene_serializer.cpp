@@ -108,6 +108,9 @@ namespace Talos::Scene {
 
             // ColliderComponent
             out << "collider.enabled = " << (e.collider.enabled ? 1 : 0) << "\n";
+            out << "collider.shape = " << static_cast<int>(e.collider.shape) << "\n";
+            out << "collider.radius = " << e.collider.radius << "\n";
+            out << "collider.restitution = " << e.collider.restitution << "\n";
             out << "collider.isSolid = " << (e.collider.isSolid ? 1 : 0) << "\n";
             out << "collider.isStatic = " << (e.collider.isStatic ? 1 : 0) << "\n";
 
@@ -115,6 +118,8 @@ namespace Talos::Scene {
             out << "movement.enabled = " << (e.movement.enabled ? 1 : 0) << "\n";
             out << "movement.playerControlled = " << (e.movement.playerControlled ? 1 : 0) << "\n";
             out << "movement.speed = " << e.movement.speed << "\n";
+            out << "movement.mass = " << e.movement.mass << "\n";
+            out << "movement.gravityScale = " << e.movement.gravityScale << "\n";
             out << "movement.velocityX = " << e.movement.velocityX << "\n";
             out << "movement.velocityY = " << e.movement.velocityY << "\n";
 
@@ -217,11 +222,22 @@ namespace Talos::Scene {
             else if (key == "text.offsetX")         currentEntity.text.offsetX = std::strtof(val.c_str(), nullptr);
             else if (key == "text.offsetY")         currentEntity.text.offsetY = std::strtof(val.c_str(), nullptr);
             else if (key == "collider.enabled")     currentEntity.collider.enabled = (std::atoi(val.c_str()) != 0);
+            else if (key == "collider.shape") {
+                if (val == "Circle" || val == "circle" || std::atoi(val.c_str()) == 1) {
+                    currentEntity.collider.shape = Physics::ColliderShape::Circle;
+                } else {
+                    currentEntity.collider.shape = Physics::ColliderShape::Box;
+                }
+            }
+            else if (key == "collider.radius")      currentEntity.collider.radius = std::max(0.0f, std::strtof(val.c_str(), nullptr));
+            else if (key == "collider.restitution") currentEntity.collider.restitution = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
             else if (key == "collider.isSolid")     currentEntity.collider.isSolid = (std::atoi(val.c_str()) != 0);
             else if (key == "collider.isStatic")    currentEntity.collider.isStatic = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.enabled")     currentEntity.movement.enabled = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.playerControlled") currentEntity.movement.playerControlled = (std::atoi(val.c_str()) != 0);
             else if (key == "movement.speed")       currentEntity.movement.speed = std::strtof(val.c_str(), nullptr);
+            else if (key == "movement.mass")        currentEntity.movement.mass = std::max(0.01f, std::strtof(val.c_str(), nullptr));
+            else if (key == "movement.gravityScale") currentEntity.movement.gravityScale = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityX")   currentEntity.movement.velocityX = std::strtof(val.c_str(), nullptr);
             else if (key == "movement.velocityY")   currentEntity.movement.velocityY = std::strtof(val.c_str(), nullptr);
             else if (key == "camera.enabled")       currentEntity.camera.enabled = (std::atoi(val.c_str()) != 0);
