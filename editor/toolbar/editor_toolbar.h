@@ -1,3 +1,4 @@
+// Top toolbar: play/stop control and status banner
 #pragma once
 #include <string>
 #include "scene/scene.h"

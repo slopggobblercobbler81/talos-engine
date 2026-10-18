@@ -1,3 +1,4 @@
+// Flat Entity struct aggregating all components
 #pragma once
 #include <cstdint>
 #include <string>

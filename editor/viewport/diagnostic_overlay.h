@@ -1,3 +1,4 @@
+// [F3] diagnostic HUD with per-component telemetry
 #pragma once
 #include "scene/scene.h"
 

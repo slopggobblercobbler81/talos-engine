@@ -1,3 +1,4 @@
+// EditorGui: basic widgets (button, checkbox, sliders, color picker)
 #include "editor/gui/editor_gui.h"
 #include "core/input.h"
 #include <algorithm>

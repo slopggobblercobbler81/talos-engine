@@ -1,3 +1,4 @@
+// EditorGui declaration: immediate-mode widgets, text fields and component controls (implemented across editor_gui*.cpp)
 #pragma once
 #include <string>
 #include "scene/scene.h"

@@ -1,3 +1,4 @@
+// EditorGui: text field editing (caret, selection, word jump) and the text input box
 #include "editor/gui/editor_gui.h"
 #include "core/input.h"
 #include <algorithm>

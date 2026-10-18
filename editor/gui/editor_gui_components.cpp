@@ -1,3 +1,4 @@
+// EditorGui: collider and camera inspector controls
 #include "editor/gui/editor_gui.h"
 #include "core/input.h"
 #include <algorithm>

@@ -1,3 +1,4 @@
+// Engine key/mouse codes and the Input polling API (keyboard, mouse, typed characters)
 #pragma once
 #include <string>
 #include "core/input_map.h"

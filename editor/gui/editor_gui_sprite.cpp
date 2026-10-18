@@ -1,3 +1,4 @@
+// EditorGui: sprite controls (sorting, texture presets, UV region, animator)
 #include "editor/gui/editor_gui.h"
 #include "core/input.h"
 #include <algorithm>

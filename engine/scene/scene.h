@@ -1,3 +1,4 @@
+// Scene container: entity storage, per-frame update/render, runtime camera and diagnostics
 #pragma once
 #include <vector>
 #include <string>

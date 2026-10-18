@@ -7,7 +7,7 @@ Rules and documentation index for AI agents working on **Talos Engine**.
 ## 1. Mandatory Rules
 
 1. **Read Only What You Need (Targeted Reading):**
-   - Do **not** read every module or every doc before a change. Use the [Task Routing Map](#2-task-routing-map) to jump straight to the files involved, then follow the [Fast Navigation Technique](#3-fast-navigation-technique).
+   - Do **not** read every module or every doc before a change. Use [Code Discovery](#2-code-discovery) to find the files involved, then follow the [Fast Navigation Technique](#3-fast-navigation-technique).
    - Read a `docs/` file only when the task changes that system's behavior or architecture. Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) only for structural changes (new module, new layer, moved files).
    - Update the corresponding `docs/` file whenever architecture or features change.
 2. **Strict Layered Dependencies (Top-Down Only):**
@@ -24,6 +24,7 @@ Rules and documentation index for AI agents working on **Talos Engine**.
 5. **Adding New Code (Structure Conventions):**
    - **One `.h` + one `.cpp` per major class** by default. Group small, closely related types in one file only when there is a clear reason. Never create files or classes just to follow a convention.
    - **Placement:** engine code goes in `engine/<module>/` (`core`, `renderer`, `physics`, `scene`, plus `audio` / `scripting` once they have real code). Editor code goes in `editor/<branch>/`. Do not create empty module folders in advance.
+   - **First-line description:** every new `.h` (and every `.cpp` without a matching `.h`) must start with a one-line `// ...` comment describing its responsibility. `tools/code_map.py` builds the code map from it, so there is no separate map to maintain.
    - **Registration:** add new `.cpp` files to `engine/CMakeLists.txt` (engine) or the root `CMakeLists.txt` (editor), and tests to `tests/CMakeLists.txt`.
    - **Includes:** engine headers use the layer-relative style (`#include "core/window.h"`); editor headers use `#include "editor/..."`. Minimize cross-module includes, use forward declarations in headers when possible, and never create circular dependencies.
    - **Public APIs:** preserve existing public APIs, build configuration, and tests unless a change is necessary.
@@ -49,35 +50,14 @@ Rules and documentation index for AI agents working on **Talos Engine**.
 
 ---
 
-## 2. Task Routing Map
+## 2. Code Discovery
 
-Find your task, open **only** the listed files. Paths are relative to the repository root.
+There is no hand-written file map to maintain. Ask the code instead:
 
-| Task | Touch these files |
-|---|---|
-| Window, frame timing, delta | `engine/core/window.*` |
-| Keyboard / mouse polling | `engine/core/input.*` |
-| Logical actions, key bindings | `engine/core/input_map.*` + `editor/dialogs/input_map_dialog.*` |
-| Logging | `engine/core/logger.*` |
-| Draw calls, textures, camera projection | `engine/renderer/renderer2d.*` |
-| Collision shapes, overlap, impulses | `engine/physics/physics2d.*` + `tests/physics/test_physics2d.cpp` |
-| Component data (fields) | `engine/scene/components.h`, `engine/scene/entity.h` (then follow rule 7) |
-| Per-frame simulation, movement, animation, camera follow, render submission | `engine/scene/scene.*` |
-| `.talos` save / load format | `engine/scene/scene_serializer.*` + `tests/scene/test_scene_serializer.cpp` |
-| Editor main loop / wiring | `editor/main.cpp`, `editor/editor.*` |
-| Scene tree panel | `editor/docks/scene_tree_dock.*` |
-| Inspector panel layout | `editor/docks/inspector_dock.*` |
-| Debug console panel | `editor/docks/console_dock.*` |
-| Top toolbar, status banner | `editor/toolbar/editor_toolbar.*` |
-| Viewport: pan/zoom, gizmos, picking | `editor/viewport/canvas_viewport.*` |
-| `[F3]` diagnostics HUD | `editor/viewport/diagnostic_overlay.*` |
-| Undo / Redo | `editor/history/editor_undo_redo.*` |
-| New or changed UI widget (button, slider, checkbox, color picker) | `editor/gui/editor_gui_widgets.cpp` (+ `editor_gui.h` for the declaration) |
-| Text field editing (caret, selection) | `editor/gui/editor_gui_text.cpp` |
-| Sprite controls (texture, UV region, animator, sorting) | `editor/gui/editor_gui_sprite.cpp` |
-| Collider / camera inspector controls | `editor/gui/editor_gui_components.cpp` |
-| GUI presets, undo hooks, hit-testing | `editor/gui/editor_gui.cpp` |
-| Build system, new source file | `engine/CMakeLists.txt` (engine), `CMakeLists.txt` (editor), `tests/CMakeLists.txt` (tests) |
+- `python tools/code_map.py` prints every source file with its line count and one-line description (about 40 rows).
+- `python tools/code_map.py <keyword> [<keyword> ...]` filters it. All keywords must match the path or the description, e.g. `code_map.py gui slider` or `code_map.py serializ`.
+- Folder names already encode the architecture: `engine/<layer>/` for runtime code, `editor/<branch>/` for tooling, `tests/` mirroring `engine/`. Files are named after their class (`physics2d.*`, `scene_serializer.*`), and large classes are split as `<class>_<responsibility>.cpp` (e.g., `editor_gui_sprite.cpp`).
+- A file listed as `(no description ...)` is missing its first-line comment (rule 5). Add it when you touch that file.
 
 ---
 
@@ -85,7 +65,7 @@ Find your task, open **only** the listed files. Paths are relative to the reposi
 
 Use this procedure instead of exploring the codebase:
 
-1. **Route:** pick the files from the Task Routing Map. If the task is not listed, search (step 2) instead of reading directories.
+1. **Route:** run `python tools/code_map.py <keyword>` (see Code Discovery) to pick the smallest set of files. Do not read directories.
 2. **Search before reading:** locate the symbol with a content search (e.g., `Grep` for `DrawCheckbox`, `restitution`, `AreEntityListsEqual`). Searching a field name across the repo shows every place it is used, which is the fastest way to apply the Component Modification Checklist.
 3. **Read ranges, not files:** open only the function or block you will change (use the line numbers from the search). Read a whole file only if it is under ~150 lines or you are rewriting it.
 4. **Headers first for APIs:** to understand how to call a module, read its `.h` (declarations and comments), not its `.cpp`.
@@ -101,7 +81,7 @@ Policies that apply to every agent working on this repository. Each policy is a 
 
 ### Fast Execution Policy
 
-- Treat the Task Routing Map as the default starting point, not as permission to scan the entire repository.
+- Treat Code Discovery (`tools/code_map.py`) as the default starting point, not as permission to scan the entire repository.
 - Before opening files, identify the specific task category and the smallest relevant set of files.
 - Search for symbols before reading source code. Read only the relevant declarations and implementation ranges.
 - Expand the investigation only when a concrete dependency, compiler error, or test failure requires it.

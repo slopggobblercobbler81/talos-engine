@@ -1,3 +1,4 @@
+// Application entry point: window setup, starter assets and main loop
 #include "core/window.h"
 #include "renderer/renderer2d.h"
 #include "scene/scene.h"

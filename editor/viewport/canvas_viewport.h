@@ -1,3 +1,4 @@
+// Central 2D viewport: camera pan/zoom, entity picking and dragging, grid, gizmos
 #pragma once
 #include <string>
 #include "scene/scene.h"

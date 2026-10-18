@@ -1,3 +1,4 @@
+// Flat component data structs (Transform, Sprite, Text, Collider, Movement, Camera)
 #pragma once
 #include <string>
 #include "physics/physics2d.h"

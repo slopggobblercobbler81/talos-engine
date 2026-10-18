@@ -1,3 +1,4 @@
+// Bottom debug console dock with severity filters
 #pragma once
 #include <cstddef>
 #include "editor/gui/editor_gui.h"

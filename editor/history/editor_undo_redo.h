@@ -1,3 +1,4 @@
+// Snapshot-based Undo/Redo history with continuous-drag coalescing
 #pragma once
 #include <vector>
 #include "scene/scene.h"

@@ -1,3 +1,4 @@
+// Unit tests for Physics2D: overlap, manifolds, impulse resolution
 #include "tests/test_framework.h"
 #include "physics/physics2d.h"
 

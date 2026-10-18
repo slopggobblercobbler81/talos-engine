@@ -1,3 +1,4 @@
+// Logical input actions (InputMap): key bindings and .talos persistence
 #pragma once
 #include <string>
 #include <vector>

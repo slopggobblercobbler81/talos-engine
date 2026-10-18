@@ -1,3 +1,4 @@
+// 2D shapes, overlap tests, collision manifolds and impulse resolution (Physics2D)
 #pragma once
 
 namespace Talos::Physics {

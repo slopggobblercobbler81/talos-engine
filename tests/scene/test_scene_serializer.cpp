@@ -1,3 +1,4 @@
+// Unit tests for SceneSerializer: round-trip, clamping, legacy keys, error handling
 #include "tests/test_framework.h"
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"

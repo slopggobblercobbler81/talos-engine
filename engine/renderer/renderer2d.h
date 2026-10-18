@@ -1,3 +1,4 @@
+// Renderer2D: the only 2D draw-call, texture cache and typography API (hides the graphics backend)
 #pragma once
 #include <cstdint>
 #include <cstddef>

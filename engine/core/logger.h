@@ -1,3 +1,4 @@
+// Classified debug logger (INFO/WARN/ERROR) with in-memory history and log macros
 #pragma once
 #include <string>
 #include <vector>

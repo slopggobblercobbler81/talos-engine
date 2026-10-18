@@ -1,3 +1,4 @@
+// Left-side scene tree dock listing entities
 #pragma once
 #include "scene/scene.h"
 #include "editor/gui/editor_gui.h"

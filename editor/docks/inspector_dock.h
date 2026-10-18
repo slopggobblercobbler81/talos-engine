@@ -1,3 +1,4 @@
+// Right-side inspector dock for the selected entity's components
 #pragma once
 #include "scene/scene.h"
 #include "editor/gui/editor_gui.h"

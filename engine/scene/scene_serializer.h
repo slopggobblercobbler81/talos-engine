@@ -1,3 +1,4 @@
+// Human-readable .talos scene save/load (SceneSerializer)
 #pragma once
 #include <string>
 #include "scene/scene.h"

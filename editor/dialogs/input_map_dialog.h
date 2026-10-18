@@ -1,3 +1,4 @@
+// Modal Input Map configuration dialog
 #pragma once
 #include <string>
 #include "editor/gui/editor_gui.h"

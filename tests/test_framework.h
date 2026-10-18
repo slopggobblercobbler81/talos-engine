@@ -1,3 +1,4 @@
+// Minimal dependency-free test harness (TEST, CHECK, CHECK_NEAR, CHECK_EQ)
 #pragma once
 #include <cmath>
 #include <cstdio>

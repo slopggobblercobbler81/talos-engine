@@ -1,3 +1,4 @@
+// Central editor orchestrator (EditorNode): owns docks, viewport, toolbar, play/stop and undo
 #pragma once
 #include <string>
 #include <vector>

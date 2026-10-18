@@ -1,3 +1,4 @@
+// OS window lifecycle and frame timing (delta)
 #pragma once
 
 namespace Talos::Core {
