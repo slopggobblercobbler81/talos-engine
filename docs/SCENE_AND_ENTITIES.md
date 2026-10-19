@@ -23,7 +23,7 @@ Every object in Talos Engine is an instance of a single flat structure (`Entity`
   4. **`ColliderComponent`:** Solid 2D collision or non-blocking sensor/trigger area (`enabled`, `shape` = `Box` or `Circle`, `radius`, `restitution`, `isSolid`, `isStatic`, `isTrigger`) that automatically fits the entity's `TransformComponent` dimensions (or uses an explicit custom circle radius when `radius > 0`).
   5. **`MovementComponent`:** Velocity, rigid-body properties, and optional built-in player input binding (`enabled`, `playerControlled`, `speed`, `mass`, `gravityScale`, `velocityX/Y`).
   6. **`CameraComponent`:** Configurable 2D runtime game camera (`enabled`, `isPrimary`, `followTarget`, `smoothFollow`, `targetName`, `followSpeed`, `zoom`, `offsetX`, `offsetY`) supporting both fixed framing and frame-rate-independent smooth target tracking.
-  7. **`AudioComponent` (`Audio Source`):** Configurable 2D entity sound effect (`Sound` in RAM) or streaming music (`Music` stream) source (`enabled`, `clipPath`, `isMusic`, `playOnStart`, `loop`, `playOnCollision`, `volume`, `pitch`, `pan`).
+  7. **`AudioComponent` (`AudioSource`):** Configurable 2D entity sound effect (`Sound` in RAM) or streaming music (`Music` stream) source (`enabled`, `audioPath`, `isMusic`, `playOnStart`, `loop`, `playOnCollision`, `volume`, `pitch`, `pan`).
 
 Attaching a visual sprite, text label, solid obstacle, pass-through sensor/trigger zone, controllable character movement, runtime camera, or audio source is done either from the **`+ Add Component`** dropdown at the bottom of the Inspector or in code (`entity.audio.enabled = true;`).
 

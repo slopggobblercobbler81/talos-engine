@@ -204,70 +204,73 @@ namespace Talos::Editor {
     float EditorGui::DrawAudioControls(float x, float y, float w, Scene::AudioComponent& audio, int baseSliderId) {
         float cy = y;
 
-        // 1. Mode Toggle Row: [Sound (SFX)] / [Music] + [Play] / [Stop] live preview buttons
-        Renderer2D::DrawLabel("Mode:", x, cy + 3.0f, 14, { 185, 190, 205, 255 });
+        const bool hasPath = !audio.audioPath.empty();
+        const bool isCurrentlyPlaying = hasPath && (audio.isMusic
+            ? AudioSystem::IsMusicPlaying(audio.audioPath)
+            : AudioSystem::IsSoundPlaying(audio.audioPath));
 
-        bool isSfx   = !audio.isMusic;
-        bool isMusic = audio.isMusic;
+        // 1. Quick Test Toolbar Row: [> Test Audio] / [Stop] + Mode Pills [SFX] / [Music]
+        float testBtnW = 104.0f;
+        float stopBtnW = 48.0f;
+        const char* testBtnLabel = isCurrentlyPlaying ? "> Restart Test" : "> Test Audio";
+        ColorRGBA testBtnBg = isCurrentlyPlaying ? ColorRGBA{ 38, 145, 88, 255 } : ColorRGBA{ 42, 128, 78, 255 };
+        ColorRGBA testBtnHv = isCurrentlyPlaying ? ColorRGBA{ 52, 175, 108, 255 } : ColorRGBA{ 56, 160, 98, 255 };
 
-        if (DrawButton(x + 46.0f, cy, 62.0f, 20.0f, "SFX",
-                       isSfx ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
-                       { 68, 135, 220, 255 })) {
-            if (!isSfx) {
-                PushUndoIfActive();
-                if (!audio.clipPath.empty()) {
-                    AudioSystem::StopMusic(audio.clipPath.c_str());
+        if (DrawButton(x, cy, testBtnW, 22.0f, testBtnLabel, testBtnBg, testBtnHv)) {
+            if (hasPath) {
+                if (audio.isMusic) {
+                    AudioSystem::StopSound(audio.audioPath);
+                    AudioSystem::PlayMusic(audio.audioPath, audio.loop, audio.volume, audio.pitch, audio.pan);
+                } else {
+                    AudioSystem::StopMusic(audio.audioPath);
+                    AudioSystem::PlaySound(audio.audioPath, audio.volume, audio.pitch, audio.pan);
                 }
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        if (DrawButton(x + testBtnW + 4.0f, cy, stopBtnW, 22.0f, "Stop",
+                       isCurrentlyPlaying ? ColorRGBA{ 155, 52, 58, 255 } : ColorRGBA{ 92, 42, 46, 255 },
+                       { 182, 68, 75, 255 })) {
+            if (hasPath) {
+                AudioSystem::StopSound(audio.audioPath);
+                AudioSystem::StopMusic(audio.audioPath);
+            }
+            m_focusedTextFieldId = -1;
+        }
+
+        // Mode pills on the right ([SFX] / [Music])
+        float modeBtnW = (w - (testBtnW + stopBtnW + 12.0f) - 4.0f) * 0.5f;
+        float sfxBtnX  = x + testBtnW + stopBtnW + 12.0f;
+        float musBtnX  = sfxBtnX + modeBtnW + 4.0f;
+
+        if (DrawButton(sfxBtnX, cy, modeBtnW, 22.0f, "SFX",
+                       !audio.isMusic ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+                       { 68, 135, 220, 255 })) {
+            if (audio.isMusic) {
+                PushUndoIfActive();
+                if (hasPath) AudioSystem::StopMusic(audio.audioPath);
             }
             audio.isMusic = false;
             audio.runtimeStarted = false;
             m_focusedTextFieldId = -1;
         }
 
-        if (DrawButton(x + 112.0f, cy, 62.0f, 20.0f, "Music",
-                       isMusic ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
+        if (DrawButton(musBtnX, cy, modeBtnW, 22.0f, "Music",
+                       audio.isMusic ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 },
                        { 68, 135, 220, 255 })) {
-            if (!isMusic) {
+            if (!audio.isMusic) {
                 PushUndoIfActive();
-                if (!audio.clipPath.empty()) {
-                    AudioSystem::StopSound(audio.clipPath.c_str());
-                }
+                if (hasPath) AudioSystem::StopSound(audio.audioPath);
             }
             audio.isMusic = true;
             audio.runtimeStarted = false;
             m_focusedTextFieldId = -1;
         }
+        cy += 26.0f;
 
-        // Live preview [Play] / [Stop] buttons on the right
-        float stopBtnW = 42.0f;
-        float playBtnW = 44.0f;
-        float stopBtnX = x + w - stopBtnW;
-        float playBtnX = stopBtnX - playBtnW - 4.0f;
-
-        if (DrawButton(playBtnX, cy, playBtnW, 20.0f, "Play",
-                       { 42, 128, 78, 255 }, { 56, 160, 98, 255 })) {
-            if (!audio.clipPath.empty()) {
-                if (audio.isMusic) {
-                    AudioSystem::PlayMusic(audio.clipPath.c_str(), audio.loop, audio.volume, audio.pitch, audio.pan);
-                } else {
-                    AudioSystem::PlaySound(audio.clipPath.c_str(), audio.volume, audio.pitch, audio.pan);
-                }
-            }
-            m_focusedTextFieldId = -1;
-        }
-
-        if (DrawButton(stopBtnX, cy, stopBtnW, 20.0f, "Stop",
-                       { 130, 50, 55, 255 }, { 168, 65, 72, 255 })) {
-            if (!audio.clipPath.empty()) {
-                AudioSystem::StopSound(audio.clipPath.c_str());
-                AudioSystem::StopMusic(audio.clipPath.c_str());
-            }
-            m_focusedTextFieldId = -1;
-        }
-        cy += 25.0f;
-
-        // 2. Audio Clip Path Text Input (fieldId == 7)
-        DrawTextInputBox(x, cy, w, "Clip:", audio.clipPath, 7);
+        // 2. Audio Path Text Input (audioPath, fieldId == 7)
+        DrawTextInputBox(x, cy, w, "Path:", audio.audioPath, 7);
         cy += 26.0f;
 
         // 3. Built-in Starter Audio Clip Presets ("Coin", "Jump", "Hit", "Music", "None")
@@ -289,18 +292,18 @@ namespace Talos::Editor {
         float presetBtnW = (w - presetGap * 4.0f) / 5.0f;
         for (int i = 0; i < 5; ++i) {
             const auto& p = AUDIO_PRESETS[i];
-            bool isSelected = (audio.clipPath == p.path);
+            bool isSelected = (audio.audioPath == p.path);
             ColorRGBA bg = isSelected ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 38, 41, 52, 255 };
             ColorRGBA hv = isSelected ? ColorRGBA{ 68, 135, 220, 255 } : ColorRGBA{ 52, 56, 70, 255 };
             if (DrawButton(x + static_cast<float>(i) * (presetBtnW + presetGap), cy, presetBtnW, 20.0f, p.label, bg, hv)) {
-                if (audio.clipPath != p.path || audio.isMusic != p.isMusic) {
+                if (audio.audioPath != p.path || audio.isMusic != p.isMusic) {
                     PushUndoIfActive();
-                    if (!audio.clipPath.empty()) {
-                        AudioSystem::StopSound(audio.clipPath.c_str());
-                        AudioSystem::StopMusic(audio.clipPath.c_str());
+                    if (!audio.audioPath.empty()) {
+                        AudioSystem::StopSound(audio.audioPath);
+                        AudioSystem::StopMusic(audio.audioPath);
                     }
-                    audio.clipPath = p.path;
-                    audio.isMusic  = p.isMusic;
+                    audio.audioPath = p.path;
+                    audio.isMusic   = p.isMusic;
                     if (p.isMusic) {
                         audio.loop = true;
                     }
@@ -313,22 +316,47 @@ namespace Talos::Editor {
         }
         cy += 25.0f;
 
-        // 4. Playback Trigger Checkboxes
-        DrawCheckbox(x, cy, "Play On Start", audio.playOnStart);
-        DrawCheckbox(x + w * 0.54f, cy, "Loop", audio.loop);
+        // 4. First-Level AudioSource Flags (playOnStart, loop, isMusic, playOnCollision)
+        bool prevLoop    = audio.loop;
+        bool prevIsMusic = audio.isMusic;
+
+        DrawCheckbox(x,             cy, "Play On Start", audio.playOnStart);
+        DrawCheckbox(x + w * 0.54f, cy, "Loop",          audio.loop);
         cy += 22.0f;
 
-        DrawCheckbox(x, cy, "Play On Collision / Trigger", audio.playOnCollision);
+        DrawCheckbox(x,             cy, "Is Music (Stream)", audio.isMusic);
+        DrawCheckbox(x + w * 0.54f, cy, "On Collision",      audio.playOnCollision);
         cy += 24.0f;
 
-        // 5. Volume, Pitch & Pan Sliders (per-entity clip parameters)
+        if (audio.isMusic != prevIsMusic) {
+            if (!audio.audioPath.empty()) {
+                AudioSystem::StopSound(audio.audioPath);
+                AudioSystem::StopMusic(audio.audioPath);
+            }
+            audio.runtimeStarted = false;
+        } else if (audio.loop != prevLoop && audio.isMusic && !audio.audioPath.empty()) {
+            AudioSystem::SetMusicLooping(audio.audioPath, audio.loop);
+        }
+
+        // 5. Volume, Pitch & Pan Sliders (per-entity AudioSource parameters)
         float prevClipVol   = audio.volume;
         float prevClipPitch = audio.pitch;
         float prevClipPan   = audio.pan;
 
         float volPct = std::round(audio.volume * 100.0f);
-        DrawFloatSlider(x, cy, w, "Volume (%)", volPct, 0.0f, 100.0f, baseSliderId + 0);
+        DrawFloatSlider(x, cy, w - 42.0f, "Volume (%)", volPct, 0.0f, 100.0f, baseSliderId + 0);
         audio.volume = std::max(0.0f, std::min(1.0f, std::round(volPct) / 100.0f));
+
+        bool isVol100 = (std::fabs(audio.volume - 1.0f) < 0.01f);
+        if (DrawButton(x + w - 38.0f, cy, 38.0f, 17.0f, "100%",
+                       isVol100 ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
+                       { 64, 128, 210, 255 })) {
+            if (!isVol100) {
+                PushUndoIfActive();
+            }
+            audio.volume = 1.0f;
+            m_focusedTextFieldId = -1;
+        }
         cy += 21.0f;
 
         float pitchPct = std::round(audio.pitch * 100.0f);
@@ -363,18 +391,18 @@ namespace Talos::Editor {
         }
         cy += 22.0f;
 
-        if (!audio.clipPath.empty()) {
+        if (!audio.audioPath.empty()) {
             if (std::fabs(audio.volume - prevClipVol) > 1e-4f) {
-                if (audio.isMusic) AudioSystem::SetMusicVolume(audio.clipPath, audio.volume);
-                else               AudioSystem::SetSoundVolume(audio.clipPath, audio.volume);
+                if (audio.isMusic) AudioSystem::SetMusicVolume(audio.audioPath, audio.volume);
+                else               AudioSystem::SetSoundVolume(audio.audioPath, audio.volume);
             }
             if (std::fabs(audio.pitch - prevClipPitch) > 1e-4f) {
-                if (audio.isMusic) AudioSystem::SetMusicPitch(audio.clipPath, audio.pitch);
-                else               AudioSystem::SetSoundPitch(audio.clipPath, audio.pitch);
+                if (audio.isMusic) AudioSystem::SetMusicPitch(audio.audioPath, audio.pitch);
+                else               AudioSystem::SetSoundPitch(audio.audioPath, audio.pitch);
             }
             if (std::fabs(audio.pan - prevClipPan) > 1e-4f) {
-                if (audio.isMusic) AudioSystem::SetMusicPan(audio.clipPath, audio.pan);
-                else               AudioSystem::SetSoundPan(audio.clipPath, audio.pan);
+                if (audio.isMusic) AudioSystem::SetMusicPan(audio.audioPath, audio.pan);
+                else               AudioSystem::SetSoundPan(audio.audioPath, audio.pan);
             }
         }
 

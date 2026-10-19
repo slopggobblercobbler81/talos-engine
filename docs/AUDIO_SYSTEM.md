@@ -92,11 +92,17 @@ Editor -> Scripting -> Scene -> Audio (talos_audio) -> Core (talos_core)
 
 ---
 
-## 6. Entity Integration (`AudioComponent` & Inspector UI)
+## 6. Entity Integration (`AudioComponent` / `AudioSource` & Inspector UI)
 
-Entities attach audio playback declaratively through `Scene::AudioComponent` (`entity.audio`) via the **`+ Add Component -> Audio Source (Sound / Music)`** button in the Inspector:
-* **Modes:** `SFX` (`isMusic = false`, in-memory `Sound`) or `Music` (`isMusic = true`, streaming `Music`).
-* **Triggers:** `playOnStart` (plays automatically when Play Mode begins), `loop` (continuously loops the clip or music stream), and `playOnCollision` (triggers playback automatically on solid collision `Enter` or sensor trigger `Enter`).
-* **Parameters:** `volume` (`0.0`–`1.0`), `pitch` (`0.1`–`4.0`), and stereo `pan` (`0.0` = Left, `0.5` = Center, `1.0` = Right), plus live `[Play]` / `[Stop]` preview buttons and one-click starter presets (`Coin`, `Jump`, `Hit`, `Music`, `None`).
+Entities attach audio playback declaratively through `Scene::AudioComponent` (`using AudioSourceComponent = AudioComponent;`, accessed as `entity.audio`) via the **`+ Add Component -> AudioSource (Sound / Music)`** button in the First-Level Inspector:
+* **First-Level `AudioSource` Properties:**
+  * `audioPath` (`std::string`): Relative path to the audio asset (`.wav`, `.ogg`, or `.mp3`), editable directly in the `Path:` input box or with one-click starter presets (`Coin`, `Jump`, `Hit`, `Music`, `None`).
+  * `volume` (`0.0`–`1.0`), `pitch` (`0.1`–`4.0`), and stereo `pan` (`0.0` = Left, `0.5` = Center, `1.0` = Right), each with a quick reset button (`100%` / `50%`).
+  * `playOnStart` (`bool`): Automatically plays the audio source on the first frame of Play Mode.
+  * `loop` (`bool`): Continuously loops the sound effect or music stream.
+  * `isMusic` (`bool`): Switches between in-memory `Sound` (`isMusic = false`, `SFX`) and disk-streamed `Music` (`isMusic = true`, `Music Stream`).
+  * `playOnCollision` (`bool`): Automatically triggers playback on solid collision `Enter` or sensor trigger `Enter`.
+* **Quick Test Button in the Editor:** The top of the `AUDIO SOURCE` section features a prominent **`> Test Audio`** / **`> Restart Test`** button (plus **`Stop`**) that lets users immediately audition the entity's `audioPath`, `volume`, `pitch`, `pan`, `loop`, and `isMusic` settings in Edit Mode without entering Play Mode.
+
 
 

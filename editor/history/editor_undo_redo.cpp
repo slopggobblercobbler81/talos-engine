@@ -70,7 +70,7 @@ namespace Talos::Editor {
                 std::fabs(ea.camera.offsetX - eb.camera.offsetX) > 0.01f ||
                 std::fabs(ea.camera.offsetY - eb.camera.offsetY) > 0.01f) return false;
             if (ea.audio.enabled != eb.audio.enabled ||
-                ea.audio.clipPath != eb.audio.clipPath ||
+                ea.audio.audioPath != eb.audio.audioPath ||
                 ea.audio.isMusic != eb.audio.isMusic ||
                 ea.audio.playOnStart != eb.audio.playOnStart ||
                 ea.audio.loop != eb.audio.loop ||

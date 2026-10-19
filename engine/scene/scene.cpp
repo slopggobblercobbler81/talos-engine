@@ -780,11 +780,11 @@ namespace Talos::Scene {
 
         for (auto& entity : m_entities) {
             if (!entity.active || !entity.audio.enabled) {
-                if (entity.audio.runtimeStarted && !entity.audio.clipPath.empty()) {
+                if (entity.audio.runtimeStarted && !entity.audio.audioPath.empty()) {
                     if (entity.audio.isMusic) {
-                        Audio::AudioSystem::StopMusic(entity.audio.clipPath);
+                        Audio::AudioSystem::StopMusic(entity.audio.audioPath);
                     } else {
-                        Audio::AudioSystem::StopSound(entity.audio.clipPath);
+                        Audio::AudioSystem::StopSound(entity.audio.audioPath);
                     }
                     entity.audio.runtimeStarted = false;
                 }
@@ -794,7 +794,7 @@ namespace Talos::Scene {
             auto tAudioStart = Clock::now();
             ++activeAudioCount;
 
-            if (!entity.audio.clipPath.empty()) {
+            if (!entity.audio.audioPath.empty()) {
                 bool triggeredByCollision = false;
                 if (entity.audio.playOnCollision) {
                     for (const auto& ev : m_frameCollisionEvents) {
@@ -819,7 +819,7 @@ namespace Talos::Scene {
                     if (!entity.audio.runtimeStarted) {
                         entity.audio.runtimeStarted = true;
                         if (entity.audio.playOnStart) {
-                            Audio::AudioSystem::PlayMusic(entity.audio.clipPath,
+                            Audio::AudioSystem::PlayMusic(entity.audio.audioPath,
                                                           entity.audio.loop,
                                                           entity.audio.volume,
                                                           entity.audio.pitch,
@@ -828,48 +828,48 @@ namespace Talos::Scene {
                         }
                     }
                     if (triggeredByCollision) {
-                        Audio::AudioSystem::PlayMusic(entity.audio.clipPath,
+                        Audio::AudioSystem::PlayMusic(entity.audio.audioPath,
                                                       entity.audio.loop,
                                                       entity.audio.volume,
                                                       entity.audio.pitch,
                                                       entity.audio.pan);
                         ++audioOpsCount;
                     }
-                    if (Audio::AudioSystem::IsMusicPlaying(entity.audio.clipPath)) {
-                        Audio::AudioSystem::SetMusicLooping(entity.audio.clipPath, entity.audio.loop);
-                        Audio::AudioSystem::SetMusicVolume(entity.audio.clipPath, entity.audio.volume);
-                        Audio::AudioSystem::SetMusicPitch(entity.audio.clipPath, entity.audio.pitch);
-                        Audio::AudioSystem::SetMusicPan(entity.audio.clipPath, entity.audio.pan);
+                    if (Audio::AudioSystem::IsMusicPlaying(entity.audio.audioPath)) {
+                        Audio::AudioSystem::SetMusicLooping(entity.audio.audioPath, entity.audio.loop);
+                        Audio::AudioSystem::SetMusicVolume(entity.audio.audioPath, entity.audio.volume);
+                        Audio::AudioSystem::SetMusicPitch(entity.audio.audioPath, entity.audio.pitch);
+                        Audio::AudioSystem::SetMusicPan(entity.audio.audioPath, entity.audio.pan);
                         ++audioOpsCount;
                     }
                 } else {
                     if (!entity.audio.runtimeStarted) {
                         entity.audio.runtimeStarted = true;
                         if (entity.audio.playOnStart) {
-                            Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                            Audio::AudioSystem::PlaySound(entity.audio.audioPath,
                                                           entity.audio.volume,
                                                           entity.audio.pitch,
                                                           entity.audio.pan);
                             ++audioOpsCount;
                         }
-                    } else if (entity.audio.loop && !Audio::AudioSystem::IsSoundPlaying(entity.audio.clipPath)) {
-                        Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                    } else if (entity.audio.loop && !Audio::AudioSystem::IsSoundPlaying(entity.audio.audioPath)) {
+                        Audio::AudioSystem::PlaySound(entity.audio.audioPath,
                                                       entity.audio.volume,
                                                       entity.audio.pitch,
                                                       entity.audio.pan);
                         ++audioOpsCount;
                     }
                     if (triggeredByCollision) {
-                        Audio::AudioSystem::PlaySound(entity.audio.clipPath,
+                        Audio::AudioSystem::PlaySound(entity.audio.audioPath,
                                                       entity.audio.volume,
                                                       entity.audio.pitch,
                                                       entity.audio.pan);
                         ++audioOpsCount;
                     }
-                    if (Audio::AudioSystem::IsSoundPlaying(entity.audio.clipPath)) {
-                        Audio::AudioSystem::SetSoundVolume(entity.audio.clipPath, entity.audio.volume);
-                        Audio::AudioSystem::SetSoundPitch(entity.audio.clipPath, entity.audio.pitch);
-                        Audio::AudioSystem::SetSoundPan(entity.audio.clipPath, entity.audio.pan);
+                    if (Audio::AudioSystem::IsSoundPlaying(entity.audio.audioPath)) {
+                        Audio::AudioSystem::SetSoundVolume(entity.audio.audioPath, entity.audio.volume);
+                        Audio::AudioSystem::SetSoundPitch(entity.audio.audioPath, entity.audio.pitch);
+                        Audio::AudioSystem::SetSoundPan(entity.audio.audioPath, entity.audio.pan);
                     }
                 }
             }
@@ -962,7 +962,7 @@ namespace Talos::Scene {
             spriteHeapBytes     += entity.sprite.texturePath.capacity();
             textHeapBytes       += entity.text.content.capacity();
             cameraHeapBytes     += entity.camera.targetName.capacity();
-            audioHeapBytes      += entity.audio.clipPath.capacity();
+            audioHeapBytes      += entity.audio.audioPath.capacity();
 
             if (!entity.active) {
                 continue;
@@ -978,7 +978,7 @@ namespace Talos::Scene {
             }
             if (entity.audio.enabled) {
                 ++activeAudioCnt;
-                activeAudioHeap += entity.audio.clipPath.capacity();
+                activeAudioHeap += entity.audio.audioPath.capacity();
             }
             renderOrder.push_back(i);
         }

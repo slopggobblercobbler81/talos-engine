@@ -136,9 +136,9 @@ namespace Talos::Scene {
             out << "camera.offsetX = " << e.camera.offsetX << "\n";
             out << "camera.offsetY = " << e.camera.offsetY << "\n";
 
-            // AudioComponent
+            // AudioComponent (AudioSource)
             out << "audio.enabled = " << (e.audio.enabled ? 1 : 0) << "\n";
-            out << "audio.clipPath = " << e.audio.clipPath << "\n";
+            out << "audio.audioPath = " << e.audio.audioPath << "\n";
             out << "audio.isMusic = " << (e.audio.isMusic ? 1 : 0) << "\n";
             out << "audio.playOnStart = " << (e.audio.playOnStart ? 1 : 0) << "\n";
             out << "audio.loop = " << (e.audio.loop ? 1 : 0) << "\n";
@@ -264,15 +264,15 @@ namespace Talos::Scene {
             else if (key == "camera.zoom")          currentEntity.camera.zoom = std::max(0.1f, std::strtof(val.c_str(), nullptr));
             else if (key == "camera.offsetX")       currentEntity.camera.offsetX = std::strtof(val.c_str(), nullptr);
             else if (key == "camera.offsetY")       currentEntity.camera.offsetY = std::strtof(val.c_str(), nullptr);
-            else if (key == "audio.enabled")        currentEntity.audio.enabled = (std::atoi(val.c_str()) != 0);
-            else if (key == "audio.clipPath")       currentEntity.audio.clipPath = val;
-            else if (key == "audio.isMusic")        currentEntity.audio.isMusic = (std::atoi(val.c_str()) != 0);
-            else if (key == "audio.playOnStart")    currentEntity.audio.playOnStart = (std::atoi(val.c_str()) != 0);
-            else if (key == "audio.loop")           currentEntity.audio.loop = (std::atoi(val.c_str()) != 0);
-            else if (key == "audio.playOnCollision") currentEntity.audio.playOnCollision = (std::atoi(val.c_str()) != 0);
-            else if (key == "audio.volume")         currentEntity.audio.volume = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
-            else if (key == "audio.pitch")          currentEntity.audio.pitch = std::max(0.05f, std::min(4.0f, std::strtof(val.c_str(), nullptr)));
-            else if (key == "audio.pan")            currentEntity.audio.pan = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
+            else if (key == "audio.enabled" || key == "audioSource.enabled")               currentEntity.audio.enabled = (std::atoi(val.c_str()) != 0);
+            else if (key == "audio.audioPath" || key == "audio.clipPath" || key == "audioSource.audioPath") currentEntity.audio.audioPath = val;
+            else if (key == "audio.isMusic" || key == "audioSource.isMusic")               currentEntity.audio.isMusic = (std::atoi(val.c_str()) != 0);
+            else if (key == "audio.playOnStart" || key == "audioSource.playOnStart")       currentEntity.audio.playOnStart = (std::atoi(val.c_str()) != 0);
+            else if (key == "audio.loop" || key == "audioSource.loop")                     currentEntity.audio.loop = (std::atoi(val.c_str()) != 0);
+            else if (key == "audio.playOnCollision" || key == "audioSource.playOnCollision") currentEntity.audio.playOnCollision = (std::atoi(val.c_str()) != 0);
+            else if (key == "audio.volume" || key == "audioSource.volume")                 currentEntity.audio.volume = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
+            else if (key == "audio.pitch" || key == "audioSource.pitch")                   currentEntity.audio.pitch = std::max(0.05f, std::min(4.0f, std::strtof(val.c_str(), nullptr)));
+            else if (key == "audio.pan" || key == "audioSource.pan")                       currentEntity.audio.pan = std::max(0.0f, std::min(1.0f, std::strtof(val.c_str(), nullptr)));
             else {
                 Core::Logger::Write(Core::LogLevel::Warning,
                                     "Unknown entity property key '" + key + "'",

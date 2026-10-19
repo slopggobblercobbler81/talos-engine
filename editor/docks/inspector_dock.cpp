@@ -267,15 +267,22 @@ namespace Talos::Editor {
             }
         }
 
-        // 9. Audio Source Component (only rendered when added to the entity)
+        // 9. AudioSource Component (First-Level Inspector Section — only rendered when added to the entity)
         if (selected->audio.enabled) {
-            const char* audioBadge = "[No Clip]";
+            const char* audioBadge = "[No Audio]";
             ColorRGBA audioBadgeColor = { 135, 140, 155, 255 };
-            if (!selected->audio.clipPath.empty()) {
+            if (!selected->audio.audioPath.empty()) {
+                bool isSupported = selected->audio.isMusic
+                    ? AudioSystem::IsSupportedMusicFormat(selected->audio.audioPath)
+                    : AudioSystem::IsSupportedSoundFormat(selected->audio.audioPath);
                 bool isPlaying = selected->audio.isMusic
-                    ? AudioSystem::IsMusicPlaying(selected->audio.clipPath.c_str())
-                    : AudioSystem::IsSoundPlaying(selected->audio.clipPath.c_str());
-                if (isPlaying) {
+                    ? AudioSystem::IsMusicPlaying(selected->audio.audioPath.c_str())
+                    : AudioSystem::IsSoundPlaying(selected->audio.audioPath.c_str());
+
+                if (!isSupported) {
+                    audioBadge = "[Bad Format!]";
+                    audioBadgeColor = { 245, 95, 95, 255 };
+                } else if (isPlaying) {
                     audioBadge = selected->audio.isMusic ? "[Music | Playing]" : "[SFX | Playing]";
                     audioBadgeColor = { 90, 225, 135, 255 };
                 } else {
@@ -286,9 +293,9 @@ namespace Talos::Editor {
 
             drawComponentHeader("AUDIO SOURCE", audioBadge, audioBadgeColor, selected->audio.enabled);
             if (!selected->audio.enabled) {
-                if (!selected->audio.clipPath.empty()) {
-                    AudioSystem::StopSound(selected->audio.clipPath.c_str());
-                    AudioSystem::StopMusic(selected->audio.clipPath.c_str());
+                if (!selected->audio.audioPath.empty()) {
+                    AudioSystem::StopSound(selected->audio.audioPath.c_str());
+                    AudioSystem::StopMusic(selected->audio.audioPath.c_str());
                 }
                 selected->audio.runtimeStarted = false;
             } else {
@@ -322,7 +329,7 @@ namespace Talos::Editor {
                 { "+  Collider 2D (Box / Circle)",    &selected->collider.enabled, false, false },
                 { "+  Movement 2D (WASD / Physics)",  &selected->movement.enabled, true,  false },
                 { "+  Camera 2D (Runtime View)",      &selected->camera.enabled,   false, false },
-                { "+  Audio Source (Sound / Music)",  &selected->audio.enabled,    false, true  }
+                { "+  AudioSource (Sound / Music)",   &selected->audio.enabled,    false, true  }
             };
 
             int availableCount = 0;
@@ -352,8 +359,8 @@ namespace Talos::Editor {
                         if (opt.isMovement) {
                             selected->movement.playerControlled = true;
                         }
-                        if (opt.isAudio && selected->audio.clipPath.empty()) {
-                            selected->audio.clipPath = "examples/assets/audio/coin.wav";
+                        if (opt.isAudio && selected->audio.audioPath.empty()) {
+                            selected->audio.audioPath = "examples/assets/audio/coin.wav";
                         }
                         m_addComponentMenuOpen = false;
                     }

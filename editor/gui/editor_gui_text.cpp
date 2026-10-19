@@ -85,7 +85,7 @@ namespace Talos::Editor {
             if (m_focusedTextFieldId == 3) { targetStr = &selected->sprite.texturePath; isEntityField = true; }
             if (m_focusedTextFieldId == 5) { targetStr = &selected->camera.targetName; isEntityField = true; }
             if (m_focusedTextFieldId == 6) { targetStr = &selected->tag; isEntityField = true; }
-            if (m_focusedTextFieldId == 7) { targetStr = &selected->audio.clipPath; isEntityField = true; }
+            if (m_focusedTextFieldId == 7) { targetStr = &selected->audio.audioPath; isEntityField = true; }
         }
 
         if (!targetStr) return;

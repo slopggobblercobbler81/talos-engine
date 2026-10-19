@@ -61,7 +61,7 @@ TEST(RoundTrip_PreservesEntityData) {
     e.camera.targetName = "Player";
     e.camera.zoom = 1.5f;
     e.audio.enabled = true;
-    e.audio.clipPath = "examples/assets/audio/coin.wav";
+    e.audio.audioPath = "examples/assets/audio/coin.wav";
     e.audio.isMusic = true;
     e.audio.playOnStart = false;
     e.audio.loop = true;
@@ -109,7 +109,7 @@ TEST(RoundTrip_PreservesEntityData) {
     CHECK_EQ(r.camera.targetName, std::string("Player"));
     CHECK_NEAR(r.camera.zoom, 1.5, 0.01);
     CHECK(r.audio.enabled);
-    CHECK_EQ(r.audio.clipPath, std::string("examples/assets/audio/coin.wav"));
+    CHECK_EQ(r.audio.audioPath, std::string("examples/assets/audio/coin.wav"));
     CHECK(r.audio.isMusic);
     CHECK(!r.audio.playOnStart);
     CHECK(r.audio.loop);
@@ -235,7 +235,9 @@ TEST(Load_AcceptsLegacySortingKeysAndNamedColliderShape) {
         "name = Legacy\n"
         "sortingLayer = 3\n"
         "zOrder = 9\n"
-        "collider.shape = Circle\n");
+        "collider.shape = Circle\n"
+        "audio.clipPath = examples/assets/audio/jump.wav\n"
+        "audioSource.enabled = 1\n");
 
     Scene scene;
     CHECK(SceneSerializer::Load(scene, path));
@@ -245,6 +247,8 @@ TEST(Load_AcceptsLegacySortingKeysAndNamedColliderShape) {
     CHECK_EQ(e->sprite.sortingLayer, 3);
     CHECK_EQ(e->sprite.zOrder, 9);
     CHECK(e->collider.shape == Talos::Physics::ColliderShape::Circle);
+    CHECK(e->audio.enabled);
+    CHECK_EQ(e->audio.audioPath, std::string("examples/assets/audio/jump.wav"));
 }
 
 TEST(Save_CreatesMissingParentDirectories) {

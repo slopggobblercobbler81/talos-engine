@@ -188,7 +188,7 @@ namespace Talos::Scene {
     // Configures an audio emitter (in-memory Sound effect or streaming Music track) attached to an entity.
     struct AudioComponent {
         bool enabled = false;
-        std::string clipPath = "";      // Path to audio file (e.g., "examples/assets/audio/coin.wav")
+        std::string audioPath = "";     // Path to audio file (e.g., "examples/assets/audio/coin.wav")
         bool isMusic = false;           // false = Sound Effect (WAV/OGG in-memory), true = Music Stream (OGG/MP3/WAV)
         bool playOnStart = true;        // Automatically start playback when Play Mode begins
         bool loop = false;              // Continuously repeat playback while active in Play Mode
@@ -200,6 +200,8 @@ namespace Talos::Scene {
         // Transient runtime state (not serialized to .talos files)
         bool runtimeStarted = false;
     };
+
+    using AudioSourceComponent = AudioComponent;
 
 }
 
