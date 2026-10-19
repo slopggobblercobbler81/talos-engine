@@ -16,6 +16,7 @@ namespace Talos::Editor {
         }
         m_projectDialog.Initialize(projectFilePath, m_sceneFilePath);
         m_projectDialog.BindTextFields(m_gui);
+        m_sceneTreeDock.BindTextFields(m_gui);
         TALOS_LOG_INFO("Central Editor Orchestrator initialized (Godot-style modular tree).");
     }
 
@@ -148,6 +149,7 @@ namespace Talos::Editor {
         m_diagnosticOverlay.UpdateFrameDelta(delta);
         m_gui.SetFrameContext(&scene, &m_undoRedo, m_selectedEntityId, m_isPlaying);
         m_projectDialog.BindTextFields(m_gui);
+        m_sceneTreeDock.BindTextFields(m_gui);
 
         // Release active continuous drags on mouse button release
         if (!Core::Input::IsMouseButtonDown(Core::MouseButton::Left)) {
@@ -194,6 +196,8 @@ namespace Talos::Editor {
                         Core::Input::IsKeyDown(Core::Key::RightControl);
         bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
                           Core::Input::IsKeyDown(Core::Key::RightShift);
+        bool altDown = Core::Input::IsKeyDown(Core::Key::LeftAlt) ||
+                       Core::Input::IsKeyDown(Core::Key::RightAlt);
 
         if (ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
             while (Core::Input::GetCharPressed() > 0) {}
@@ -271,9 +275,33 @@ namespace Talos::Editor {
             return;
         }
 
+        // Hierarchy reordering via Alt+Up / Alt+Down when an entity is selected
+        if (altDown && !ctrlDown && m_selectedEntityId != 0 && m_gui.GetFocusedTextFieldId() == -1) {
+            int selIdx = scene.GetEntityIndex(m_selectedEntityId);
+            if (Core::Input::IsKeyPressedOnce(Core::Key::Up) && selIdx > 0) {
+                m_undoRedo.PushUndoState(scene, m_selectedEntityId,
+                                         m_gui.GetTextCursorPos(), m_gui.GetTextSelectionAnchor(), m_isPlaying);
+                if (scene.MoveEntityUp(m_selectedEntityId)) {
+                    const Scene::Entity* moved = scene.FindEntityById(m_selectedEntityId);
+                    m_toolbar.ShowStatusMessage("Moved '" + (moved ? moved->name : std::string("Entity")) + "' up in hierarchy [Alt+Up]", 1.5f);
+                }
+                return;
+            }
+            if (Core::Input::IsKeyPressedOnce(Core::Key::Down) &&
+                selIdx >= 0 && selIdx + 1 < static_cast<int>(scene.GetEntities().size())) {
+                m_undoRedo.PushUndoState(scene, m_selectedEntityId,
+                                         m_gui.GetTextCursorPos(), m_gui.GetTextSelectionAnchor(), m_isPlaying);
+                if (scene.MoveEntityDown(m_selectedEntityId)) {
+                    const Scene::Entity* moved = scene.FindEntityById(m_selectedEntityId);
+                    m_toolbar.ShowStatusMessage("Moved '" + (moved ? moved->name : std::string("Entity")) + "' down in hierarchy [Alt+Down]", 1.5f);
+                }
+                return;
+            }
+        }
+
         // 2D Canvas Viewport shortcuts & mouse interaction in Edit Mode
         float consoleH = m_consoleDock.GetPanelHeight();
-        if (m_gui.GetFocusedTextFieldId() == -1 && !ctrlDown) {
+        if (m_gui.GetFocusedTextFieldId() == -1 && !ctrlDown && !altDown) {
             if (m_selectedEntityId != 0 && Core::Input::IsKeyPressedOnce(Core::Key::Delete)) {
                 m_undoRedo.PushUndoState(scene, m_selectedEntityId,
                                          m_gui.GetTextCursorPos(), m_gui.GetTextSelectionAnchor(), m_isPlaying);
@@ -313,6 +341,7 @@ namespace Talos::Editor {
     void Editor::Render(Scene::Scene& scene) {
         m_gui.SetFrameContext(&scene, &m_undoRedo, m_selectedEntityId, m_isPlaying);
         m_projectDialog.BindTextFields(m_gui);
+        m_sceneTreeDock.BindTextFields(m_gui);
         float consoleH = m_consoleDock.GetPanelHeight();
 
         // 1. Central 2D Canvas Viewport (Clipped World Space: Grid + Scene + Selection Gizmos)
@@ -352,7 +381,18 @@ namespace Talos::Editor {
         if (requestStartPlay) StartPlayMode(scene);
         if (requestStopPlay)  StopPlayMode(scene);
 
-        m_sceneTreeDock.Render(scene, m_windowHeight, m_selectedEntityId, m_gui);
+        std::string sceneTreeStatus;
+        m_sceneTreeDock.Render(scene,
+                               m_windowHeight,
+                               consoleH,
+                               m_selectedEntityId,
+                               m_isPlaying,
+                               m_gui,
+                               m_undoRedo,
+                               &sceneTreeStatus);
+        if (!sceneTreeStatus.empty()) {
+            m_toolbar.ShowStatusMessage(sceneTreeStatus, 1.6f);
+        }
 
         std::string inspectorStatus;
         m_inspectorDock.Render(scene, m_windowWidth, m_windowHeight, m_selectedEntityId, m_gui,

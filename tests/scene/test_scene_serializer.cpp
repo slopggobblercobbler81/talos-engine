@@ -678,5 +678,126 @@ TEST(PrefabSaveLoadAndInstantiateRoundTrip) {
     std::filesystem::remove_all("build/test_tmp_scenes/prefabs", ec);
 }
 
+TEST(HierarchyReordering_MoveUpDownAndToIndexPreserveEntitiesAndPersistOrder) {
+    Scene scene;
+    EntityID id1 = scene.CreateEntity("Background").id;
+    EntityID id2 = scene.CreateEntity("Player").id;
+    EntityID id3 = scene.CreateEntity("Slime Enemy").id;
+    EntityID id4 = scene.CreateEntity("HUD Overlay").id;
+
+    CHECK_EQ(scene.GetEntityIndex(id1), 0);
+    CHECK_EQ(scene.GetEntityIndex(id2), 1);
+    CHECK_EQ(scene.GetEntityIndex(id3), 2);
+    CHECK_EQ(scene.GetEntityIndex(id4), 3);
+    CHECK_EQ(scene.GetEntityIndex(999), -1);
+
+    // Boundary no-ops: first cannot move up, last cannot move down, missing ID returns false
+    CHECK(!scene.MoveEntityUp(id1));
+    CHECK(!scene.MoveEntityDown(id4));
+    CHECK(!scene.MoveEntityUp(999));
+    CHECK(!scene.MoveEntityDown(999));
+    CHECK(!scene.MoveEntityToIndex(999, 0));
+
+    // Move Player (id2) up to index 0 -> [id2, id1, id3, id4]
+    CHECK(scene.MoveEntityUp(id2));
+    CHECK_EQ(scene.GetEntityIndex(id2), 0);
+    CHECK_EQ(scene.GetEntityIndex(id1), 1);
+
+    // Move Background (id1) down to index 2 -> [id2, id3, id1, id4]
+    CHECK(scene.MoveEntityDown(id1));
+    CHECK_EQ(scene.GetEntityIndex(id3), 1);
+    CHECK_EQ(scene.GetEntityIndex(id1), 2);
+
+    // Move HUD Overlay (id4) directly to index 1 -> [id2, id4, id3, id1]
+    CHECK(scene.MoveEntityToIndex(id4, 1));
+    CHECK_EQ(scene.GetEntities()[0].id, id2);
+    CHECK_EQ(scene.GetEntities()[1].id, id4);
+    CHECK_EQ(scene.GetEntities()[2].id, id3);
+    CHECK_EQ(scene.GetEntities()[3].id, id1);
+
+    // Move Player (id2) to an out-of-range target index (clamped to end) -> [id4, id3, id1, id2]
+    CHECK(scene.MoveEntityToIndex(id2, 99));
+    CHECK_EQ(scene.GetEntityIndex(id2), 3);
+    CHECK_EQ(scene.GetEntityIndex(id4), 0);
+
+    // Moving to current index is a no-op returning false
+    CHECK(!scene.MoveEntityToIndex(id2, 3));
+
+    // Save and reload scene to verify hierarchy order persists in .talos files
+    std::string path = (TempDir() / "reordered_hierarchy.talos").string();
+    CHECK(SceneSerializer::Save(scene, path));
+
+    Scene loaded;
+    CHECK(SceneSerializer::Load(loaded, path));
+    CHECK_EQ(loaded.GetEntities().size(), static_cast<size_t>(4));
+    CHECK_EQ(loaded.GetEntities()[0].id, id4);
+    CHECK_EQ(loaded.GetEntities()[1].id, id3);
+    CHECK_EQ(loaded.GetEntities()[2].id, id1);
+    CHECK_EQ(loaded.GetEntities()[3].id, id2);
+}
+
+TEST(HierarchyFilter_SearchByNameOrTagAndPrefixFilters) {
+    Scene scene;
+
+    Entity& hero = scene.CreateEntity("Hero Knight");
+    hero.tag = "Player";
+
+    Entity& slime = scene.CreateEntity("Green Slime");
+    slime.tag = "Enemy";
+
+    Entity& bat = scene.CreateEntity("Cave Bat");
+    bat.tag = "Enemy";
+
+    Entity& coin = scene.CreateEntity("Gold Coin");
+    coin.tag = "Coin";
+
+    Entity& tree = scene.CreateEntity("Background Tree");
+    tree.tag = ""; // Untagged
+
+    // 1. Empty filters return all 5 entities in hierarchy order
+    auto all = scene.FilterEntities("", "");
+    CHECK_EQ(all.size(), static_cast<size_t>(5));
+    CHECK_EQ( scene.FilterEntities("   ", "All").size(), static_cast<size_t>(5));
+
+    // 2. Case-insensitive substring search matches either name or tag
+    auto searchEnemy = scene.FilterEntities("enemy");
+    CHECK_EQ(searchEnemy.size(), static_cast<size_t>(2));
+    CHECK_EQ(searchEnemy[0]->name, std::string("Green Slime"));
+    CHECK_EQ(searchEnemy[1]->name, std::string("Cave Bat"));
+
+    auto searchKnight = scene.FilterEntities("KNIGHT");
+    CHECK_EQ(searchKnight.size(), static_cast<size_t>(1));
+    CHECK_EQ(searchKnight[0]->name, std::string("Hero Knight"));
+
+    // 3. Explicit prefix queries: tag:<query>, #<query>, name:<query>
+    auto hashCoin = scene.FilterEntities("#coin");
+    CHECK_EQ(hashCoin.size(), static_cast<size_t>(1));
+    CHECK_EQ(hashCoin[0]->name, std::string("Gold Coin"));
+
+    auto tagEnemy = scene.FilterEntities("tag:ENEMY");
+    CHECK_EQ(tagEnemy.size(), static_cast<size_t>(2));
+
+    // 'name:enemy' only searches entity.name (not entity.tag), so it returns 0 for "Green Slime" / "Cave Bat"
+    auto nameEnemyOnly = scene.FilterEntities("name:enemy");
+    CHECK(nameEnemyOnly.empty());
+
+    auto nameSlimeOnly = scene.FilterEntities("name:slime");
+    CHECK_EQ(nameSlimeOnly.size(), static_cast<size_t>(1));
+    CHECK_EQ(nameSlimeOnly[0]->name, std::string("Green Slime"));
+
+    // 4. Tag chip filter combined with text search query
+    auto enemyChipAll = scene.FilterEntities("", "Enemy");
+    CHECK_EQ(enemyChipAll.size(), static_cast<size_t>(2));
+
+    auto enemyChipBat = scene.FilterEntities("bat", "Enemy");
+    CHECK_EQ(enemyChipBat.size(), static_cast<size_t>(1));
+    CHECK_EQ(enemyChipBat[0]->name, std::string("Cave Bat"));
+
+    // 5. Special "Untagged" / "None" tag filter
+    auto untagged = scene.FilterEntities("", "Untagged");
+    CHECK_EQ(untagged.size(), static_cast<size_t>(1));
+    CHECK_EQ(untagged[0]->name, std::string("Background Tree"));
+}
+
 TEST_MAIN()
 

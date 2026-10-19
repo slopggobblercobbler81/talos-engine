@@ -35,7 +35,20 @@ When in **Edit Mode** (`!IsPlaying()`):
 
 ---
 
-## 4. The "First-Level Inspector" & On-Demand Component Attachment
+## 4. Scene Hierarchy Organization: Reordering, Search & Tag Filtering (`SceneTreeDock`)
+
+The left-hand **Scene Hierarchy Dock** (`editor/docks/scene_tree_dock.h`) gives immediate control over entity organization, draw-order tie-breaking, and filtering in large scenes:
+* **Live Search Box (`Find:`):** Filters the hierarchy in real time by case-insensitive substring match against both `entity.name` and `entity.tag` (`Scene::MatchesEntityFilter`). Supports explicit prefixes (`tag:enemy`, `#coin`, `name:hero`) and a one-click **`[X]`** button to clear active filters.
+* **Quick Tag Filter Bar (`Tag:`):** One-click filter chips (`All`, `Player`, `Enemy`, `Coin`, `Wall`) that combine with the text search box and display a live `shown / total` counter badge in the header when filtering is active.
+* **Hierarchy Reordering (Buttons, Drag-and-Drop & Shortcuts):**
+  - **Header & Inline Row `[^]` / `[v]` Buttons:** Move the selected entity up or down in the scene list (`Scene::MoveEntityUp` / `Scene::MoveEntityDown`) with discrete Undo/Redo snapshots.
+  - **Mouse Drag-and-Drop Reordering:** Dragging an entity row vertically inside the unfiltered Scene Hierarchy displays an insertion indicator line and drops the entity at the target index (`Scene::MoveEntityToIndex`) on mouse release.
+  - **Keyboard Shortcuts (`Alt + Up` / `Alt + Down`):** Moves the selected entity up or down in Edit Mode with Undo/Redo support.
+* **Visual Row Badges:** Each row displays a `16x16` sprite texture preview (or color swatch), a `[Tag]` badge, component capability badges (`[CAM]`, `[TRG]`, `[BOX]`/`[CIR]`), and mouse-wheel scrolling clipped cleanly above the bottom dock.
+
+---
+
+## 5. The "First-Level Inspector" & On-Demand Component Attachment
 
 To keep the Inspector clean and avoid showing inactive checkboxes for every possible capability on every object, newly created entities start with **only the fundamental `Transform 2D` component**. Optional components are attached on demand:
 

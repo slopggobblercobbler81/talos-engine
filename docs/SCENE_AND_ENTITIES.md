@@ -40,6 +40,8 @@ In Talos Engine, `Scene` stores entities in a flat, cache-friendly list and prov
 * `Scene::FindEntitiesByTag("Enemy")` — Returns all entities matching the semantic tag.
 * `Scene::FindActiveCameraEntity()` — Resolves the primary active `CameraComponent` entity in the scene.
 * `Scene::DuplicateEntity(sourceId, offsetX, offsetY)` — Clones an existing entity with all its components, assigns a new unique `EntityID` and sequential name (e.g., `"Hero"` $\rightarrow$ `"Hero_2"`), offsets its position, and resets transient runtime flags.
+* `Scene::GetEntityIndex(id)`, `Scene::MoveEntityUp(id)`, `Scene::MoveEntityDown(id)`, & `Scene::MoveEntityToIndex(id, targetIndex)` — Inspects or reorders an entity's position in the scene hierarchy (`m_entities`) while preserving tie-break draw order within the same `(sortingLayer, zOrder)` pair and persisting the updated order to `.talos` scene files.
+* `Scene::MatchesEntityFilter(entity, searchQuery, tagFilter)` & `Scene::FilterEntities(searchQuery, tagFilter)` — Performs case-insensitive substring filtering across `entity.name` and `entity.tag`, supporting explicit query prefixes (`tag:<query>`, `#<query>`, `name:<query>`) and tag filter presets (`"All"`, `"Player"`, `"Enemy"`, `"Coin"`, `"Wall"`, `"Untagged"`).
 
 Reordering entities or grouping them visually in the editor never invalidates code references.
 

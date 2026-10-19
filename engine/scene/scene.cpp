@@ -130,6 +130,62 @@ namespace Talos::Scene {
         );
     }
 
+    int Scene::GetEntityIndex(EntityID id) const {
+        if (id == 0) return -1;
+        for (size_t i = 0; i < m_entities.size(); ++i) {
+            if (m_entities[i].id == id) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+
+    bool Scene::MoveEntityUp(EntityID id) {
+        int idx = GetEntityIndex(id);
+        if (idx <= 0) {
+            return false;
+        }
+        std::swap(m_entities[static_cast<size_t>(idx)], m_entities[static_cast<size_t>(idx - 1)]);
+        return true;
+    }
+
+    bool Scene::MoveEntityDown(EntityID id) {
+        int idx = GetEntityIndex(id);
+        if (idx < 0 || static_cast<size_t>(idx + 1) >= m_entities.size()) {
+            return false;
+        }
+        std::swap(m_entities[static_cast<size_t>(idx)], m_entities[static_cast<size_t>(idx + 1)]);
+        return true;
+    }
+
+    bool Scene::MoveEntityToIndex(EntityID id, size_t targetIndex) {
+        if (m_entities.size() <= 1) {
+            return false;
+        }
+        int curIdx = GetEntityIndex(id);
+        if (curIdx < 0) {
+            return false;
+        }
+        size_t clampedTarget = std::min(targetIndex, m_entities.size() - 1);
+        size_t fromIdx = static_cast<size_t>(curIdx);
+        if (fromIdx == clampedTarget) {
+            return false;
+        }
+
+        Entity moving = std::move(m_entities[fromIdx]);
+        if (fromIdx < clampedTarget) {
+            for (size_t i = fromIdx; i < clampedTarget; ++i) {
+                m_entities[i] = std::move(m_entities[i + 1]);
+            }
+        } else {
+            for (size_t i = fromIdx; i > clampedTarget; --i) {
+                m_entities[i] = std::move(m_entities[i - 1]);
+            }
+        }
+        m_entities[clampedTarget] = std::move(moving);
+        return true;
+    }
+
     void Scene::Clear() {
         m_entities.clear();
         m_nextId = 1;
@@ -271,6 +327,102 @@ namespace Talos::Scene {
             }
         }
         return matches;
+    }
+
+    namespace {
+
+        std::string ToLowerAscii(const std::string& str) {
+            std::string out = str;
+            for (char& c : out) {
+                if (c >= 'A' && c <= 'Z') {
+                    c = static_cast<char>(c - 'A' + 'a');
+                }
+            }
+            return out;
+        }
+
+        std::string TrimAscii(const std::string& str) {
+            size_t start = 0;
+            while (start < str.size() && (str[start] == ' ' || str[start] == '\t' || str[start] == '\r' || str[start] == '\n')) {
+                ++start;
+            }
+            size_t end = str.size();
+            while (end > start && (str[end - 1] == ' ' || str[end - 1] == '\t' || str[end - 1] == '\r' || str[end - 1] == '\n')) {
+                --end;
+            }
+            return str.substr(start, end - start);
+        }
+
+    } // anonymous namespace
+
+    bool Scene::MatchesEntityFilter(const Entity& entity,
+                                    const std::string& searchQuery,
+                                    const std::string& tagFilter) {
+        // 1. Optional exact category tag filter
+        std::string trimmedTagFilter = TrimAscii(tagFilter);
+        if (!trimmedTagFilter.empty()) {
+            std::string lowerFilter = ToLowerAscii(trimmedTagFilter);
+            if (lowerFilter == "untagged" || lowerFilter == "none") {
+                if (!entity.tag.empty()) {
+                    return false;
+                }
+            } else if (lowerFilter != "all") {
+                if (ToLowerAscii(entity.tag) != lowerFilter) {
+                    return false;
+                }
+            }
+        }
+
+        // 2. Optional text search query (matches name or tag; supports tag:, #, name: prefixes)
+        std::string trimmedQuery = TrimAscii(searchQuery);
+        if (trimmedQuery.empty()) {
+            return true;
+        }
+
+        std::string lowerQuery = ToLowerAscii(trimmedQuery);
+        std::string lowerName  = ToLowerAscii(entity.name);
+        std::string lowerTag   = ToLowerAscii(entity.tag);
+
+        if (lowerQuery.rfind("tag:", 0) == 0) {
+            std::string tagTerm = TrimAscii(lowerQuery.substr(4));
+            if (tagTerm.empty()) return true;
+            return lowerTag.find(tagTerm) != std::string::npos;
+        }
+        if (!lowerQuery.empty() && lowerQuery[0] == '#') {
+            std::string tagTerm = TrimAscii(lowerQuery.substr(1));
+            if (tagTerm.empty()) return true;
+            return lowerTag.find(tagTerm) != std::string::npos;
+        }
+        if (lowerQuery.rfind("name:", 0) == 0) {
+            std::string nameTerm = TrimAscii(lowerQuery.substr(5));
+            if (nameTerm.empty()) return true;
+            return lowerName.find(nameTerm) != std::string::npos;
+        }
+
+        return (lowerName.find(lowerQuery) != std::string::npos) ||
+               (lowerTag.find(lowerQuery) != std::string::npos);
+    }
+
+    std::vector<Entity*> Scene::FilterEntities(const std::string& searchQuery,
+                                               const std::string& tagFilter) {
+        std::vector<Entity*> result;
+        for (auto& entity : m_entities) {
+            if (MatchesEntityFilter(entity, searchQuery, tagFilter)) {
+                result.push_back(&entity);
+            }
+        }
+        return result;
+    }
+
+    std::vector<const Entity*> Scene::FilterEntities(const std::string& searchQuery,
+                                                     const std::string& tagFilter) const {
+        std::vector<const Entity*> result;
+        for (const auto& entity : m_entities) {
+            if (MatchesEntityFilter(entity, searchQuery, tagFilter)) {
+                result.push_back(&entity);
+            }
+        }
+        return result;
     }
 
     Entity* Scene::FindEntityById(EntityID id) {

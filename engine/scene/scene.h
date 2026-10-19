@@ -118,6 +118,21 @@ namespace Talos::Scene {
         // Removes an entity matching the given ID from the scene container.
         void RemoveEntity(EntityID id);
 
+        // Returns the 0-based index of the entity in the scene hierarchy list, or -1 if not found.
+        int GetEntityIndex(EntityID id) const;
+
+        // Moves the entity with 'id' one position earlier (up) in the scene hierarchy list.
+        // Returns true if the entity order changed, or false if not found or already at index 0.
+        bool MoveEntityUp(EntityID id);
+
+        // Moves the entity with 'id' one position later (down) in the scene hierarchy list.
+        // Returns true if the entity order changed, or false if not found or already at the end.
+        bool MoveEntityDown(EntityID id);
+
+        // Moves the entity with 'id' to 'targetIndex' (clamped to valid bounds), shifting
+        // intermediate entities while preserving their relative order. Returns true if moved.
+        bool MoveEntityToIndex(EntityID id, size_t targetIndex);
+
         // Removes all entities from the scene and resets the ID counter to 1.
         // Used prior to loading a scene file from disk.
         void Clear();
@@ -165,6 +180,19 @@ namespace Talos::Scene {
         const Entity* FindEntityByTag(const std::string& tag) const;
         std::vector<Entity*> FindEntitiesByTag(const std::string& tag);
         std::vector<const Entity*> FindEntitiesByTag(const std::string& tag) const;
+
+        // Returns true if 'entity' matches both 'tagFilter' (exact case-insensitive tag when non-empty,
+        // or untagged when "Untagged"/"None") and 'searchQuery' (case-insensitive substring match against
+        // entity name or tag; also supports 'tag:<query>', '#<query>', and 'name:<query>' prefixes).
+        static bool MatchesEntityFilter(const Entity& entity,
+                                        const std::string& searchQuery,
+                                        const std::string& tagFilter = "");
+
+        // Returns all entities in hierarchy order that match 'searchQuery' and optional 'tagFilter'.
+        std::vector<Entity*> FilterEntities(const std::string& searchQuery,
+                                            const std::string& tagFilter = "");
+        std::vector<const Entity*> FilterEntities(const std::string& searchQuery,
+                                                  const std::string& tagFilter = "") const;
 
         // Fast lookup by unique numeric identifier. Returns nullptr if not found.
         Entity* FindEntityById(EntityID id);
