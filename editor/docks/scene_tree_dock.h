@@ -22,6 +22,7 @@ namespace Talos::Editor {
         void Render(Scene::Scene& scene,
                     int windowHeight,
                     float bottomPanelHeight,
+                    std::string& inOutSceneFilePath,
                     Scene::EntityID& inOutSelectedEntityId,
                     bool isPlaying,
                     EditorGui& gui,
@@ -36,6 +37,7 @@ namespace Talos::Editor {
         std::string m_searchQuery;
         std::string m_tagFilter;
         float m_scrollOffset = 0.0f;
+        bool m_sceneDropdownOpen = false;
 
         // Drag-and-drop row reordering state
         Scene::EntityID m_draggingEntityId = 0;
@@ -45,4 +47,5 @@ namespace Talos::Editor {
     };
 
 }
+
 

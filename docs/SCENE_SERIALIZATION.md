@@ -171,3 +171,14 @@ transform.height = 40.00
 - **`SceneSerializer::InstantiatePrefab(scene, filePath, overrideX, overrideY, useOverridePosition)`:** Loads the `.prefab` template, resolves a conflict-free sequential name in `scene` (e.g., `"Gold Coin"`, `"Gold Coin_2"`, `"Gold Coin_3"`), optionally overrides the spawn coordinates `(transform.x, transform.y)`, assigns a fresh unique `EntityID`, and appends the instance to `scene`.
 - **`SceneSerializer::BuildPrefabPath(entityName, directory)`:** Normalizes an entity name into a clean lowercase snake_case `.prefab` path (e.g., `"Gold Coin"` $\rightarrow$ `"examples/prefabs/gold_coin.prefab"`).
 
+---
+
+## 6. Multi-Scene Discovery & Path Utilities (`SceneSerializer`)
+
+To support switching across multiple `.talsc` scenes from both code and the Visual Editor, `SceneSerializer` provides deterministic path normalization and directory discovery helpers:
+- **`SceneSerializer::NormalizeScenePath(filePath)`:** Converts backslashes to forward slashes, trims leading `./`, and ensures the `.talsc` extension is present (converting legacy `.talos` scene extensions or extensionless names like `"examples/scenes/arena"` $\rightarrow$ `"examples/scenes/arena.talsc"`). `SceneSerializer::Load` automatically records the normalized path on `scene.SetSceneFilePath(...)`.
+- **`SceneSerializer::DiscoverScenes(directory, recursive)`:** Scans `directory` (defaulting to `"examples/scenes"`) and returns a sorted, deduplicated list of normalized `.talsc` paths for UI dropdowns and scene cycling.
+- **`SceneSerializer::BuildUniqueScenePath(baseName, directory)`:** Sanitizes `baseName` into lowercase snake_case and appends an incrementing suffix (`scene_2.talsc`, `scene_3.talsc`, ...) if a file with that name already exists on disk.
+- **`ProjectSerializer::PopulateDefaultArenaScene(scene)`:** Populates a second out-of-the-box playable starter scene (`examples/scenes/arena.talsc`) with a controllable `Player`, `MainCamera`, solid walls, bounciness obstacles, and a sensor `PortalZone` to test multi-scene transitions immediately.
+
+

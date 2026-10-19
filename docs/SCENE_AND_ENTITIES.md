@@ -40,7 +40,7 @@ In Talos Engine, `Scene` stores entities in a flat, cache-friendly list and prov
 * `Scene::FindEntitiesByTag("Enemy")` — Returns all entities matching the semantic tag.
 * `Scene::FindActiveCameraEntity()` — Resolves the primary active `CameraComponent` entity in the scene.
 * `Scene::DuplicateEntity(sourceId, offsetX, offsetY)` — Clones an existing entity with all its components, assigns a new unique `EntityID` and sequential name (e.g., `"Hero"` $\rightarrow$ `"Hero_2"`), offsets its position, and resets transient runtime flags.
-* `Scene::GetEntityIndex(id)`, `Scene::MoveEntityUp(id)`, `Scene::MoveEntityDown(id)`, & `Scene::MoveEntityToIndex(id, targetIndex)` — Inspects or reorders an entity's position in the scene hierarchy (`m_entities`) while preserving tie-break draw order within the same `(sortingLayer, zOrder)` pair and persisting the updated order to `.talos` scene files.
+* `Scene::GetEntityIndex(id)`, `Scene::MoveEntityUp(id)`, `Scene::MoveEntityDown(id)`, & `Scene::MoveEntityToIndex(id, targetIndex)` — Inspects or reorders an entity's position in the scene hierarchy (`m_entities`) while preserving tie-break draw order within the same `(sortingLayer, zOrder)` pair and persisting the updated order to `.talsc` scene files.
 * `Scene::MatchesEntityFilter(entity, searchQuery, tagFilter)` & `Scene::FilterEntities(searchQuery, tagFilter)` — Performs case-insensitive substring filtering across `entity.name` and `entity.tag`, supporting explicit query prefixes (`tag:<query>`, `#<query>`, `name:<query>`) and tag filter presets (`"All"`, `"Player"`, `"Enemy"`, `"Coin"`, `"Wall"`, `"Untagged"`).
 
 Reordering entities or grouping them visually in the editor never invalidates code references.
@@ -52,6 +52,7 @@ Reordering entities or grouping them visually in the editor never invalidates co
 During each iteration of the main loop, `Scene` executes strictly separated passes:
 
 1. **`Scene::Update(float delta)`:**
+   - Marks `m_isUpdating = true` so any scene transition triggered mid-step is safely deferred until the end of the update pass.
    - Calls `Scene::UpdateAnimations(delta)` to advance frame-based sprite animations (`frameCount > 1` and `isPlaying == true`).
    - Performs semi-implicit Euler integration on all active dynamic entities with `movement.enabled` (sampling directional input if `playerControlled` is active, integrating `gravityScale`, or applying top-down linear damping).
    - Runs an iterative narrow-phase collision solver (`Physics2D::ComputeManifold` + `Physics2D::ResolveCollision`) across all active solid collider pairs (`isSolid && !isTrigger`) for `Box vs Box`, `Circle vs Circle`, and mixed `Circle vs Box`.
@@ -59,9 +60,23 @@ During each iteration of the main loop, `Scene` executes strictly separated pass
    - Evaluates non-blocking **Sensor / Trigger** overlaps (`isTrigger == true`) via `Physics2D::CheckOverlap(shapeA, shapeB)`, tracks active overlaps across frames, emits `TriggerOverlapEvent` transitions (`TriggerEventState::Enter`, `Stay`, and `Exit`) enriched with `triggerTag` and `otherTag`, dispatches `TriggerCallback` toward scripts/listeners, and supports `Scene::IsTriggerOverlapping` / `Scene::IsTriggerOverlappingWithTag`.
    - Advances all active `CameraComponent` instances (resolving fixed positions or smoothly interpolating `(currentX, currentY)` toward `targetName` after movement has settled) and records telemetry into `SceneDiagnostics::camera`.
    - Evaluates all active `AudioComponent` instances (triggering playback on `playOnStart`, re-triggering on `loop`, firing on `CollisionEventState::Enter` / `TriggerEventState::Enter` when `playOnCollision` is enabled, and live-updating `volume`, `pitch`, and `pan` via `AudioSystem`) and records telemetry into `SceneDiagnostics::audio`.
+   - Resets `m_isUpdating = false` and calls `Scene::ApplyPendingSceneChange()` if a deferred `.talsc` scene transition was requested during the frame.
 2. **`Scene::UpdateAnimations(float delta)`:**
    Advances `frameTimer` for all active entities with multi-frame sprite sheets (`frameCount > 1`, `isPlaying == true`, `fps > 0`), stepping `currentFrame` at `1.0f / fps` intervals, wrapping on `loop = true` or clamping and auto-stopping at `frameCount - 1` when `loop = false`, and synchronizing the UV sub-rectangle via `SpriteComponent::SyncFrameUV`. Also invoked by the Editor in Edit Mode for live viewport animation preview.
 3. **`Scene::Render()`:**
    Sorts active entities deterministically by `(sortingLayer, zOrder)` via `std::stable_sort` and submits enabled `SpriteComponent` (textured sprites, solid boxes, or solid circles) and `TextComponent` data to `Renderer2D`. Because `Render()` is marked `const`, it is guaranteed at compile time never to mutate game state while drawing.
+
+---
+
+## 4. Multi-Scene Management & Safe Mid-Update Transitions (`Scene::ChangeScene`)
+
+`Scene` tracks its currently loaded `.talsc` file path (`m_sceneFilePath`) and provides a complete runtime API for switching or reloading scenes from gameplay code, collision/trigger callbacks, or the Visual Editor:
+* `Scene::GetSceneFilePath()` / `Scene::SetSceneFilePath(filePath)` — Queries or updates the normalized `.talsc` path associated with the active scene.
+* `Scene::ChangeScene(filePath, deferred)` — Normalizes `filePath` via `SceneSerializer::NormalizeScenePath` (appending `.talsc` if omitted). When `deferred == false` and `Scene::Update` is not currently executing, it loads the target `.talsc` into a staging `Scene` first (so a missing/corrupt file never destroys the currently running world), stops active `AudioSystem` playback, clears collision/trigger state, swaps the loaded entities in, updates `m_sceneFilePath`, and invokes `SceneChangeCallback`.
+* **Automatic Mid-Update Deferral:** Calling `Scene::ChangeScene` or `Scene::ReloadCurrentScene` from inside a `CollisionCallback` or `TriggerCallback` during `Scene::Update(delta)` automatically queues the target path in `m_pendingScenePath` instead of mutating `m_entities` mid-iteration, and executes `Scene::ApplyPendingSceneChange()` safely at the end of `Scene::Update`.
+* `Scene::RequestSceneChange(filePath)` & `Scene::RequestSceneReload()` — Explicitly queue a deferred scene switch or reload for the end of the current frame.
+* `Scene::ReloadCurrentScene(deferred)` — Reloads the currently active `.talsc` file from disk.
+* `Scene::SetSceneChangeCallback(callback)` — Registers a listener (`void(const std::string& newScenePath)`) notified whenever a scene transition or reload completes.
+
 
 

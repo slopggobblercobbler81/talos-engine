@@ -44,8 +44,20 @@ int main() {
         if (!SceneSerializer::Load(world, resolvedStartScene)) {
             ProjectSerializer::PopulateDefaultStarterScene(world);
             SceneSerializer::Save(world, resolvedStartScene);
+            world.SetSceneFilePath(resolvedStartScene);
         }
         ProjectSerializer::SaveProject(projectConfig, nullptr, DEFAULT_PROJECT_PATH, "", true);
+    }
+
+    // Ensure a second starter scene ('examples/scenes/arena.talsc') exists out-of-the-box
+    // so multi-scene switching can be tested immediately in the Editor and Play Mode.
+    {
+        const std::string arenaPath = "examples/scenes/arena.talsc";
+        Scene checkArena;
+        if (!SceneSerializer::Load(checkArena, arenaPath)) {
+            ProjectSerializer::PopulateDefaultArenaScene(checkArena);
+            SceneSerializer::Save(checkArena, arenaPath);
+        }
     }
 
     // =========================================================================

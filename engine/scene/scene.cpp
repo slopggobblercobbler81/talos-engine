@@ -1,4 +1,5 @@
 #include "scene/scene.h"
+#include "scene/scene_serializer.h"
 #include "audio/audio_system.h"
 #include "core/input.h"
 #include "core/logger.h"
@@ -191,6 +192,76 @@ namespace Talos::Scene {
         m_nextId = 1;
         ResetTriggerState();
         ResetCollisionState();
+    }
+
+    bool Scene::ChangeScene(const std::string& filePath, bool deferred) {
+        std::string normalized = SceneSerializer::NormalizeScenePath(filePath);
+        if (normalized.empty()) {
+            TALOS_LOG_ERROR("[Scene] Cannot change scene: empty file path.");
+            return false;
+        }
+
+        // If explicitly deferred or invoked mid-frame during Scene::Update() (e.g., from a
+        // collision/trigger callback), queue the transition for the end of Update().
+        if (deferred || m_isUpdating) {
+            RequestSceneChange(normalized);
+            return true;
+        }
+
+        m_pendingScenePath.clear();
+        if (!SceneSerializer::Load(*this, normalized)) {
+            return false;
+        }
+
+        Audio::AudioSystem::StopAllSounds();
+        Audio::AudioSystem::StopAllMusic();
+        ResetTriggerState();
+        ResetCollisionState();
+
+        TALOS_LOG_INFO("[Scene] Active scene switched to '" + m_sceneFilePath + "'");
+        if (m_sceneChangeCallback) {
+            m_sceneChangeCallback(m_sceneFilePath);
+        }
+        return true;
+    }
+
+    void Scene::RequestSceneChange(const std::string& filePath) {
+        std::string normalized = SceneSerializer::NormalizeScenePath(filePath);
+        if (normalized.empty()) {
+            TALOS_LOG_WARN("[Scene] Ignored empty scene path in RequestSceneChange.");
+            return;
+        }
+        m_pendingScenePath = normalized;
+        TALOS_LOG_INFO("[Scene] Queued scene transition to '" + m_pendingScenePath + "'");
+    }
+
+    bool Scene::ReloadCurrentScene(bool deferred) {
+        if (m_sceneFilePath.empty()) {
+            TALOS_LOG_WARN("[Scene] Cannot reload current scene: no scene file path is set.");
+            return false;
+        }
+        return ChangeScene(m_sceneFilePath, deferred);
+    }
+
+    void Scene::RequestSceneReload() {
+        if (m_sceneFilePath.empty()) {
+            TALOS_LOG_WARN("[Scene] Cannot queue scene reload: no scene file path is set.");
+            return;
+        }
+        RequestSceneChange(m_sceneFilePath);
+    }
+
+    bool Scene::ApplyPendingSceneChange() {
+        if (m_pendingScenePath.empty() || m_isUpdating) {
+            return false;
+        }
+        std::string targetPath = m_pendingScenePath;
+        m_pendingScenePath.clear();
+        return ChangeScene(targetPath, false);
+    }
+
+    void Scene::SetSceneChangeCallback(SceneChangeCallback callback) {
+        m_sceneChangeCallback = std::move(callback);
     }
 
     void Scene::ResetTriggerState() {
@@ -547,6 +618,8 @@ namespace Talos::Scene {
         using namespace Talos::Core;
         using namespace Talos::Physics;
         using Clock = std::chrono::steady_clock;
+
+        m_isUpdating = true;
 
         double transformUsAccum = 0.0;
         double movementUsAccum  = 0.0;
@@ -1146,6 +1219,11 @@ namespace Talos::Scene {
             m_diagnostics.collider.cpuTimeUs +
             m_diagnostics.camera.cpuTimeUs +
             m_diagnostics.audio.cpuTimeUs;
+
+        m_isUpdating = false;
+        if (!m_pendingScenePath.empty()) {
+            ApplyPendingSceneChange();
+        }
     }
 
     void Scene::Render() const {

@@ -137,6 +137,45 @@ namespace Talos::Scene {
         // Used prior to loading a scene file from disk.
         void Clear();
 
+        // =====================================================================
+        // Multi-Scene Management & Transitions (.talsc)
+        // =====================================================================
+        // Callback invoked whenever a scene transition or reload completes.
+        using SceneChangeCallback = std::function<void(const std::string& newScenePath)>;
+
+        // Returns or updates the file path of the currently loaded .talsc scene.
+        const std::string& GetSceneFilePath() const { return m_sceneFilePath; }
+        void SetSceneFilePath(const std::string& filePath) { m_sceneFilePath = filePath; }
+
+        // Switches to another .talsc scene file.
+        // - If 'deferred' is false and Scene::Update() is not currently executing, loads the
+        //   target scene immediately (stopping active audio, resetting collision/trigger state,
+        //   and invoking the SceneChangeCallback).
+        // - If 'deferred' is true OR called from inside a collision/trigger callback during
+        //   Scene::Update(), queues the transition so it executes safely at the end of Update()
+        //   without invalidating active entity references mid-step.
+        bool ChangeScene(const std::string& filePath, bool deferred = false);
+
+        // Explicitly queues a deferred transition to 'filePath' to be executed at the end of Update().
+        void RequestSceneChange(const std::string& filePath);
+
+        // Reloads the currently active .talsc scene from disk (immediate or deferred if mid-Update).
+        bool ReloadCurrentScene(bool deferred = false);
+
+        // Queues a deferred reload of the currently active .talsc scene at the end of Update().
+        void RequestSceneReload();
+
+        // Inspects or cancels a queued deferred scene transition.
+        bool HasPendingSceneChange() const { return !m_pendingScenePath.empty(); }
+        const std::string& GetPendingScenePath() const { return m_pendingScenePath; }
+        void CancelPendingSceneChange() { m_pendingScenePath.clear(); }
+
+        // Executes any queued deferred scene transition immediately. Automatically called at the end of Update().
+        bool ApplyPendingSceneChange();
+
+        // Registers an optional listener notified whenever ChangeScene / ReloadCurrentScene completes.
+        void SetSceneChangeCallback(SceneChangeCallback callback);
+
         // Clears transient runtime collision and trigger overlap state (called on Play/Stop transitions).
         void ResetTriggerState();
         void ResetCollisionState();
@@ -276,8 +315,15 @@ namespace Talos::Scene {
         // Optional listener hook for Scripting / gameplay systems on trigger overlaps.
         TriggerCallback m_triggerCallback;
 
+        // File path of the currently loaded .talsc scene (and any queued deferred scene transition).
+        std::string m_sceneFilePath;
+        std::string m_pendingScenePath;
+        bool m_isUpdating = false;
+        SceneChangeCallback m_sceneChangeCallback;
+
         // Live per-component diagnostic metrics updated during Update() and Render().
         mutable SceneDiagnostics m_diagnostics;
     };
 
 }
+

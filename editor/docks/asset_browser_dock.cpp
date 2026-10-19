@@ -269,7 +269,10 @@ namespace Talos::Editor {
                 } else if (entry.kind == AssetEntryKind::Audio) {
                     badge = "[AUD]"; badgeColor = { 85, 195, 255, 255 };
                 } else if (entry.kind == AssetEntryKind::Scene) {
-                    badge = "[SCN]"; badgeColor = { 205, 140, 255, 255 };
+                    bool isActiveScene = (Scene::SceneSerializer::NormalizeScenePath(entry.relativePath) ==
+                                          Scene::SceneSerializer::NormalizeScenePath(inOutSceneFilePath));
+                    badge = isActiveScene ? "[ACT]" : "[SCN]";
+                    badgeColor = isActiveScene ? ColorRGBA{ 115, 240, 165, 255 } : ColorRGBA{ 205, 140, 255, 255 };
                 } else if (entry.kind == AssetEntryKind::Prefab) {
                     badge = "[PFB]"; badgeColor = { 105, 230, 195, 255 };
                 } else if (entry.kind == AssetEntryKind::Script) {
@@ -320,7 +323,7 @@ namespace Talos::Editor {
                 if (saveBtnLabel.size() > 30) {
                     saveBtnLabel = "Save Selected as Prefab";
                 }
-                if (gui.DrawButton(prevColX + 8.0f, bodyY + 86.0f, previewColW - 16.0f, 28.0f, saveBtnLabel.c_str(),
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 74.0f, previewColW - 16.0f, 26.0f, saveBtnLabel.c_str(),
                                    { 36, 108, 92, 255 }, { 50, 138, 118, 255 })) {
                     std::string prefabPath = Scene::SceneSerializer::BuildPrefabPath(selectedEntity->name);
                     if (Scene::SceneSerializer::SavePrefab(*selectedEntity, prefabPath)) {
@@ -329,6 +332,31 @@ namespace Talos::Editor {
                         outStatusMessage = "Saved Prefab -> '" + prefabPath + "'";
                     } else {
                         outStatusMessage = "Failed to save Prefab '" + prefabPath + "'";
+                    }
+                }
+            }
+            if (!isPlaying) {
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, previewColW - 16.0f, 26.0f, "+ New Scene (.talsc)",
+                                   { 76, 48, 116, 255 }, { 98, 64, 148, 255 })) {
+                    if (!inOutSceneFilePath.empty()) {
+                        Scene::SceneSerializer::Save(scene, inOutSceneFilePath);
+                    }
+                    std::string newPath = Scene::SceneSerializer::BuildUniqueScenePath("new_scene");
+                    scene.Clear();
+                    scene.SetSceneFilePath(newPath);
+                    Scene::Entity& cam = scene.CreateEntity("Main Camera");
+                    cam.tag = "Camera";
+                    cam.transform.x = 640.0f;
+                    cam.transform.y = 360.0f;
+                    cam.camera.enabled = true;
+                    cam.camera.isPrimary = true;
+                    if (Scene::SceneSerializer::Save(scene, newPath)) {
+                        inOutSceneFilePath = newPath;
+                        inOutSelectedEntityId = cam.id;
+                        undoRedo.Clear();
+                        SetCurrentDirectory("examples/scenes");
+                        SelectAsset(newPath);
+                        outStatusMessage = "Created & switched to new scene '" + newPath + "'";
                     }
                 }
             }
@@ -447,23 +475,68 @@ namespace Talos::Editor {
                                                  : "Target: (Select an entity in Scene Tree)",
                                   prevColX + 8.0f, bodyY + 114.0f, 12, { 130, 138, 156, 255 });
         } else if (sel->kind == AssetEntryKind::Scene) {
-            Renderer2D::DrawLabel(sel->name.c_str(), prevColX + 8.0f, bodyY + 8.0f, 14, { 225, 195, 255, 255 });
+            bool isActiveScene = (Scene::SceneSerializer::NormalizeScenePath(sel->relativePath) ==
+                                  Scene::SceneSerializer::NormalizeScenePath(inOutSceneFilePath));
+            std::string titleText = isActiveScene ? (sel->name + " (Active)") : sel->name;
+            Renderer2D::DrawLabel(titleText.c_str(), prevColX + 8.0f, bodyY + 8.0f, 14,
+                                  isActiveScene ? ColorRGBA{ 130, 240, 175, 255 } : ColorRGBA{ 225, 195, 255, 255 });
             float lineY = bodyY + 28.0f;
             for (const auto& line : m_textPreviewLines) {
                 Renderer2D::DrawLabel(line.c_str(), prevColX + 8.0f, lineY, 12, { 145, 152, 170, 255 });
                 lineY += 14.0f;
                 if (lineY > bodyY + 92.0f) break;
             }
-            if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, previewColW - 16.0f, 28.0f, "Open Scene in Editor",
-                               !isPlaying ? ColorRGBA{ 92, 56, 138, 255 } : ColorRGBA{ 34, 36, 44, 255 },
-                               !isPlaying ? ColorRGBA{ 118, 74, 174, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && !isPlaying) {
-                if (Scene::SceneSerializer::Load(scene, sel->relativePath)) {
-                    inOutSceneFilePath = sel->relativePath;
-                    inOutSelectedEntityId = 0;
-                    undoRedo.Clear();
-                    outStatusMessage = "Opened scene '" + sel->relativePath + "'";
-                } else {
-                    outStatusMessage = "Failed to load scene '" + sel->relativePath + "'";
+            if (!isPlaying) {
+                float halfW = (previewColW - 22.0f) * 0.5f;
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, halfW, 28.0f,
+                                   isActiveScene ? "Reload Scene" : "Open Scene",
+                                   { 92, 56, 138, 255 }, { 118, 74, 174, 255 })) {
+                    if (!isActiveScene && !inOutSceneFilePath.empty()) {
+                        Scene::SceneSerializer::Save(scene, inOutSceneFilePath);
+                    }
+                    if (scene.ChangeScene(sel->relativePath, false)) {
+                        inOutSceneFilePath = scene.GetSceneFilePath();
+                        inOutSelectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
+                        undoRedo.Clear();
+                        outStatusMessage = "Opened scene '" + inOutSceneFilePath + "'";
+                    } else {
+                        outStatusMessage = "Failed to load scene '" + sel->relativePath + "'";
+                    }
+                }
+                if (gui.DrawButton(prevColX + 14.0f + halfW, bodyY + 104.0f, halfW, 28.0f, "+ New Scene",
+                                   { 38, 106, 84, 255 }, { 52, 136, 108, 255 })) {
+                    if (!inOutSceneFilePath.empty()) {
+                        Scene::SceneSerializer::Save(scene, inOutSceneFilePath);
+                    }
+                    std::string newPath = Scene::SceneSerializer::BuildUniqueScenePath("new_scene");
+                    scene.Clear();
+                    scene.SetSceneFilePath(newPath);
+                    Scene::Entity& cam = scene.CreateEntity("Main Camera");
+                    cam.tag = "Camera";
+                    cam.transform.x = 640.0f;
+                    cam.transform.y = 360.0f;
+                    cam.camera.enabled = true;
+                    cam.camera.isPrimary = true;
+                    if (Scene::SceneSerializer::Save(scene, newPath)) {
+                        inOutSceneFilePath = newPath;
+                        inOutSelectedEntityId = cam.id;
+                        undoRedo.Clear();
+                        Refresh();
+                        SelectAsset(newPath);
+                        outStatusMessage = "Created & switched to new scene '" + newPath + "'";
+                    }
+                }
+            } else {
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, previewColW - 16.0f, 28.0f,
+                                   isActiveScene ? "Reload Scene Live (Play)" : "Switch Scene Live (Play)",
+                                   { 40, 118, 86, 255 }, { 54, 148, 108, 255 })) {
+                    if (scene.ChangeScene(sel->relativePath, false)) {
+                        inOutSceneFilePath = scene.GetSceneFilePath();
+                        inOutSelectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
+                        outStatusMessage = "Switched live to scene '" + inOutSceneFilePath + "'";
+                    } else {
+                        outStatusMessage = "Failed to switch to scene '" + sel->relativePath + "'";
+                    }
                 }
             }
         } else if (sel->kind == AssetEntryKind::Prefab) {

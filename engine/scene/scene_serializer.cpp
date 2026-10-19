@@ -301,6 +301,8 @@ namespace Talos::Scene {
             scene.AddEntity(currentEntity);
         }
 
+        scene.SetSceneFilePath(NormalizeScenePath(filePath));
+
         TALOS_LOG_INFO("Scene loaded from '" + filePath + "' (" +
                        std::to_string(scene.GetEntities().size()) + " entities)");
         return true;
@@ -493,4 +495,136 @@ namespace Talos::Scene {
         return dir + "/" + sanitized + ".prefab";
     }
 
+    std::string SceneSerializer::NormalizeScenePath(const std::string& filePath,
+                                                    const std::string& defaultDirectory) {
+        std::string trimmed = Trim(filePath);
+        if (trimmed.empty()) {
+            return "";
+        }
+
+        for (char& c : trimmed) {
+            if (c == '\\') {
+                c = '/';
+            }
+        }
+
+        std::filesystem::path pathObj(trimmed);
+        if (!pathObj.has_extension()) {
+            trimmed += ".talsc";
+            pathObj = std::filesystem::path(trimmed);
+        }
+
+        // If the exact path already exists on disk, return it normalized.
+        std::error_code ec;
+        if (std::filesystem::exists(pathObj, ec)) {
+            return trimmed;
+        }
+
+        // If only a bare filename was given (no directory separators), resolve it inside defaultDirectory.
+        if (!pathObj.has_parent_path() && !defaultDirectory.empty()) {
+            std::string dir = defaultDirectory;
+            for (char& c : dir) {
+                if (c == '\\') c = '/';
+            }
+            while (!dir.empty() && dir.back() == '/') {
+                dir.pop_back();
+            }
+            if (!dir.empty()) {
+                return dir + "/" + trimmed;
+            }
+        }
+
+        return trimmed;
+    }
+
+    std::vector<std::string> SceneSerializer::DiscoverScenes(const std::string& directory) {
+        std::vector<std::string> scenes;
+        if (directory.empty()) {
+            return scenes;
+        }
+
+        std::error_code ec;
+        std::filesystem::path dirPath(directory);
+        if (!std::filesystem::exists(dirPath, ec) || !std::filesystem::is_directory(dirPath, ec)) {
+            return scenes;
+        }
+
+        for (std::filesystem::directory_iterator it(dirPath, ec), end; it != end && !ec; it.increment(ec)) {
+            if (!it->is_regular_file(ec)) {
+                continue;
+            }
+            std::filesystem::path p = it->path();
+            std::string ext = p.extension().string();
+            for (char& c : ext) {
+                if (c >= 'A' && c <= 'Z') {
+                    c = static_cast<char>(c - 'A' + 'a');
+                }
+            }
+            if (ext == ".talsc") {
+                scenes.push_back(p.generic_string());
+            }
+        }
+
+        std::sort(scenes.begin(), scenes.end());
+        return scenes;
+    }
+
+    std::string SceneSerializer::BuildUniqueScenePath(const std::string& baseName,
+                                                      const std::string& directory) {
+        std::string sanitized;
+        sanitized.reserve(baseName.size());
+        bool lastWasUnderscore = false;
+
+        for (char c : baseName) {
+            if (c >= 'A' && c <= 'Z') {
+                sanitized.push_back(static_cast<char>(c - 'A' + 'a'));
+                lastWasUnderscore = false;
+            } else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+                sanitized.push_back(c);
+                lastWasUnderscore = false;
+            } else if (!sanitized.empty() && !lastWasUnderscore) {
+                sanitized.push_back('_');
+                lastWasUnderscore = true;
+            }
+        }
+
+        while (!sanitized.empty() && sanitized.back() == '_') {
+            sanitized.pop_back();
+        }
+        if (sanitized.empty()) {
+            sanitized = "scene";
+        }
+
+        std::string dir = directory;
+        for (char& c : dir) {
+            if (c == '\\') c = '/';
+        }
+        while (!dir.empty() && dir.back() == '/') {
+            dir.pop_back();
+        }
+
+        auto makeCandidate = [&](const std::string& stem) -> std::string {
+            if (dir.empty()) {
+                return stem + ".talsc";
+            }
+            return dir + "/" + stem + ".talsc";
+        };
+
+        std::error_code ec;
+        std::string candidate = makeCandidate(sanitized);
+        if (!std::filesystem::exists(candidate, ec)) {
+            return candidate;
+        }
+
+        int suffix = 2;
+        while (true) {
+            candidate = makeCandidate(sanitized + "_" + std::to_string(suffix));
+            if (!std::filesystem::exists(candidate, ec)) {
+                return candidate;
+            }
+            ++suffix;
+        }
+    }
+
 }
+

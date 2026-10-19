@@ -61,6 +61,9 @@ namespace Talos::Scene {
         // Populates 'outScene' with the default starter entities (TitleBanner, Player, Crate, Wall, Coin).
         static void PopulateDefaultStarterScene(Scene& outScene);
 
+        // Populates 'outScene' with a secondary starter scene ('arena.talsc') for multi-scene switching.
+        static void PopulateDefaultArenaScene(Scene& outScene);
+
         // Writes a unified 'project.talos' file ([Project], [Audio], [InputMap]) to 'filePath'.
         static bool Save(const ProjectConfig& config,
                          const std::string& filePath = "examples/project.talos");

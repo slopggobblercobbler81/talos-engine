@@ -1,4 +1,5 @@
 #include "editor/editor.h"
+#include "scene/scene_serializer.h"
 #include "audio/audio_system.h"
 #include "core/logger.h"
 #include "core/input.h"
@@ -96,6 +97,109 @@ namespace Talos::Editor {
     }
 
     // =========================================================================
+    // Multi-Scene Navigation & Creation
+    // =========================================================================
+
+    bool Editor::OpenScene(Scene::Scene& scene, const std::string& filePath, bool autoSavePrevious) {
+        std::string normalizedTarget = Scene::SceneSerializer::NormalizeScenePath(filePath);
+        if (normalizedTarget.empty()) return false;
+
+        if (!m_isPlaying && autoSavePrevious && !m_sceneFilePath.empty()) {
+            std::string normalizedCurrent = Scene::SceneSerializer::NormalizeScenePath(m_sceneFilePath);
+            if (normalizedCurrent != normalizedTarget) {
+                Scene::SceneSerializer::Save(scene, normalizedCurrent);
+            }
+        }
+
+        m_gui.CancelSliderDrag();
+        m_gui.UnfocusTextField();
+        m_viewport.CancelEntityDrag();
+
+        if (!scene.ChangeScene(normalizedTarget, false)) {
+            m_toolbar.ShowStatusMessage("Failed to open scene '" + normalizedTarget + "'", 2.0f);
+            return false;
+        }
+
+        m_sceneFilePath = scene.GetSceneFilePath();
+        m_selectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
+        if (!m_isPlaying) {
+            m_undoRedo.Clear();
+        }
+        m_toolbar.ShowStatusMessage(
+            std::string(m_isPlaying ? "Switched live to scene '" : "Opened scene '") + m_sceneFilePath + "'",
+            1.8f
+        );
+        return true;
+    }
+
+    bool Editor::CreateNewScene(Scene::Scene& scene, const std::string& baseName) {
+        if (m_isPlaying) return false;
+
+        if (m_undoRedo.HasPendingSnapshot()) {
+            m_undoRedo.CommitContinuousEdit(scene);
+        }
+        if (!m_sceneFilePath.empty()) {
+            Scene::SceneSerializer::Save(scene, m_sceneFilePath);
+        }
+
+        m_gui.CancelSliderDrag();
+        m_gui.UnfocusTextField();
+        m_viewport.CancelEntityDrag();
+
+        std::string newPath = Scene::SceneSerializer::BuildUniqueScenePath(baseName);
+        scene.Clear();
+        scene.SetSceneFilePath(newPath);
+
+        Scene::Entity& cam = scene.CreateEntity("Main Camera");
+        cam.tag = "Camera";
+        cam.transform.x = 640.0f;
+        cam.transform.y = 360.0f;
+        cam.camera.enabled = true;
+        cam.camera.isPrimary = true;
+
+        if (!Scene::SceneSerializer::Save(scene, newPath)) {
+            m_toolbar.ShowStatusMessage("Failed to create scene '" + newPath + "'", 2.0f);
+            return false;
+        }
+
+        m_sceneFilePath = newPath;
+        m_selectedEntityId = cam.id;
+        m_undoRedo.Clear();
+        m_assetBrowserDock.Refresh();
+        m_toolbar.ShowStatusMessage("Created new scene -> '" + newPath + "' [Ctrl+N]", 2.0f);
+        TALOS_LOG_INFO("Created and opened new scene '" + newPath + "'.");
+        return true;
+    }
+
+    bool Editor::CycleScene(Scene::Scene& scene, int direction) {
+        if (direction == 0) return false;
+        std::vector<std::string> scenes = Scene::SceneSerializer::DiscoverScenes("examples/scenes");
+        std::string currentNorm = Scene::SceneSerializer::NormalizeScenePath(m_sceneFilePath);
+        if (!currentNorm.empty()) {
+            bool found = false;
+            for (const auto& sp : scenes) {
+                if (sp == currentNorm) { found = true; break; }
+            }
+            if (!found) scenes.push_back(currentNorm);
+        }
+        if (scenes.size() <= 1) {
+            m_toolbar.ShowStatusMessage("Only 1 scene found in examples/scenes", 1.5f);
+            return false;
+        }
+
+        int currentIdx = 0;
+        for (int i = 0; i < static_cast<int>(scenes.size()); ++i) {
+            if (scenes[i] == currentNorm) {
+                currentIdx = i;
+                break;
+            }
+        }
+        int total = static_cast<int>(scenes.size());
+        int nextIdx = (currentIdx + (direction > 0 ? 1 : -1) + total) % total;
+        return OpenScene(scene, scenes[nextIdx], !m_isPlaying);
+    }
+
+    // =========================================================================
     // Play / Stop Simulation Mode Lifecycle
     // =========================================================================
 
@@ -107,6 +211,9 @@ namespace Talos::Editor {
         }
 
         scene.ResetTriggerState();
+        scene.CancelPendingSceneChange();
+        m_prePlaySceneFilePath = m_sceneFilePath;
+        scene.SetSceneFilePath(m_sceneFilePath);
         m_editSnapshot = scene.GetEntities();
         m_isPlaying = true;
         m_gui.CancelSliderDrag();
@@ -126,6 +233,11 @@ namespace Talos::Editor {
         Audio::AudioSystem::StopAllSounds();
         Audio::AudioSystem::StopAllMusic();
         scene.ResetTriggerState();
+        scene.CancelPendingSceneChange();
+        if (!m_prePlaySceneFilePath.empty()) {
+            m_sceneFilePath = m_prePlaySceneFilePath;
+            scene.SetSceneFilePath(m_prePlaySceneFilePath);
+        }
         scene.GetEntities() = m_editSnapshot;
         m_isPlaying = false;
         m_gui.CancelSliderDrag();
@@ -170,8 +282,15 @@ namespace Talos::Editor {
             return;
         }
 
+        bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
+                        Core::Input::IsKeyDown(Core::Key::RightControl);
+        bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
+                         Core::Input::IsKeyDown(Core::Key::RightShift);
+        bool altDown = Core::Input::IsKeyDown(Core::Key::LeftAlt) ||
+                       Core::Input::IsKeyDown(Core::Key::RightAlt);
+
         // In Play Mode, advance the live game simulation (Movement + Collisions)
-        // and allow [F3] to toggle the Diagnostic Overlay.
+        // and allow [F3] to toggle the Diagnostic Overlay or [Alt+Left/Right] to cycle scenes.
         if (m_isPlaying) {
             if (Core::Input::IsKeyPressedOnce(Core::Key::F3)) {
                 bool nowEnabled = m_diagnosticOverlay.Toggle();
@@ -180,7 +299,23 @@ namespace Talos::Editor {
                     1.5f
                 );
             }
+            if (altDown && !ctrlDown) {
+                if (Core::Input::IsKeyPressedOnce(Core::Key::Left)) {
+                    CycleScene(scene, -1);
+                } else if (Core::Input::IsKeyPressedOnce(Core::Key::Right)) {
+                    CycleScene(scene, 1);
+                }
+            }
+
+            std::string beforePath = scene.GetSceneFilePath();
             scene.Update(delta);
+            if (!scene.GetSceneFilePath().empty() && scene.GetSceneFilePath() != beforePath) {
+                m_sceneFilePath = scene.GetSceneFilePath();
+                if (m_selectedEntityId != 0 && !scene.FindEntityById(m_selectedEntityId)) {
+                    m_selectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
+                }
+                m_toolbar.ShowStatusMessage("Runtime switched scene -> '" + m_sceneFilePath + "'", 2.0f);
+            }
             return;
         }
 
@@ -190,15 +325,8 @@ namespace Talos::Editor {
             scene.UpdateAnimations(delta);
         }
 
-        // Universal Undo / Redo, Duplicate Entity & Save Project keyboard shortcuts
-        // (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+D / Ctrl+S)
-        bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
-                        Core::Input::IsKeyDown(Core::Key::RightControl);
-        bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
-                          Core::Input::IsKeyDown(Core::Key::RightShift);
-        bool altDown = Core::Input::IsKeyDown(Core::Key::LeftAlt) ||
-                       Core::Input::IsKeyDown(Core::Key::RightAlt);
-
+        // Universal Undo / Redo, Duplicate Entity, New Scene & Save Project keyboard shortcuts
+        // (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+D / Ctrl+N / Ctrl+S)
         if (ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
             while (Core::Input::GetCharPressed() > 0) {}
 
@@ -225,6 +353,13 @@ namespace Talos::Editor {
                 !m_inputMapDialog.IsOpen() &&
                 !m_toolbar.IsAudioMixerOpen()) {
                 DuplicateSelectedEntity(scene);
+                return;
+            }
+            if (Core::Input::IsKeyPressedOnce(Core::Key::N) &&
+                !m_projectDialog.IsOpen() &&
+                !m_inputMapDialog.IsOpen() &&
+                !m_toolbar.IsAudioMixerOpen()) {
+                CreateNewScene(scene);
                 return;
             }
         }
@@ -273,6 +408,18 @@ namespace Talos::Editor {
         // Block 2D viewport navigation and entity picking while a modal dialog is open
         if (m_projectDialog.IsOpen() || m_inputMapDialog.IsOpen() || m_toolbar.IsAudioMixerOpen()) {
             return;
+        }
+
+        // Multi-scene cycling via Alt+Left / Alt+Right when no text field is focused
+        if (altDown && !ctrlDown && m_gui.GetFocusedTextFieldId() == -1) {
+            if (Core::Input::IsKeyPressedOnce(Core::Key::Left)) {
+                CycleScene(scene, -1);
+                return;
+            }
+            if (Core::Input::IsKeyPressedOnce(Core::Key::Right)) {
+                CycleScene(scene, 1);
+                return;
+            }
         }
 
         // Hierarchy reordering via Alt+Up / Alt+Down when an entity is selected
@@ -385,6 +532,7 @@ namespace Talos::Editor {
         m_sceneTreeDock.Render(scene,
                                m_windowHeight,
                                consoleH,
+                               m_sceneFilePath,
                                m_selectedEntityId,
                                m_isPlaying,
                                m_gui,

@@ -19,9 +19,9 @@ One of the most frustrating bottlenecks in heavyweight engines is waiting severa
 
 Talos Engine solves this using **In-Memory Flat State Snapshotting**:
 1. **`StartPlayMode`:**
-   Because every `Entity` in `Scene` is a flat, self-contained data structure stored in a contiguous `std::vector<Entity>`, clicking **PLAY GAME** copies the entire scene state into `m_sceneSnapshot` in microseconds (`0.0001s`) and begins executing `Scene::Update(delta)` every frame.
+   Because every `Entity` in `Scene` is a flat, self-contained data structure stored in a contiguous `std::vector<Entity>`, clicking **PLAY GAME** copies the entire scene state into `m_sceneSnapshot` and records `m_prePlaySceneFilePath = m_sceneFilePath` in microseconds (`0.0001s`) before executing `Scene::Update(delta)` every frame. During Play Mode, the game or user can freely switch `.talsc` scenes via `Scene::ChangeScene`, the Scene Hierarchy switcher, or the Asset Browser.
 2. **`StopPlayMode`:**
-   Clicking **STOP GAME** immediately assigns `m_sceneSnapshot` back into the active `Scene`. Every entity instantly returns to its exact pre-Play position, color, and state with **zero loading bars**.
+   Clicking **STOP GAME** immediately restores `m_sceneSnapshot` and `m_prePlaySceneFilePath` back into the active `Scene` and `Editor`. Even if the game transitioned across multiple `.talsc` levels during Play Mode, stopping simulation returns instantly to the exact pre-Play scene and entity state with **zero loading bars**.
 
 ---
 
@@ -35,9 +35,14 @@ When in **Edit Mode** (`!IsPlaying()`):
 
 ---
 
-## 4. Scene Hierarchy Organization: Reordering, Search & Tag Filtering (`SceneTreeDock`)
+## 4. Scene Hierarchy Organization & Multi-Scene Switcher (`SceneTreeDock`)
 
-The left-hand **Scene Hierarchy Dock** (`editor/docks/scene_tree_dock.h`) gives immediate control over entity organization, draw-order tie-breaking, and filtering in large scenes:
+The left-hand **Scene Hierarchy Dock** (`editor/docks/scene_tree_dock.h`) provides an integrated **Active Scene Switcher Bar** alongside entity organization, draw-order tie-breaking, and filtering:
+* **Active Scene Switcher Bar (`[<]`, `[SCN: <name>.talsc v]`, `[>]`, `+New` / `Rld`):**
+  - Displays the currently active `.talsc` scene (highlighting `[LIVE: ...]` in green during Play Mode) and opens an overlay dropdown listing all discovered `.talsc` scenes in `examples/scenes/` (`SceneSerializer::DiscoverScenes`) for one-click switching in both Edit Mode (`Editor::OpenScene`) and live Play Mode (`Scene::ChangeScene`).
+  - **`[<]` / `[>]` Buttons & `Alt + Left` / `Alt + Right` Shortcuts:** Cycle to the previous or next `.talsc` scene in the project in both Edit Mode and Play Mode (`Editor::CycleScene`).
+  - **`+New` Button & `Ctrl + N` Shortcut (Edit Mode):** Generates a new uniquely named `.talsc` scene (`examples/scenes/scene_N.talsc`) pre-populated with a starter `MainCamera` and `Player` (`Editor::CreateNewScene`), saves it to disk, and switches the Editor to it.
+  - **`Rld` Button (Play Mode):** Hot-reloads the active `.talsc` scene live during gameplay (`Scene::ReloadCurrentScene`).
 * **Live Search Box (`Find:`):** Filters the hierarchy in real time by case-insensitive substring match against both `entity.name` and `entity.tag` (`Scene::MatchesEntityFilter`). Supports explicit prefixes (`tag:enemy`, `#coin`, `name:hero`) and a one-click **`[X]`** button to clear active filters.
 * **Quick Tag Filter Bar (`Tag:`):** One-click filter chips (`All`, `Player`, `Enemy`, `Coin`, `Wall`) that combine with the text search box and display a live `shown / total` counter badge in the header when filtering is active.
 * **Hierarchy Reordering (Buttons, Drag-and-Drop & Shortcuts):**
@@ -67,7 +72,7 @@ To keep the Inspector clean and avoid showing inactive checkboxes for every poss
 
 ---
 
-## 5. Top Toolbar, Project Workflow & Scene Serialization Integration
+## 6. Top Toolbar, Project Workflow & Scene Serialization Integration
 
 In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectDialog`) provide unified project and scene persistence controls:
 * **`Project` Button & `ProjectDialog` (`editor/dialogs/project_dialog.h`):** Opens the **Project Settings & Unified Workflow (`project.talos`)** modal window:
@@ -76,23 +81,24 @@ In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectD
   - **Initial Scene (`startScene`):** Editable relative path with quick buttons to **Use Active Editor Scene**, **Load Start Scene Now**, or **Save Active as Start Scene**.
   - **Subsystem Shortcuts:** Displays a live summary of `[Audio]` bus volumes and `[InputMap]` action count with one-click shortcuts to open the **Audio Mixer** or **Input Map** modals.
 * **`+ New Entity`, `Duplicate` (`Ctrl+D`), & `Delete` (`Delete`):** Creates a new entity at the viewport center, immediately clones the selected entity (`Scene::DuplicateEntity`) with a unique sequential name and `(16, 16)` pixel offset while selecting the clone, or deletes the selected entity—all backed by discrete Undo/Redo snapshots.
-* **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talsc` scene and displays a confirmation toast in the toolbar.
+* **`Ctrl+S` / `Ctrl+N` / `Alt+Left` / `Alt+Right` Shortcuts:** `Ctrl+S` saves `project.talos` along with the active `.talsc` scene; `Ctrl+N` creates and opens a new `.talsc` scene in `examples/scenes/`; `Alt+Left` and `Alt+Right` cycle across discovered `.talsc` scenes.
 * **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talsc` scene without restarting the executable.
 
 ---
 
-## 6. Bottom Dock Tab Switcher (`Debug Console` & `Asset Browser`)
+## 7. Bottom Dock Tab Switcher (`Debug Console` & `Asset Browser`)
 
 The bottom dock (`ConsoleDock` + `AssetBrowserDock`) hosts a two-tab header bar that lets the user switch between real-time engine diagnostics and visual project resource management:
 * **`Debug Console` Tab (`editor/docks/console_dock.h`):** Displays classified engine log messages (`[INFO]`, `[WARN]`, `[ERROR]`) with source file/line metadata, severity filter buttons, mouse-wheel scrolling, and a `Clear` button.
 * **`Asset Browser` Tab (`editor/docks/asset_browser_dock.h`):** Provides a 3-column visual explorer for project files:
   - **Header Filter Bar:** Displays the active relative directory, category filter tabs (`All`, `Textures`, `Audio`, `Prefabs`, `Scenes`, `Scripts`), and a `Refresh` button.
   - **Left Column (Folder Shortcuts):** Quick navigation buttons (`examples/`, `textures`, `audio`, `prefabs`, `scenes`, and `[.. Up Folder]`).
-  - **Center Column (Scrollable File List):** Lists subdirectories (`[DIR]`) and categorized project files (`[TEX]`, `[AUD]`, `[PFB]`, `[SCN]`, `[LUA]`, `[FILE]`) with human-readable byte sizes and mouse-wheel scrolling.
+  - **Center Column (Scrollable File List):** Lists subdirectories (`[DIR]`) and categorized project files (`[TEX]`, `[AUD]`, `[PFB]`, `[SCN]`, `[LUA]`, `[FILE]`) with human-readable byte sizes, an **`[ACT]`** badge highlighting the currently active `.talsc` scene, and mouse-wheel scrolling.
   - **Right Column (Live Preview & One-Click Assignment):**
     - **Textures (`.png`, `.bmp`, `.jpg`):** Renders a live GPU thumbnail, native pixel dimensions, and VRAM footprint, with one-click `Assign Sprite` (onto the selected entity) and `+ New Sprite` (spawns a new textured entity in the scene) actions backed by Undo/Redo.
     - **Audio (`.wav`, `.ogg`, `.mp3`):** Displays format, sample rate (`Hz`), channels, and duration (`s`), live `[Play SFX]`, `[Play Music]`, and `[Stop]` preview controls, and one-click `Assign as SFX` / `Assign as Music` buttons for the selected entity.
     - **Prefabs (`.prefab`):** Displays a live text preview of the `[Prefab]` template and a one-click **`+ Instantiate in Scene`** button (`SceneSerializer::InstantiatePrefab`) that spawns a configured copy in the active scene with Undo/Redo support, automatic selection, and `(+16, +16)` position nudging when another entity occupies the exact same spot. When no asset is selected, a quick **`Save '<name>' as Prefab`** button is also offered for the active entity.
-    - **Scenes & Scripts (`.talsc`, `.lua`):** Displays a live text preview of the file contents and a one-click `Open Scene in Editor` button for `.talsc` scene files.
+    - **Scenes & Scripts (`.talsc`, `.lua`):** Displays a live text preview of the file contents, an `ACTIVE SCENE` / `SCENE (.talsc)` status badge, **`Open Scene` / `Reload Scene`** and **`+ New Scene`** buttons in Edit Mode, and **`Switch Scene Live (Play)` / `Reload Scene Live (Play)`** buttons during Play Mode.
+
 
 

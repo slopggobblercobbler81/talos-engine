@@ -58,6 +58,11 @@ namespace Talos::Editor {
         // Clones the currently selected entity in Edit Mode with Undo/Redo support (Ctrl+D).
         bool DuplicateSelectedEntity(Scene::Scene& scene);
 
+        // Multi-scene navigation & creation from the Editor (Edit Mode and live Play Mode).
+        bool OpenScene(Scene::Scene& scene, const std::string& filePath, bool autoSavePrevious = true);
+        bool CreateNewScene(Scene::Scene& scene, const std::string& baseName = "new_scene");
+        bool CycleScene(Scene::Scene& scene, int direction);
+
     private:
         void StartPlayMode(Scene::Scene& scene);
         void StopPlayMode(Scene::Scene& scene);
@@ -70,6 +75,7 @@ namespace Talos::Editor {
 
         // Play / Stop Simulation Mode state
         bool m_isPlaying = false;
+        std::string m_prePlaySceneFilePath;
         std::vector<Scene::Entity> m_editSnapshot;
 
         // Specialized Editor Subsystem Branches

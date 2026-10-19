@@ -47,7 +47,20 @@ namespace Talos::Scene {
         // Builds a normalized file path (e.g., "examples/prefabs/gold_coin.prefab") from an entity name.
         static std::string BuildPrefabPath(const std::string& entityName,
                                            const std::string& directory = "examples/prefabs");
+
+        // Normalizes a scene path to use forward slashes, prepends 'defaultDirectory' when no
+        // folder is specified, and ensures the '.talsc' extension (e.g., "arena" -> "examples/scenes/arena.talsc").
+        static std::string NormalizeScenePath(const std::string& scenePath,
+                                              const std::string& defaultDirectory = "examples/scenes");
+
+        // Scans 'directory' recursively and returns a sorted list of all '.talsc' scene file paths.
+        static std::vector<std::string> DiscoverScenes(const std::string& directory = "examples/scenes");
+
+        // Builds a conflict-free '.talsc' scene path inside 'directory' (e.g., "examples/scenes/scene_2.talsc").
+        static std::string BuildUniqueScenePath(const std::string& baseName = "scene",
+                                                const std::string& directory = "examples/scenes");
     };
 
 }
+
 

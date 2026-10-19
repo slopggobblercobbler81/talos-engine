@@ -799,5 +799,165 @@ TEST(HierarchyFilter_SearchByNameOrTagAndPrefixFilters) {
     CHECK_EQ(untagged[0]->name, std::string("Background Tree"));
 }
 
+TEST(MultiScene_NormalizeDiscoverAndBuildUniqueScenePaths) {
+    // 1. NormalizeScenePath appends .talsc when extension is missing and normalizes slashes
+    CHECK_EQ(SceneSerializer::NormalizeScenePath("examples\\scenes\\arena"),
+             std::string("examples/scenes/arena.talsc"));
+    CHECK_EQ(SceneSerializer::NormalizeScenePath("  examples/scenes/main.talsc  "),
+             std::string("examples/scenes/main.talsc"));
+    CHECK_EQ(SceneSerializer::NormalizeScenePath(""), std::string(""));
+
+    // 2. BuildUniqueScenePath & DiscoverScenes in an isolated directory
+    std::filesystem::path multiDir = TempDir() / "multi_scenes";
+    std::error_code ec;
+    std::filesystem::remove_all(multiDir, ec);
+    std::filesystem::create_directories(multiDir, ec);
+
+    std::string dirStr = multiDir.generic_string();
+    std::string p1 = SceneSerializer::BuildUniqueScenePath("Dungeon Level", dirStr);
+    CHECK_EQ(p1, dirStr + "/dungeon_level.talsc");
+
+    Scene s1;
+    s1.CreateEntity("DungeonHero", 100.0f, 100.0f);
+    CHECK(SceneSerializer::Save(s1, p1));
+
+    // Since dungeon_level.talsc now exists on disk, next unique path must be dungeon_level_2.talsc
+    std::string p2 = SceneSerializer::BuildUniqueScenePath("Dungeon Level", dirStr);
+    CHECK_EQ(p2, dirStr + "/dungeon_level_2.talsc");
+    CHECK(SceneSerializer::Save(s1, p2));
+
+    // Create a non-scene file (.talos project and .prefab template) to verify DiscoverScenes filters only .talsc
+    {
+        std::ofstream dummyProject(multiDir / "project.talos");
+        dummyProject << "[Project]\nname = Dummy\n";
+        std::ofstream dummyPrefab(multiDir / "hero.prefab");
+        dummyPrefab << "[Entity]\nname = Hero\n";
+    }
+
+    auto discovered = SceneSerializer::DiscoverScenes(dirStr);
+    CHECK_EQ(discovered.size(), static_cast<size_t>(2));
+    if (discovered.size() == 2) {
+        CHECK_EQ(discovered[0], dirStr + "/dungeon_level.talsc");
+        CHECK_EQ(discovered[1], dirStr + "/dungeon_level_2.talsc");
+    }
+
+    std::filesystem::remove_all(multiDir, ec);
+}
+
+TEST(MultiScene_ImmediateDeferredAndMidUpdateSceneSwitching) {
+    std::filesystem::path switchDir = TempDir() / "runtime_switch";
+    std::error_code ec;
+    std::filesystem::remove_all(switchDir, ec);
+    std::filesystem::create_directories(switchDir, ec);
+
+    std::string alphaPath = (switchDir / "scene_alpha.talsc").generic_string();
+    std::string betaPath  = (switchDir / "scene_beta.talsc").generic_string();
+
+    // Prepare Scene Alpha (Overworld)
+    {
+        Scene alpha;
+        Entity& hero = alpha.CreateEntity("OverworldPlayer", 120.0f, 180.0f);
+        hero.tag = "Player";
+        alpha.CreateEntity("OverworldTree", 300.0f, 220.0f);
+        CHECK(SceneSerializer::Save(alpha, alphaPath));
+    }
+
+    // Prepare Scene Beta (Boss Arena with two overlapping trigger colliders for mid-Update callback test)
+    {
+        Scene beta;
+        Entity& runner = beta.CreateEntity("ArenaPlayer", 200.0f, 200.0f);
+        runner.tag = "Player";
+        runner.transform.width = 48.0f;
+        runner.transform.height = 48.0f;
+        runner.collider.enabled = true;
+        runner.movement.enabled = true;
+
+        Entity& portal = beta.CreateEntity("ExitPortal", 200.0f, 200.0f);
+        portal.tag = "Portal";
+        portal.transform.width = 48.0f;
+        portal.transform.height = 48.0f;
+        portal.collider.enabled = true;
+        portal.collider.isTrigger = true;
+        portal.collider.isSolid = false;
+
+        CHECK(SceneSerializer::Save(beta, betaPath));
+    }
+
+    Scene runtimeScene;
+    int callbackCount = 0;
+    std::string lastCallbackPath;
+    runtimeScene.SetSceneChangeCallback([&](const std::string& loadedPath) {
+        ++callbackCount;
+        lastCallbackPath = loadedPath;
+    });
+
+    // 1. Immediate ChangeScene (also testing automatic .talsc extension normalization)
+    std::string alphaWithoutExt = (switchDir / "scene_alpha").generic_string();
+    CHECK(runtimeScene.ChangeScene(alphaWithoutExt, false));
+    CHECK_EQ(runtimeScene.GetSceneFilePath(), alphaPath);
+    CHECK_EQ(runtimeScene.GetEntities().size(), static_cast<size_t>(2));
+    CHECK(runtimeScene.FindEntity("OverworldPlayer") != nullptr);
+    CHECK_EQ(callbackCount, 1);
+    CHECK_EQ(lastCallbackPath, alphaPath);
+
+    // 2. Failed ChangeScene preserves the currently active scene and path
+    CHECK(!runtimeScene.ChangeScene((switchDir / "missing_scene.talsc").generic_string(), false));
+    CHECK_EQ(runtimeScene.GetSceneFilePath(), alphaPath);
+    CHECK_EQ(runtimeScene.GetEntities().size(), static_cast<size_t>(2));
+    CHECK_EQ(callbackCount, 1);
+
+    // 3. ReloadCurrentScene restores modified in-memory entities from disk
+    Entity* overworldPlayer = runtimeScene.FindEntity("OverworldPlayer");
+    CHECK(overworldPlayer != nullptr);
+    if (overworldPlayer) {
+        overworldPlayer->transform.x = 999.0f;
+    }
+    CHECK(runtimeScene.ReloadCurrentScene(false));
+    overworldPlayer = runtimeScene.FindEntity("OverworldPlayer");
+    CHECK(overworldPlayer != nullptr);
+    if (overworldPlayer) {
+        CHECK_NEAR(overworldPlayer->transform.x, 120.0, 0.01);
+    }
+    CHECK_EQ(callbackCount, 2);
+
+    // 4. Deferred RequestSceneChange queues the transition until Update() or ApplyPendingSceneChange()
+    runtimeScene.RequestSceneChange(betaPath);
+    CHECK(runtimeScene.HasPendingSceneChange());
+    CHECK_EQ(runtimeScene.GetPendingScenePath(), betaPath);
+    // Still in Scene Alpha before applying:
+    CHECK(runtimeScene.FindEntity("OverworldPlayer") != nullptr);
+
+    CHECK(runtimeScene.ApplyPendingSceneChange());
+    CHECK(!runtimeScene.HasPendingSceneChange());
+    CHECK_EQ(runtimeScene.GetSceneFilePath(), betaPath);
+    CHECK(runtimeScene.FindEntity("ArenaPlayer") != nullptr);
+    CHECK(runtimeScene.FindEntity("OverworldPlayer") == nullptr);
+    CHECK_EQ(callbackCount, 3);
+
+    // 5. Mid-Update safety: calling ChangeScene inside a Trigger Enter callback during Scene::Update()
+    // must automatically defer the transition until the end of Update() and complete cleanly.
+    bool triggerFiredDuringUpdate = false;
+    runtimeScene.SetTriggerCallback([&](Entity&, Entity&, TriggerEventState state) {
+        if (state != TriggerEventState::Enter) return;
+        triggerFiredDuringUpdate = true;
+        // Calling immediate ChangeScene while m_isUpdating is true automatically queues it
+        runtimeScene.ChangeScene(alphaPath, false);
+        CHECK(runtimeScene.HasPendingSceneChange());
+        // Inside the callback (mid-Update), ArenaPlayer must still exist safely:
+        CHECK(runtimeScene.FindEntity("ArenaPlayer") != nullptr);
+    });
+
+    runtimeScene.Update(1.0f / 60.0f);
+    CHECK(triggerFiredDuringUpdate);
+    CHECK(!runtimeScene.HasPendingSceneChange());
+    CHECK_EQ(runtimeScene.GetSceneFilePath(), alphaPath);
+    CHECK(runtimeScene.FindEntity("OverworldPlayer") != nullptr);
+    CHECK(runtimeScene.FindEntity("ArenaPlayer") == nullptr);
+    CHECK_EQ(callbackCount, 4);
+
+    std::filesystem::remove_all(switchDir, ec);
+}
+
 TEST_MAIN()
+
 

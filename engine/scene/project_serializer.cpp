@@ -259,6 +259,89 @@ namespace Talos::Scene {
         coin.text.offsetY = -22.0f;
     }
 
+    void ProjectSerializer::PopulateDefaultArenaScene(Scene& outScene) {
+        outScene.Clear();
+
+        Entity& title = outScene.CreateEntity("ArenaBanner", 260.0f, 75.0f);
+        title.sprite.enabled = false;
+        title.sprite.sortingLayer = SortingLayer::Overlay;
+        title.sprite.zOrder = 20;
+        title.text.enabled = true;
+        title.text.content = "Scene 2: Training Arena (Alt+Left / Alt+Right to Switch)";
+        title.text.fontSize = 24;
+        title.text.color = { 130, 235, 190, 255 };
+
+        Entity& player = outScene.CreateEntity("Player", 240.0f, 360.0f);
+        player.tag = "Player";
+        player.transform.width = 72.0f;
+        player.transform.height = 72.0f;
+        player.sprite.enabled = true;
+        player.sprite.texturePath = "examples/assets/textures/sheet.png";
+        player.sprite.color = { 210, 245, 255, 255 };
+        player.sprite.sortingLayer = SortingLayer::Characters;
+        player.sprite.zOrder = 10;
+        player.sprite.sourceW = 64.0f;
+        player.sprite.sourceH = 64.0f;
+        player.sprite.frameCount = 4;
+        player.sprite.currentFrame = 0;
+        player.sprite.fps = 10.0f;
+        player.sprite.loop = true;
+        player.sprite.isPlaying = true;
+        player.collider.enabled = true;
+        player.collider.shape = Physics::ColliderShape::Box;
+        player.movement.enabled = true;
+        player.movement.playerControlled = true;
+        player.movement.speed = 340.0f;
+        player.movement.mass = 2.0f;
+        player.camera.enabled = true;
+        player.camera.isPrimary = true;
+        player.camera.followTarget = true;
+        player.camera.smoothFollow = true;
+        player.camera.targetName = "Player";
+        player.camera.followSpeed = 8.0f;
+        player.camera.zoom = 1.0f;
+        player.text.enabled = true;
+        player.text.content = "Player (Arena)";
+        player.text.fontSize = 18;
+        player.text.offsetY = -24.0f;
+
+        Entity& pillarTop = outScene.CreateEntity("NorthPillar", 560.0f, 200.0f);
+        pillarTop.tag = "Wall";
+        pillarTop.transform.width = 96.0f;
+        pillarTop.transform.height = 96.0f;
+        pillarTop.sprite.enabled = true;
+        pillarTop.sprite.texturePath = "examples/assets/textures/brick.png";
+        pillarTop.sprite.sortingLayer = SortingLayer::Scenery;
+        pillarTop.collider.enabled = true;
+        pillarTop.collider.isStatic = true;
+
+        Entity& pillarBottom = outScene.CreateEntity("SouthPillar", 560.0f, 460.0f);
+        pillarBottom.tag = "Wall";
+        pillarBottom.transform.width = 96.0f;
+        pillarBottom.transform.height = 96.0f;
+        pillarBottom.sprite.enabled = true;
+        pillarBottom.sprite.texturePath = "examples/assets/textures/brick.png";
+        pillarBottom.sprite.sortingLayer = SortingLayer::Scenery;
+        pillarBottom.collider.enabled = true;
+        pillarBottom.collider.isStatic = true;
+
+        Entity& prize = outScene.CreateEntity("ArenaTrophy", 800.0f, 360.0f);
+        prize.tag = "Coin";
+        prize.transform.width = 64.0f;
+        prize.transform.height = 64.0f;
+        prize.sprite.enabled = true;
+        prize.sprite.texturePath = "examples/assets/textures/coin.png";
+        prize.sprite.sortingLayer = SortingLayer::Scenery;
+        prize.sprite.zOrder = 10;
+        prize.collider.enabled = true;
+        prize.collider.shape = Physics::ColliderShape::Circle;
+        prize.collider.isTrigger = true;
+        prize.text.enabled = true;
+        prize.text.content = "Trophy";
+        prize.text.fontSize = 16;
+        prize.text.offsetY = -22.0f;
+    }
+
     bool ProjectSerializer::Save(const ProjectConfig& config, const std::string& filePath) {
         if (filePath.empty()) {
             TALOS_LOG_ERROR("ProjectSerializer::Save failed: empty file path.");
@@ -523,6 +606,7 @@ namespace Talos::Scene {
         if (!SceneSerializer::Save(outInitialScene, resolvedScenePath)) {
             return false;
         }
+        outInitialScene.SetSceneFilePath(SceneSerializer::NormalizeScenePath(resolvedScenePath));
 
         if (!Save(inOutConfig, projectFilePath)) {
             return false;
@@ -547,6 +631,7 @@ namespace Talos::Scene {
                            "' not found while opening project; generating default starter scene.");
             PopulateDefaultStarterScene(outInitialScene);
             SceneSerializer::Save(outInitialScene, resolvedScenePath);
+            outInitialScene.SetSceneFilePath(SceneSerializer::NormalizeScenePath(resolvedScenePath));
         }
 
         return true;
