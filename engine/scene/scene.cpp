@@ -19,6 +19,12 @@ namespace Talos::Scene {
     }
 
     Entity& Scene::CreateEntity(const std::string& name, float x, float y) {
+        for (const auto& existing : m_entities) {
+            if (existing.id >= m_nextId) {
+                m_nextId = existing.id + 1;
+            }
+        }
+
         Entity entity;
         entity.id = m_nextId++;
         entity.name = name;
@@ -31,6 +37,12 @@ namespace Talos::Scene {
     }
 
     Entity& Scene::AddEntity(const Entity& entity) {
+        for (const auto& existing : m_entities) {
+            if (existing.id >= m_nextId) {
+                m_nextId = existing.id + 1;
+            }
+        }
+
         Entity copy = entity;
 
         // Ensure the entity has a valid non-zero ID and keep m_nextId strictly ahead
@@ -43,6 +55,69 @@ namespace Talos::Scene {
 
         m_entities.push_back(copy);
         return m_entities.back();
+    }
+
+    Entity* Scene::DuplicateEntity(EntityID sourceId, float offsetX, float offsetY) {
+        if (sourceId == 0) return nullptr;
+        const Entity* src = FindEntityById(sourceId);
+        if (!src) return nullptr;
+
+        // Copy before mutating m_entities in case vector reallocation invalidates src.
+        Entity clone = *src;
+
+        for (const auto& existing : m_entities) {
+            if (existing.id >= m_nextId) {
+                m_nextId = existing.id + 1;
+            }
+        }
+        clone.id = m_nextId++;
+
+        // Build a unique sequential name (e.g., "Hero" -> "Hero_2", "Object_1" -> "Object_2").
+        std::string baseName = clone.name.empty() ? "Entity" : clone.name;
+        std::string stem = baseName;
+        int nextSuffix = 2;
+
+        size_t underscorePos = baseName.rfind('_');
+        if (underscorePos != std::string::npos && underscorePos > 0 && underscorePos + 1 < baseName.size()) {
+            bool allDigits = true;
+            int parsedNum = 0;
+            for (size_t i = underscorePos + 1; i < baseName.size(); ++i) {
+                char c = baseName[i];
+                if (c < '0' || c > '9') {
+                    allDigits = false;
+                    break;
+                }
+                if (parsedNum < 100000) {
+                    parsedNum = parsedNum * 10 + (c - '0');
+                }
+            }
+            if (allDigits) {
+                stem = baseName.substr(0, underscorePos);
+                nextSuffix = std::max(2, parsedNum + 1);
+            }
+        }
+
+        while (true) {
+            std::string candidate = stem + "_" + std::to_string(nextSuffix);
+            if (!FindEntity(candidate)) {
+                clone.name = candidate;
+                break;
+            }
+            ++nextSuffix;
+        }
+
+        clone.transform.x += offsetX;
+        clone.transform.y += offsetY;
+
+        // Reset transient runtime flags so the cloned entity starts cleanly in Play Mode.
+        clone.sprite.frameTimer = 0.0f;
+        clone.camera.currentX = 0.0f;
+        clone.camera.currentY = 0.0f;
+        clone.camera.runtimeInitialized = false;
+        clone.audio.runtimeStarted = false;
+
+        m_entities.push_back(clone);
+        return &m_entities.back();
     }
 
     void Scene::RemoveEntity(EntityID id) {

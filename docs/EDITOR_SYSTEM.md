@@ -62,6 +62,7 @@ In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectD
   - **General & Window Configuration:** Live-editable `Project File`, `Game Title`, and `Version` text inputs, `Width` / `Height` sliders, one-click resolution presets (`1280x720 HD`, `1600x900 HD+`, `1920x1080 FHD`, `960x540 Pixelx2`), `Target FPS` slider (`30` / `60` / `120` / `144` presets), and `Resizable` / `Fullscreen` flags.
   - **Initial Scene (`startScene`):** Editable relative path with quick buttons to **Use Active Editor Scene**, **Load Start Scene Now**, or **Save Active as Start Scene**.
   - **Subsystem Shortcuts:** Displays a live summary of `[Audio]` bus volumes and `[InputMap]` action count with one-click shortcuts to open the **Audio Mixer** or **Input Map** modals.
+* **`+ New Entity`, `Duplicate` (`Ctrl+D`), & `Delete` (`Delete`):** Creates a new entity at the viewport center, immediately clones the selected entity (`Scene::DuplicateEntity`) with a unique sequential name and `(16, 16)` pixel offset while selecting the clone, or deletes the selected entity—all backed by discrete Undo/Redo snapshots.
 * **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talos` scene and displays a confirmation toast in the toolbar.
 * **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talos` scene without restarting the executable.
 

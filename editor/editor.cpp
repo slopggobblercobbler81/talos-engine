@@ -57,6 +57,43 @@ namespace Talos::Editor {
         }
     }
 
+    bool Editor::DuplicateSelectedEntity(Scene::Scene& scene) {
+        if (m_isPlaying) return false;
+
+        const Scene::Entity* source = (m_selectedEntityId != 0) ? scene.FindEntityById(m_selectedEntityId) : nullptr;
+        if (!source) {
+            m_toolbar.ShowStatusMessage("No entity selected to duplicate", 1.2f);
+            return false;
+        }
+
+        if (m_undoRedo.HasPendingSnapshot()) {
+            m_undoRedo.CommitContinuousEdit(scene);
+        }
+
+        m_gui.CancelSliderDrag();
+        m_gui.UnfocusTextField();
+        m_viewport.CancelEntityDrag();
+
+        std::string sourceName = source->name;
+        m_undoRedo.PushUndoState(
+            scene,
+            m_selectedEntityId,
+            m_gui.GetTextCursorPos(),
+            m_gui.GetTextSelectionAnchor(),
+            m_isPlaying
+        );
+
+        Scene::Entity* duplicated = scene.DuplicateEntity(m_selectedEntityId);
+        if (!duplicated) {
+            return false;
+        }
+
+        m_selectedEntityId = duplicated->id;
+        m_toolbar.ShowStatusMessage("Duplicated -> '" + duplicated->name + "' [Ctrl+D]", 1.5f);
+        TALOS_LOG_INFO("Duplicated entity '" + sourceName + "' -> '" + duplicated->name + "' (id=" + std::to_string(duplicated->id) + ").");
+        return true;
+    }
+
     // =========================================================================
     // Play / Stop Simulation Mode Lifecycle
     // =========================================================================
@@ -151,7 +188,8 @@ namespace Talos::Editor {
             scene.UpdateAnimations(delta);
         }
 
-        // Universal Undo / Redo & Save Project keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+S)
+        // Universal Undo / Redo, Duplicate Entity & Save Project keyboard shortcuts
+        // (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+D / Ctrl+S)
         bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
                         Core::Input::IsKeyDown(Core::Key::RightControl);
         bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
@@ -176,6 +214,13 @@ namespace Talos::Editor {
             }
             if (Core::Input::IsKeyPressed(Core::Key::Y)) {
                 Redo(scene);
+                return;
+            }
+            if (Core::Input::IsKeyPressedOnce(Core::Key::D) &&
+                !m_projectDialog.IsOpen() &&
+                !m_inputMapDialog.IsOpen() &&
+                !m_toolbar.IsAudioMixerOpen()) {
+                DuplicateSelectedEntity(scene);
                 return;
             }
         }

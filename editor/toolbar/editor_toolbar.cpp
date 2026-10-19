@@ -70,21 +70,21 @@ namespace Talos::Editor {
         Renderer2D::DrawLabel("v0.1", 168.0f, 16.0f, 16, { 130, 135, 150, 255 });
 
         // Instant Play / Stop Simulation Toggle Button
-        float centerBtnX = (w * 0.5f) - 196.0f;
+        float centerBtnX = isPlaying ? ((w * 0.5f) - 196.0f) : ((w * 0.5f) - 132.0f);
         if (!isPlaying) {
-            if (gui.DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "PLAY GAME",
+            if (gui.DrawButton(centerBtnX, 8.0f, 112.0f, 30.0f, "PLAY GAME",
                                { 40, 155, 85, 255 }, { 55, 185, 105, 255 })) {
                 outRequestStartPlay = true;
             }
 
             if (m_statusTimer > 0.0f) {
-                Renderer2D::DrawLabel(m_statusMessage.c_str(), centerBtnX + 132.0f, 15.0f, 16, { 95, 230, 135, 255 });
+                Renderer2D::DrawLabel(m_statusMessage.c_str(), centerBtnX + 122.0f, 15.0f, 15, { 95, 230, 135, 255 });
             } else {
                 std::string modeBanner = "PROJECT: " + projectDialog.GetConfig().name;
-                if (modeBanner.size() > 26) {
-                    modeBanner = modeBanner.substr(0, 23) + "...";
+                if (modeBanner.size() > 24) {
+                    modeBanner = modeBanner.substr(0, 21) + "...";
                 }
-                Renderer2D::DrawLabel(modeBanner.c_str(), centerBtnX + 132.0f, 15.0f, 15, { 160, 165, 180, 255 });
+                Renderer2D::DrawLabel(modeBanner.c_str(), centerBtnX + 122.0f, 15.0f, 15, { 160, 165, 180, 255 });
             }
         } else {
             if (gui.DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "STOP GAME",
@@ -116,7 +116,7 @@ namespace Talos::Editor {
 
         // Entity Management, Project Workflow, Input Map & Scene Serialization Buttons (only active in Edit Mode)
         if (!isPlaying) {
-            if (gui.DrawButton(LEFT_PANEL_WIDTH + 12.0f, 8.0f, 115.0f, 30.0f, "+ New Entity",
+            if (gui.DrawButton(LEFT_PANEL_WIDTH + 8.0f, 8.0f, 104.0f, 30.0f, "+ New Entity",
                                { 55, 115, 200, 255 }, { 75, 140, 230, 255 })) {
                 undoRedo.PushUndoState(
                     scene,
@@ -140,7 +140,29 @@ namespace Talos::Editor {
             }
 
             if (inOutSelectedEntityId != 0) {
-                if (gui.DrawButton(LEFT_PANEL_WIDTH + 136.0f, 8.0f, 85.0f, 30.0f, "Delete",
+                if (gui.DrawButton(LEFT_PANEL_WIDTH + 118.0f, 8.0f, 82.0f, 30.0f, "Duplicate",
+                                   { 46, 118, 142, 255 }, { 64, 148, 178, 255 })) {
+                    const Entity* source = scene.FindEntityById(inOutSelectedEntityId);
+                    if (source) {
+                        std::string sourceName = source->name;
+                        undoRedo.PushUndoState(
+                            scene,
+                            inOutSelectedEntityId,
+                            gui.GetTextCursorPos(),
+                            gui.GetTextSelectionAnchor(),
+                            isPlaying
+                        );
+                        gui.UnfocusTextField();
+                        Entity* duplicated = scene.DuplicateEntity(inOutSelectedEntityId);
+                        if (duplicated) {
+                            inOutSelectedEntityId = duplicated->id;
+                            ShowStatusMessage("Duplicated -> '" + duplicated->name + "' [Ctrl+D]", 1.5f);
+                            TALOS_LOG_INFO("Duplicated entity '" + sourceName + "' -> '" + duplicated->name + "' (id=" + std::to_string(duplicated->id) + ").");
+                        }
+                    }
+                }
+
+                if (gui.DrawButton(LEFT_PANEL_WIDTH + 206.0f, 8.0f, 66.0f, 30.0f, "Delete",
                                    { 140, 50, 55, 255 }, { 180, 65, 70, 255 })) {
                     undoRedo.PushUndoState(
                         scene,

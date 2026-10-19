@@ -55,6 +55,9 @@ namespace Talos::Editor {
         void Undo(Scene::Scene& scene);
         void Redo(Scene::Scene& scene);
 
+        // Clones the currently selected entity in Edit Mode with Undo/Redo support (Ctrl+D).
+        bool DuplicateSelectedEntity(Scene::Scene& scene);
+
     private:
         void StartPlayMode(Scene::Scene& scene);
         void StopPlayMode(Scene::Scene& scene);

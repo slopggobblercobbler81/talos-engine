@@ -9,7 +9,7 @@ Instead of restricting Undo/Redo to a narrow set of operations, the system captu
 2. **Text Editing:** Typing characters or pressing `Backspace` inside any Inspector text box (`Name:`, `Text:`, `Image:`).
 3. **Slider Dragging:** Adjusting numerical values (`Pos X`, `Pos Y`, `Width`, `Height`, `Rotation`, `Font Size`, `Mass`, `Bounce`).
 4. **Discrete Toggles & Presets:** Toggling checkboxes (`Sprite`, `Text`, `Physics`, `Use Gravity`, `Static Body`), picking color swatches, and selecting quick texture presets.
-5. **Hierarchy & Scene Operations:** Creating new entities (`+ Box`, `+ Text`, `+ Static`, `+ Ground`), deleting entities (`Delete Selected` or `Del` key), and loading scenes from disk (`Load`).
+5. **Hierarchy & Scene Operations:** Creating new entities (`+ New Entity`), duplicating the selected entity (`Ctrl+D` or `Duplicate` toolbar button), deleting entities (`Delete` button or `Del` key), and loading scenes from disk (`Load Scene`).
 
 ---
 

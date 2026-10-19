@@ -39,6 +39,7 @@ In Talos Engine, `Scene` stores entities in a flat, cache-friendly list and prov
 * `Scene::FindEntityByTag("Player")` — Returns the first entity matching the semantic tag.
 * `Scene::FindEntitiesByTag("Enemy")` — Returns all entities matching the semantic tag.
 * `Scene::FindActiveCameraEntity()` — Resolves the primary active `CameraComponent` entity in the scene.
+* `Scene::DuplicateEntity(sourceId, offsetX, offsetY)` — Clones an existing entity with all its components, assigns a new unique `EntityID` and sequential name (e.g., `"Hero"` $\rightarrow$ `"Hero_2"`), offsets its position, and resets transient runtime flags.
 
 Reordering entities or grouping them visually in the editor never invalidates code references.
 

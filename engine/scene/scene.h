@@ -110,6 +110,11 @@ namespace Talos::Scene {
         // and advances the internal ID counter so future entities never collide in ID.
         Entity& AddEntity(const Entity& entity);
 
+        // Clones an existing entity by ID (all components, tag, and active state), assigns a new
+        // unique EntityID and sequential name (e.g., "Hero" -> "Hero_2"), offsets its position by
+        // (offsetX, offsetY), and returns a pointer to the newly created clone (or nullptr if not found).
+        Entity* DuplicateEntity(EntityID sourceId, float offsetX = 16.0f, float offsetY = 16.0f);
+
         // Removes an entity matching the given ID from the scene container.
         void RemoveEntity(EntityID id);
 

@@ -448,4 +448,103 @@ TEST(TagsAndCollisionEvents_NotifiesScriptsWithEnterStayExitAndTagQueries) {
     CHECK_EQ(colExit, 1);
 }
 
+TEST(DuplicateEntity_ClonesComponentsAndGeneratesUniqueIdsAndNames) {
+    Scene scene;
+    Entity& orig = scene.CreateEntity("Hero", 100.0f, 200.0f);
+    orig.tag = "Player";
+    orig.active = true;
+    orig.transform.width = 48.0f;
+    orig.transform.height = 64.0f;
+    orig.sprite.enabled = true;
+    orig.sprite.texturePath = "examples/assets/textures/hero.png";
+    orig.sprite.color = { 12, 34, 56, 255 };
+    orig.sprite.sortingLayer = SortingLayer::Characters;
+    orig.sprite.zOrder = 5;
+    orig.sprite.flipX = true;
+    orig.sprite.frameCount = 4;
+    orig.sprite.currentFrame = 2;
+    orig.sprite.frameTimer = 0.75f;
+    orig.text.enabled = true;
+    orig.text.content = "Hero Label";
+    orig.text.fontSize = 20;
+    orig.collider.enabled = true;
+    orig.collider.shape = Talos::Physics::ColliderShape::Circle;
+    orig.collider.radius = 24.0f;
+    orig.collider.restitution = 0.6f;
+    orig.collider.isTrigger = true;
+    orig.movement.enabled = true;
+    orig.movement.speed = 250.0f;
+    orig.movement.mass = 2.0f;
+    orig.movement.gravityScale = 1.0f;
+    orig.camera.enabled = true;
+    orig.camera.zoom = 1.5f;
+    orig.camera.runtimeInitialized = true;
+    orig.audio.enabled = true;
+    orig.audio.audioPath = "examples/assets/audio/jump.wav";
+    orig.audio.volume = 0.8f;
+    orig.audio.runtimeStarted = true;
+
+    EntityID origId = orig.id;
+
+    // Invalid IDs return nullptr without mutating the scene
+    CHECK(scene.DuplicateEntity(0) == nullptr);
+    CHECK(scene.DuplicateEntity(999) == nullptr);
+    CHECK_EQ(scene.GetEntities().size(), static_cast<size_t>(1));
+
+    // First duplication: "Hero" -> "Hero_2" with default +16/+16 offset
+    Entity* clone1 = scene.DuplicateEntity(origId);
+    CHECK(clone1 != nullptr);
+    if (!clone1) return;
+
+    EntityID clone1Id = clone1->id;
+    CHECK(clone1Id != origId);
+    CHECK_EQ(clone1->name, std::string("Hero_2"));
+    CHECK_EQ(clone1->tag, std::string("Player"));
+    CHECK(clone1->active);
+    CHECK_NEAR(clone1->transform.x, 116.0, 0.01);
+    CHECK_NEAR(clone1->transform.y, 216.0, 0.01);
+    CHECK_NEAR(clone1->transform.width, 48.0, 0.01);
+    CHECK_NEAR(clone1->transform.height, 64.0, 0.01);
+    CHECK(clone1->sprite.enabled);
+    CHECK_EQ(clone1->sprite.texturePath, std::string("examples/assets/textures/hero.png"));
+    CHECK_EQ(static_cast<int>(clone1->sprite.color.r), 12);
+    CHECK_EQ(clone1->sprite.zOrder, 5);
+    CHECK(clone1->sprite.flipX);
+    CHECK_EQ(clone1->sprite.frameCount, 4);
+    CHECK_EQ(clone1->sprite.currentFrame, 2);
+    CHECK_NEAR(clone1->sprite.frameTimer, 0.0, 0.001);
+    CHECK(clone1->text.enabled);
+    CHECK_EQ(clone1->text.content, std::string("Hero Label"));
+    CHECK(clone1->collider.enabled);
+    CHECK(clone1->collider.shape == Talos::Physics::ColliderShape::Circle);
+    CHECK_NEAR(clone1->collider.radius, 24.0, 0.01);
+    CHECK_NEAR(clone1->collider.restitution, 0.6, 0.01);
+    CHECK(clone1->collider.isTrigger);
+    CHECK(clone1->movement.enabled);
+    CHECK_NEAR(clone1->movement.speed, 250.0, 0.01);
+    CHECK(clone1->camera.enabled);
+    CHECK_NEAR(clone1->camera.zoom, 1.5, 0.01);
+    CHECK(!clone1->camera.runtimeInitialized);
+    CHECK(clone1->audio.enabled);
+    CHECK_EQ(clone1->audio.audioPath, std::string("examples/assets/audio/jump.wav"));
+    CHECK(!clone1->audio.runtimeStarted);
+
+    // Duplicating "Hero_2" -> "Hero_3" with custom offset
+    Entity* clone2 = scene.DuplicateEntity(clone1Id, 24.0f, -10.0f);
+    CHECK(clone2 != nullptr);
+    if (!clone2) return;
+    CHECK(clone2->id != origId);
+    CHECK(clone2->id != clone1Id);
+    CHECK_EQ(clone2->name, std::string("Hero_3"));
+    CHECK_NEAR(clone2->transform.x, 140.0, 0.01);
+    CHECK_NEAR(clone2->transform.y, 206.0, 0.01);
+
+    // Duplicating original "Hero" again skips "Hero_2" and "Hero_3" -> "Hero_4"
+    Entity* clone3 = scene.DuplicateEntity(origId);
+    CHECK(clone3 != nullptr);
+    if (!clone3) return;
+    CHECK_EQ(clone3->name, std::string("Hero_4"));
+    CHECK_EQ(scene.GetEntities().size(), static_cast<size_t>(4));
+}
+
 TEST_MAIN()
