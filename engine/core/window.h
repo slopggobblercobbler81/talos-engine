@@ -28,6 +28,12 @@ namespace Talos::Core {
         // Multiplying movement velocities by this value guarantees frame-rate
         // independent simulation speed across different hardware.
         static float GetDeltaTime();
+
+        // Updates the native OS window title bar text (no-op if window is not open).
+        static void SetTitle(const char* title);
+
+        // Updates the target frame rate cap at runtime (no-op if window is not open).
+        static void SetTargetFrameRate(int fps);
     };
 
 }

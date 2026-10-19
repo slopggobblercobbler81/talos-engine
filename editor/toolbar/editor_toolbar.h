@@ -6,6 +6,7 @@
 #include "editor/gui/editor_gui.h"
 #include "editor/history/editor_undo_redo.h"
 #include "editor/dialogs/input_map_dialog.h"
+#include "editor/dialogs/project_dialog.h"
 
 namespace Talos::Editor {
 
@@ -13,8 +14,8 @@ namespace Talos::Editor {
     // Top Editor Toolbar (Layer 5: Editor -> Toolbar Branch)
     // =========================================================================
     // Renders the top command bar (Play/Stop simulation toggle, temporary status
-    // notification banner, + New Entity, Delete, Input Map, Save Scene, Load Scene),
-    // analogous to Godot's EditorTitleBar / EditorRunBar.
+    // notification banner, + New Entity, Delete, Project, Audio Mix, Input Map,
+    // Save Scene, Load Scene), analogous to Godot's EditorTitleBar / EditorRunBar.
     class EditorToolbar {
     public:
         // Displays a temporary notification message in the Top Toolbar.
@@ -35,13 +36,19 @@ namespace Talos::Editor {
                     const Renderer::Camera2DView& camera,
                     EditorGui& gui,
                     EditorUndoRedo& undoRedo,
+                    ProjectDialog& projectDialog,
                     InputMapDialog& inputMapDialog,
                     bool& outRequestStartPlay,
                     bool& outRequestStopPlay);
 
         bool IsAudioMixerOpen() const { return m_audioMixerOpen; }
+        void OpenAudioMixer(EditorGui& gui);
         void CloseAudioMixer(EditorGui& gui);
-        void RenderAudioMixerModal(int windowWidth, int windowHeight, float consoleHeight, EditorGui& gui);
+        void RenderAudioMixerModal(int windowWidth,
+                                   int windowHeight,
+                                   float consoleHeight,
+                                   EditorGui& gui,
+                                   ProjectDialog& projectDialog);
 
     private:
         int m_newEntityCounter = 1;

@@ -12,6 +12,7 @@
 #include "editor/docks/inspector_dock.h"
 #include "editor/docks/console_dock.h"
 #include "editor/dialogs/input_map_dialog.h"
+#include "editor/dialogs/project_dialog.h"
 
 namespace Talos::Editor {
 
@@ -25,14 +26,20 @@ namespace Talos::Editor {
     //   - editor/toolbar/  : Top command bar & status banner (EditorToolbar)
     //   - editor/viewport/ : 2D Canvas Viewport (CanvasViewport) & F3 Telemetry (DiagnosticOverlay)
     //   - editor/docks/    : Scene Tree, First-Level Inspector, and Debug Console docks
-    //   - editor/dialogs/  : Project modal dialogs (InputMapDialog)
+    //   - editor/dialogs/  : Project modal dialogs (ProjectDialog, InputMapDialog)
     class Editor {
     public:
-        Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath = "examples/scenes/demo_scene.talos");
+        Editor(int windowWidth,
+               int windowHeight,
+               const std::string& sceneFilePath = "examples/scenes/demo_scene.talos",
+               const std::string& projectFilePath = "examples/project.talos");
         ~Editor() = default;
 
         void SelectEntity(Scene::EntityID id) { m_selectedEntityId = id; }
         Scene::EntityID GetSelectedEntity() const { return m_selectedEntityId; }
+
+        const std::string& GetActiveSceneFilePath() const { return m_sceneFilePath; }
+        const Scene::ProjectConfig& GetProjectConfig() const { return m_projectDialog.GetConfig(); }
 
         // Processes editor shortcuts, modal key listening, text editing, and 2D viewport navigation.
         void Update(Scene::Scene& scene, float delta);
@@ -70,6 +77,7 @@ namespace Talos::Editor {
         SceneTreeDock     m_sceneTreeDock;
         InspectorDock     m_inspectorDock;
         ConsoleDock       m_consoleDock;
+        ProjectDialog     m_projectDialog;
         InputMapDialog    m_inputMapDialog;
     };
 

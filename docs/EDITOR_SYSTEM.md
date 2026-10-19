@@ -53,8 +53,14 @@ To keep the Inspector clean and avoid showing inactive checkboxes for every poss
 
 ---
 
-## 5. Top Toolbar & Scene Serialization Integration
+## 5. Top Toolbar, Project Workflow & Scene Serialization Integration
 
-In **Edit Mode**, the Top Toolbar provides one-click persistence controls on the right side of the viewport bar:
-* **`Save Scene`:** Invokes `Scene::SceneSerializer::Save` to write the active scene to disk in the human-readable `.talos` format (`scenes/main.talos`) and displays a temporary confirmation badge (`Saved -> scenes/main.talos`) in the toolbar.
-* **`Load Scene`:** Invokes `Scene::SceneSerializer::Load` to hot-reload the saved `.talos` scene from disk into the active editor session without restarting the executable.
+In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectDialog`) provide unified project and scene persistence controls:
+* **`Project` Button & `ProjectDialog` (`editor/dialogs/project_dialog.h`):** Opens the **Project Settings & Unified Workflow (`project.talos`)** modal window:
+  - **Workflow Bar (`New Project`, `Open Project`, `Save Project`):** Creates a fresh `project.talos` and starter scene, loads an existing `project.talos` (restoring window title, target FPS, audio bus volumes, input action bindings, and initial scene while resetting Undo/Redo history), or saves both `project.talos` and the active scene.
+  - **General & Window Configuration:** Live-editable `Project File`, `Game Title`, and `Version` text inputs, `Width` / `Height` sliders, one-click resolution presets (`1280x720 HD`, `1600x900 HD+`, `1920x1080 FHD`, `960x540 Pixelx2`), `Target FPS` slider (`30` / `60` / `120` / `144` presets), and `Resizable` / `Fullscreen` flags.
+  - **Initial Scene (`startScene`):** Editable relative path with quick buttons to **Use Active Editor Scene**, **Load Start Scene Now**, or **Save Active as Start Scene**.
+  - **Subsystem Shortcuts:** Displays a live summary of `[Audio]` bus volumes and `[InputMap]` action count with one-click shortcuts to open the **Audio Mixer** or **Input Map** modals.
+* **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talos` scene and displays a confirmation toast in the toolbar.
+* **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talos` scene without restarting the executable.
+

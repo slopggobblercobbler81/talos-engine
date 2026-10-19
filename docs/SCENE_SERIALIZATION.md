@@ -103,3 +103,43 @@ audio.pan = 0.50
 2. **Single-Pass Line Parser:** Reads the `.talos` file line by line, stripping whitespace and ignoring `#` comments.
 3. **ID Counter Synchronization (`Scene::AddEntity`):** As each parsed `[Entity]` block is committed to the `Scene`, `Scene::AddEntity` ensures that the internal `m_nextId` counter always stays strictly greater than the highest loaded `EntityID` (`m_nextId = max(m_nextId, entity.id + 1)`). This guarantees that creating new entities in the Editor after loading a file never produces duplicate IDs.
 
+---
+
+## 4. Unified Project File (`project.talos` & `ProjectSerializer`)
+
+Alongside individual scene files, `Scene::ProjectSerializer` (`engine/scene/project_serializer.h`) manages the unified project manifest (`project.talos`). It persists three deterministic flat sections:
+
+```ini
+# Talos Engine Unified Project File (v1)
+# Deterministic flat project configuration, initial scene, audio mixer, and input map
+
+[Project]
+name = Talos Starter Project
+version = 0.1.0
+windowWidth = 1280
+windowHeight = 720
+targetFps = 60
+fullscreen = 0
+resizable = 1
+startScene = examples/scenes/main.talos
+
+[Audio]
+masterVolume = 1.00
+sfxVolume = 1.00
+musicVolume = 0.85
+
+[InputMap]
+action.move_left = A,Left
+action.move_right = D,Right
+action.move_up = W,Up
+action.move_down = S,Down
+action.jump = Space,W,Up
+action.attack = J,Enter
+action.interact = E,F
+action.pause = Escape,P
+```
+
+### High-Level Project Operations
+- **`ProjectSerializer::CreateNewProject(projectFilePath, config, scene, outSceneFilePath)`:** Sanitizes the configuration, populates a starter scene (`Player`, `Ground`, and `Banner`), saves the initial `.talos` scene relative to `project.talos`, applies audio/input/window settings to the live engine, and writes `project.talos`.
+- **`ProjectSerializer::OpenProject(projectFilePath, outConfig, scene, outSceneFilePath)`:** Loads `project.talos`, applies `[Project]`, `[Audio]`, and `[InputMap]` settings to `Window`, `AudioSystem`, and `InputMap`, resolves `startScene` relative to the project root, and loads the initial scene into `Scene` (or creates a starter scene if the file does not exist yet).
+- **`ProjectSerializer::SaveProject(projectFilePath, config, scene, activeSceneFilePath)`:** Captures live audio bus volumes and input bindings from the engine, writes `project.talos`, and saves the active `Scene` to disk.

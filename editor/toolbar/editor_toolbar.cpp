@@ -28,6 +28,12 @@ namespace Talos::Editor {
         }
     }
 
+    void EditorToolbar::OpenAudioMixer(EditorGui& gui) {
+        m_audioMixerOpen = true;
+        gui.CancelSliderDrag();
+        gui.UnfocusTextField();
+    }
+
     void EditorToolbar::CloseAudioMixer(EditorGui& gui) {
         if (m_audioMixerOpen) {
             m_audioMixerOpen = false;
@@ -46,6 +52,7 @@ namespace Talos::Editor {
                                const Renderer::Camera2DView& camera,
                                EditorGui& gui,
                                EditorUndoRedo& undoRedo,
+                               ProjectDialog& projectDialog,
                                InputMapDialog& inputMapDialog,
                                bool& outRequestStartPlay,
                                bool& outRequestStopPlay) {
@@ -63,7 +70,7 @@ namespace Talos::Editor {
         Renderer2D::DrawLabel("v0.1", 168.0f, 16.0f, 16, { 130, 135, 150, 255 });
 
         // Instant Play / Stop Simulation Toggle Button
-        float centerBtnX = (w * 0.5f) - 210.0f;
+        float centerBtnX = (w * 0.5f) - 196.0f;
         if (!isPlaying) {
             if (gui.DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "PLAY GAME",
                                { 40, 155, 85, 255 }, { 55, 185, 105, 255 })) {
@@ -73,7 +80,11 @@ namespace Talos::Editor {
             if (m_statusTimer > 0.0f) {
                 Renderer2D::DrawLabel(m_statusMessage.c_str(), centerBtnX + 132.0f, 15.0f, 16, { 95, 230, 135, 255 });
             } else {
-                Renderer2D::DrawLabel("MODE: EDITOR", centerBtnX + 132.0f, 15.0f, 16, { 160, 165, 180, 255 });
+                std::string modeBanner = "PROJECT: " + projectDialog.GetConfig().name;
+                if (modeBanner.size() > 26) {
+                    modeBanner = modeBanner.substr(0, 23) + "...";
+                }
+                Renderer2D::DrawLabel(modeBanner.c_str(), centerBtnX + 132.0f, 15.0f, 15, { 160, 165, 180, 255 });
             }
         } else {
             if (gui.DrawButton(centerBtnX, 8.0f, 120.0f, 30.0f, "STOP GAME",
@@ -88,19 +99,22 @@ namespace Talos::Editor {
             );
         }
 
-        // Right-side Audio Mixer button (available in both Edit and Play Mode)
-        float rightActionsX = w - 428.0f;
-        if (gui.DrawButton(rightActionsX, 8.0f, 96.0f, 30.0f, "Audio Mix",
+        // Right-side command buttons
+        float rightActionsX = w - 514.0f;
+
+        // Audio Mixer button (available in both Edit and Play Mode)
+        if (gui.DrawButton(rightActionsX + 96.0f, 8.0f, 94.0f, 30.0f, "Audio Mix",
                            m_audioMixerOpen ? ColorRGBA{ 55, 130, 220, 255 } : ColorRGBA{ 48, 95, 145, 255 },
                            m_audioMixerOpen ? ColorRGBA{ 75, 155, 245, 255 } : ColorRGBA{ 65, 120, 180, 255 })) {
             m_audioMixerOpen = !m_audioMixerOpen;
-            if (m_audioMixerOpen && inputMapDialog.IsOpen()) {
-                inputMapDialog.Close(gui);
+            if (m_audioMixerOpen) {
+                if (inputMapDialog.IsOpen()) inputMapDialog.Close(gui);
+                if (projectDialog.IsOpen())  projectDialog.Close(gui);
             }
             gui.CancelSliderDrag();
         }
 
-        // Entity Management, Input Map & Scene Serialization Buttons (only active in Edit Mode)
+        // Entity Management, Project Workflow, Input Map & Scene Serialization Buttons (only active in Edit Mode)
         if (!isPlaying) {
             if (gui.DrawButton(LEFT_PANEL_WIDTH + 12.0f, 8.0f, 115.0f, 30.0f, "+ New Entity",
                                { 55, 115, 200, 255 }, { 75, 140, 230, 255 })) {
@@ -143,26 +157,43 @@ namespace Talos::Editor {
                 }
             }
 
+            bool projOpen = projectDialog.IsOpen();
+            if (gui.DrawButton(rightActionsX, 8.0f, 88.0f, 30.0f, "Project",
+                               projOpen ? ColorRGBA{ 55, 130, 220, 255 } : ColorRGBA{ 42, 112, 152, 255 },
+                               projOpen ? ColorRGBA{ 75, 155, 245, 255 } : ColorRGBA{ 58, 138, 185, 255 })) {
+                projectDialog.Toggle(gui);
+                if (projectDialog.IsOpen()) {
+                    m_audioMixerOpen = false;
+                    if (inputMapDialog.IsOpen()) {
+                        inputMapDialog.Close(gui);
+                    }
+                }
+            }
+
             bool mapOpen = inputMapDialog.IsOpen();
-            if (gui.DrawButton(rightActionsX + 104.0f, 8.0f, 98.0f, 30.0f, "Input Map",
+            if (gui.DrawButton(rightActionsX + 198.0f, 8.0f, 96.0f, 30.0f, "Input Map",
                                mapOpen ? ColorRGBA{ 55, 130, 220, 255 } : ColorRGBA{ 92, 68, 160, 255 },
                                mapOpen ? ColorRGBA{ 75, 155, 245, 255 } : ColorRGBA{ 115, 88, 192, 255 })) {
                 inputMapDialog.Toggle(gui);
                 if (inputMapDialog.IsOpen()) {
                     m_audioMixerOpen = false;
+                    if (projectDialog.IsOpen()) {
+                        projectDialog.Close(gui);
+                    }
                 }
             }
 
-            if (gui.DrawButton(rightActionsX + 210.0f, 8.0f, 98.0f, 30.0f, "Save Scene",
+            if (gui.DrawButton(rightActionsX + 302.0f, 8.0f, 96.0f, 30.0f, "Save Scene",
                                { 48, 125, 115, 255 }, { 65, 155, 142, 255 })) {
                 if (SceneSerializer::Save(scene, sceneFilePath)) {
+                    projectDialog.SyncSubsystemsToProjectFile();
                     ShowStatusMessage("Saved -> " + sceneFilePath);
                 } else {
                     ShowStatusMessage("Save failed!");
                 }
             }
 
-            if (gui.DrawButton(rightActionsX + 316.0f, 8.0f, 98.0f, 30.0f, "Load Scene",
+            if (gui.DrawButton(rightActionsX + 406.0f, 8.0f, 96.0f, 30.0f, "Load Scene",
                                { 70, 75, 95, 255 }, { 92, 98, 122, 255 })) {
                 undoRedo.PushUndoState(
                     scene,
@@ -181,7 +212,11 @@ namespace Talos::Editor {
         }
     }
 
-    void EditorToolbar::RenderAudioMixerModal(int windowWidth, int windowHeight, float consoleHeight, EditorGui& gui) {
+    void EditorToolbar::RenderAudioMixerModal(int windowWidth,
+                                              int windowHeight,
+                                              float consoleHeight,
+                                              EditorGui& gui,
+                                              ProjectDialog& projectDialog) {
         if (!m_audioMixerOpen) return;
 
         float w = static_cast<float>(windowWidth);
@@ -205,6 +240,7 @@ namespace Talos::Editor {
                            { 48, 85, 145, 255 }, { 64, 112, 188, 255 })) {
             AudioSystem::ResetDefaultVolumes();
             AudioSystem::SaveConfig();
+            projectDialog.SyncSubsystemsToProjectFile();
             ShowStatusMessage("Audio buses reset to 100%", 1.5f);
         }
         if (gui.DrawButton(mx + modalW - 74.0f, my + 8.0f, 60.0f, 24.0f, "Close",
@@ -217,7 +253,8 @@ namespace Talos::Editor {
         float cw = modalW - 36.0f;
         float cy = my + 50.0f;
 
-        Renderer2D::DrawLabel("Config: examples/scenes/audio_settings.talos", cx, cy, 13, { 145, 152, 170, 255 });
+        std::string configBanner = "Project File: " + projectDialog.GetProjectFilePath() + " ([Audio])";
+        Renderer2D::DrawLabel(configBanner.c_str(), cx, cy, 13, { 145, 152, 170, 255 });
         cy += 24.0f;
 
         float prevMaster = AudioSystem::GetMasterVolume();
@@ -255,6 +292,7 @@ namespace Talos::Editor {
             AudioSystem::SetSFXVolume(newSfx);
             AudioSystem::SetMusicBusVolume(newMusic);
             AudioSystem::SaveConfig();
+            projectDialog.SyncSubsystemsToProjectFile();
         }
 
         cy += 6.0f;

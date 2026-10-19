@@ -82,6 +82,10 @@ namespace Talos::Editor {
         void DrawTextInputBox(float x, float y, float w, const char* label,
                               std::string& textBuffer, int fieldId);
 
+        // Binds a non-entity string buffer (e.g. Project Dialog fields with fieldId >= 10)
+        // so UpdateFocusedTextField can edit it with full caret/selection/word-jump support.
+        void BindExternalTextField(int fieldId, std::string* buffer);
+
         // State accessors & mutators for Undo/Redo and modal coordination
         int GetFocusedTextFieldId() const { return m_focusedTextFieldId; }
         void SetFocusedTextFieldId(int id) { m_focusedTextFieldId = id; }
@@ -106,6 +110,12 @@ namespace Talos::Editor {
         void BeginContinuousIfActive();
 
     private:
+        static constexpr int MAX_EXTERNAL_TEXT_FIELDS = 8;
+        struct ExternalTextBinding {
+            int fieldId = -1;
+            std::string* buffer = nullptr;
+        };
+
         Scene::Scene* m_activeScene = nullptr;
         EditorUndoRedo* m_undoRedo = nullptr;
         Scene::EntityID m_selectedEntityId = 0;
@@ -116,6 +126,7 @@ namespace Talos::Editor {
         int m_textCursorPos = 0;
         int m_textSelectionAnchor = 0;
         bool m_isDraggingText = false;
+        ExternalTextBinding m_externalFields[MAX_EXTERNAL_TEXT_FIELDS] = {};
     };
 
 }

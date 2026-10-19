@@ -31,5 +31,6 @@ target_link_libraries(talos_audio PUBLIC talos_core PRIVATE raylib)
 talos_add_layer(talos_scene
     scene/scene.cpp
     scene/scene_serializer.cpp
+    scene/project_serializer.cpp
 )
 target_link_libraries(talos_scene PUBLIC talos_core talos_renderer talos_physics talos_audio)

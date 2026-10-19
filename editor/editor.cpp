@@ -5,12 +5,17 @@
 
 namespace Talos::Editor {
 
-    Editor::Editor(int windowWidth, int windowHeight, const std::string& sceneFilePath)
+    Editor::Editor(int windowWidth,
+                   int windowHeight,
+                   const std::string& sceneFilePath,
+                   const std::string& projectFilePath)
         : m_windowWidth(windowWidth), m_windowHeight(windowHeight), m_sceneFilePath(sceneFilePath) {
         m_inputMapDialog.Initialize("examples/scenes/input_map.talos");
         if (!Audio::AudioSystem::LoadConfig("examples/scenes/audio_settings.talos")) {
             Audio::AudioSystem::SaveConfig("examples/scenes/audio_settings.talos");
         }
+        m_projectDialog.Initialize(projectFilePath, m_sceneFilePath);
+        m_projectDialog.BindTextFields(m_gui);
         TALOS_LOG_INFO("Central Editor Orchestrator initialized (Godot-style modular tree).");
     }
 
@@ -69,6 +74,7 @@ namespace Talos::Editor {
         m_gui.CancelSliderDrag();
         m_gui.UnfocusTextField();
         m_viewport.CancelEntityDrag();
+        m_projectDialog.Close(m_gui);
         m_inputMapDialog.Close(m_gui);
         m_toolbar.CloseAudioMixer(m_gui);
 
@@ -104,6 +110,7 @@ namespace Talos::Editor {
         m_toolbar.UpdateTimer(delta);
         m_diagnosticOverlay.UpdateFrameDelta(delta);
         m_gui.SetFrameContext(&scene, &m_undoRedo, m_selectedEntityId, m_isPlaying);
+        m_projectDialog.BindTextFields(m_gui);
 
         // Release active continuous drags on mouse button release
         if (!Core::Input::IsMouseButtonDown(Core::MouseButton::Left)) {
@@ -144,7 +151,7 @@ namespace Talos::Editor {
             scene.UpdateAnimations(delta);
         }
 
-        // Universal Undo / Redo keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) in Edit Mode
+        // Universal Undo / Redo & Save Project keyboard shortcuts (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+S)
         bool ctrlDown = Core::Input::IsKeyDown(Core::Key::LeftControl) ||
                         Core::Input::IsKeyDown(Core::Key::RightControl);
         bool shiftDown = Core::Input::IsKeyDown(Core::Key::LeftShift) ||
@@ -153,6 +160,12 @@ namespace Talos::Editor {
         if (ctrlDown && !m_inputMapDialog.IsListeningForKey()) {
             while (Core::Input::GetCharPressed() > 0) {}
 
+            if (Core::Input::IsKeyPressedOnce(Core::Key::S)) {
+                std::string saveStatus;
+                m_projectDialog.SaveProject(scene, m_sceneFilePath, saveStatus);
+                m_toolbar.ShowStatusMessage(saveStatus, 2.0f);
+                return;
+            }
             if (Core::Input::IsKeyPressed(Core::Key::Z)) {
                 if (shiftDown) {
                     Redo(scene);
@@ -167,11 +180,19 @@ namespace Talos::Editor {
             }
         }
 
+        if (m_projectDialog.IsOpen() &&
+            Core::Input::IsKeyPressedOnce(Core::Key::Escape) &&
+            m_gui.GetFocusedTextFieldId() == -1) {
+            m_projectDialog.Close(m_gui);
+            return;
+        }
+
         // Modal Input Map interactive key listening takes priority over normal keyboard shortcuts
         if (m_inputMapDialog.IsOpen()) {
             std::string modalStatus;
             if (m_inputMapDialog.UpdateKeyListening(modalStatus)) {
                 if (!modalStatus.empty()) {
+                    m_projectDialog.SyncSubsystemsToProjectFile();
                     m_toolbar.ShowStatusMessage(modalStatus, 2.0f);
                 }
                 return;
@@ -182,7 +203,7 @@ namespace Talos::Editor {
             }
         }
 
-        // Process keyboard typing for any focused text field (Inspector or Input Map modal)
+        // Process keyboard typing for any focused text field (Inspector, Project dialog, or Input Map modal)
         bool enterPressedOnField4 = false;
         m_gui.UpdateFocusedTextField(scene,
                                      m_selectedEntityId,
@@ -195,12 +216,13 @@ namespace Talos::Editor {
             std::string addActionStatus;
             m_inputMapDialog.SubmitNewAction(m_gui, addActionStatus);
             if (!addActionStatus.empty()) {
+                m_projectDialog.SyncSubsystemsToProjectFile();
                 m_toolbar.ShowStatusMessage(addActionStatus, 2.0f);
             }
         }
 
         // Block 2D viewport navigation and entity picking while a modal dialog is open
-        if (m_inputMapDialog.IsOpen() || m_toolbar.IsAudioMixerOpen()) {
+        if (m_projectDialog.IsOpen() || m_inputMapDialog.IsOpen() || m_toolbar.IsAudioMixerOpen()) {
             return;
         }
 
@@ -240,6 +262,7 @@ namespace Talos::Editor {
 
     void Editor::Render(Scene::Scene& scene) {
         m_gui.SetFrameContext(&scene, &m_undoRedo, m_selectedEntityId, m_isPlaying);
+        m_projectDialog.BindTextFields(m_gui);
         float consoleH = m_consoleDock.GetPanelHeight();
 
         // 1. Central 2D Canvas Viewport (Clipped World Space: Grid + Scene + Selection Gizmos)
@@ -271,6 +294,7 @@ namespace Talos::Editor {
                          m_viewport.GetCamera(),
                          m_gui,
                          m_undoRedo,
+                         m_projectDialog,
                          m_inputMapDialog,
                          requestStartPlay,
                          requestStopPlay);
@@ -283,15 +307,48 @@ namespace Talos::Editor {
         m_consoleDock.Render(m_windowWidth, m_windowHeight, m_gui);
 
         // 4. Project Modal Dialogs (rendered on top of docks and viewport)
+        if (m_projectDialog.IsOpen()) {
+            bool requestOpenInputMap = false;
+            bool requestOpenAudioMixer = false;
+            std::string projStatus;
+            m_projectDialog.Render(scene,
+                                   m_windowWidth,
+                                   m_windowHeight,
+                                   consoleH,
+                                   m_sceneFilePath,
+                                   m_selectedEntityId,
+                                   m_gui,
+                                   m_undoRedo,
+                                   requestOpenInputMap,
+                                   requestOpenAudioMixer,
+                                   projStatus);
+            if (!projStatus.empty()) {
+                m_toolbar.ShowStatusMessage(projStatus, 2.2f);
+            }
+            if (requestOpenInputMap) {
+                m_projectDialog.Close(m_gui);
+                m_toolbar.CloseAudioMixer(m_gui);
+                if (!m_inputMapDialog.IsOpen()) {
+                    m_inputMapDialog.Toggle(m_gui);
+                }
+            } else if (requestOpenAudioMixer) {
+                m_projectDialog.Close(m_gui);
+                if (m_inputMapDialog.IsOpen()) {
+                    m_inputMapDialog.Close(m_gui);
+                }
+                m_toolbar.OpenAudioMixer(m_gui);
+            }
+        }
         if (m_inputMapDialog.IsOpen()) {
             std::string modalStatus;
             m_inputMapDialog.Render(m_windowWidth, m_windowHeight, consoleH, m_gui, modalStatus);
             if (!modalStatus.empty()) {
+                m_projectDialog.SyncSubsystemsToProjectFile();
                 m_toolbar.ShowStatusMessage(modalStatus, 2.0f);
             }
         }
         if (m_toolbar.IsAudioMixerOpen()) {
-            m_toolbar.RenderAudioMixerModal(m_windowWidth, m_windowHeight, consoleH, m_gui);
+            m_toolbar.RenderAudioMixerModal(m_windowWidth, m_windowHeight, consoleH, m_gui, m_projectDialog);
         }
     }
 

@@ -36,4 +36,16 @@ namespace Talos::Core {
         return GetFrameTime();
     }
 
+    void Window::SetTitle(const char* title) {
+        if (title && IsWindowReady()) {
+            SetWindowTitle(title);
+        }
+    }
+
+    void Window::SetTargetFrameRate(int fps) {
+        if (fps > 0 && IsWindowReady()) {
+            SetTargetFPS(fps);
+        }
+    }
+
 }

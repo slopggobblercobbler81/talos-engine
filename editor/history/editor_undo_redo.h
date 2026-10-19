@@ -61,6 +61,13 @@ namespace Talos::Editor {
 
         bool HasPendingSnapshot() const { return m_hasPendingSnapshot; }
 
+        // Clears all Undo and Redo snapshots (used when opening or creating a project).
+        void Clear() {
+            m_undoStack.clear();
+            m_redoStack.clear();
+            m_hasPendingSnapshot = false;
+        }
+
         // Value comparison helpers used by Undo/Redo and Inspector widgets
         static bool AreColorsEqual(const Renderer::ColorRGBA& a, const Renderer::ColorRGBA& b);
         static bool AreEntityListsEqual(const std::vector<Scene::Entity>& a,

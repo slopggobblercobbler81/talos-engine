@@ -34,6 +34,7 @@ add_executable(TalosEngine
     editor/docks/scene_tree_dock.cpp
     editor/docks/inspector_dock.cpp
     editor/docks/console_dock.cpp
+    editor/dialogs/project_dialog.cpp
     editor/dialogs/input_map_dialog.cpp
 )
 

@@ -62,6 +62,23 @@ namespace Talos::Editor {
     } // anonymous namespace
 
 
+    void EditorGui::BindExternalTextField(int fieldId, std::string* buffer) {
+        if (fieldId < 0) return;
+        for (int i = 0; i < MAX_EXTERNAL_TEXT_FIELDS; ++i) {
+            if (m_externalFields[i].fieldId == fieldId) {
+                m_externalFields[i].buffer = buffer;
+                return;
+            }
+        }
+        for (int i = 0; i < MAX_EXTERNAL_TEXT_FIELDS; ++i) {
+            if (m_externalFields[i].fieldId == -1) {
+                m_externalFields[i].fieldId = fieldId;
+                m_externalFields[i].buffer = buffer;
+                return;
+            }
+        }
+    }
+
     void EditorGui::UpdateFocusedTextField(Scene::Scene& scene,
                                            Scene::EntityID selectedEntityId,
                                            std::string& field4Buffer,
@@ -79,6 +96,14 @@ namespace Talos::Editor {
         if (m_focusedTextFieldId == 4) {
             targetStr = &field4Buffer;
             isEntityField = false;
+        } else if (m_focusedTextFieldId >= 10) {
+            for (int i = 0; i < MAX_EXTERNAL_TEXT_FIELDS; ++i) {
+                if (m_externalFields[i].fieldId == m_focusedTextFieldId) {
+                    targetStr = m_externalFields[i].buffer;
+                    isEntityField = false;
+                    break;
+                }
+            }
         } else if (selected) {
             if (m_focusedTextFieldId == 1) { targetStr = &selected->name; isEntityField = true; }
             if (m_focusedTextFieldId == 2) { targetStr = &selected->text.content; isEntityField = true; }
@@ -136,6 +161,8 @@ namespace Talos::Editor {
         }
 
         // 2. Printable character insertion at cursor (replaces selection if any)
+        size_t maxChars = (m_focusedTextFieldId >= 10 || m_focusedTextFieldId == 3 || m_focusedTextFieldId == 7)
+            ? 128 : 64;
         if (!ctrlDown) {
             int ch = Input::GetCharPressed();
             while (ch > 0) {
@@ -145,7 +172,7 @@ namespace Talos::Editor {
                         chToInsert = '_';
                     }
 
-                    if (hasSelection() || targetStr->size() < 64) {
+                    if (hasSelection() || targetStr->size() < maxChars) {
                         if (isEntityField) PushUndoIfActive();
                         if (hasSelection()) {
                             deleteSelection();
@@ -204,10 +231,16 @@ namespace Talos::Editor {
 
     void EditorGui::DrawTextInputBox(float x, float y, float w, const char* label,
                                      std::string& textBuffer, int fieldId) {
+        if (fieldId >= 10) {
+            BindExternalTextField(fieldId, &textBuffer);
+        }
+
         Renderer2D::DrawLabel(label, x, y + 4.0f, 14, { 185, 190, 205, 255 });
 
-        float boxX = x + 54.0f;
-        float boxW = w - 54.0f;
+        float labelWidth = static_cast<float>(Renderer2D::MeasureTextWidth(label, 14));
+        float labelOffset = std::max(54.0f, labelWidth + 10.0f);
+        float boxX = x + labelOffset;
+        float boxW = w - labelOffset;
         float boxH = 23.0f;
         float textStartX = boxX + 8.0f;
         constexpr int fontSize = 14;
@@ -248,6 +281,10 @@ namespace Talos::Editor {
         }
         if (!isFocused && textBuffer.empty() && fieldId == 5) {
             Renderer2D::DrawLabel("(Self - follows this entity)", textStartX, y + 4.0f, fontSize, { 110, 115, 130, 255 });
+            return;
+        }
+        if (!isFocused && textBuffer.empty() && fieldId >= 10) {
+            Renderer2D::DrawLabel("(click to enter value...)", textStartX, y + 4.0f, fontSize, { 110, 115, 130, 255 });
             return;
         }
 

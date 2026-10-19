@@ -1,0 +1,34 @@
+# Talos Engine Project File (v1)
+# Unified project configuration, initial scene, audio buses, and input map
+
+[Project]
+name = Talos Starter Project
+version = 0.1.0
+windowWidth = 1360
+windowHeight = 780
+targetFps = 60
+fullscreen = 0
+resizable = 1
+startScene = examples/scenes/main.talos
+
+[Audio]
+masterVolume = 1.00
+sfxVolume = 0.55
+musicVolume = 0.00
+
+[InputMap]
+move_left = A, Left
+move_right = D, Right
+move_up = W, Up
+move_down = S, Down
+jump = Space
+attack = J, Z
+interact = E, F
+sprint = LeftShift
+crouch = LeftControl, C
+dash = K, X
+reload = R
+inventory = Tab, I
+pause = Escape, P
+ui_accept = Enter, Space
+ui_cancel = Escape, Backspace
