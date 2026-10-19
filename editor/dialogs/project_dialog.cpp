@@ -281,17 +281,17 @@ namespace Talos::Editor {
         cy += 18.0f;
 
         gui.DrawTextInputBox(cx, cy, cw - 210.0f, "Start Scene:", m_config.startScene, 13);
-        bool isMainScene = (m_config.startScene == "examples/scenes/main.talos");
-        bool isDemoScene = (m_config.startScene == "examples/scenes/demo_scene.talos");
-        if (gui.DrawButton(cx + cw - 202.0f, cy, 96.0f, 23.0f, "main.talos",
+        bool isMainScene = (m_config.startScene == "examples/scenes/main.talsc");
+        bool isDemoScene = (m_config.startScene == "examples/scenes/demo_scene.talsc");
+        if (gui.DrawButton(cx + cw - 202.0f, cy, 96.0f, 23.0f, "main.talsc",
                            isMainScene ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
                            { 68, 135, 220, 255 })) {
-            m_config.startScene = "examples/scenes/main.talos";
+            m_config.startScene = "examples/scenes/main.talsc";
         }
         if (gui.DrawButton(cx + cw - 102.0f, cy, 102.0f, 23.0f, "demo_scene",
                            isDemoScene ? ColorRGBA{ 52, 115, 195, 255 } : ColorRGBA{ 40, 44, 56, 255 },
                            { 68, 135, 220, 255 })) {
-            m_config.startScene = "examples/scenes/demo_scene.talos";
+            m_config.startScene = "examples/scenes/demo_scene.talsc";
         }
         cy += 28.0f;
 

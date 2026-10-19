@@ -179,7 +179,7 @@ namespace Talos::Scene {
         float offsetX = 0.0f;           // Horizontal framing offset in world pixels
         float offsetY = 0.0f;           // Vertical framing offset in world pixels
 
-        // Transient runtime tracking state (not serialized to .talos files)
+        // Transient runtime tracking state (not serialized to .talsc / .prefab files)
         float currentX = 0.0f;
         float currentY = 0.0f;
         bool runtimeInitialized = false;
@@ -197,7 +197,7 @@ namespace Talos::Scene {
         float pitch = 1.0f;             // Playback pitch multiplier (0.25 .. 2.50, 1.00 = normal)
         float pan = 0.5f;               // Stereo pan balance (0.00 = right, 0.50 = center, 1.00 = left)
 
-        // Transient runtime state (not serialized to .talos files)
+        // Transient runtime state (not serialized to .talsc / .prefab files)
         bool runtimeStarted = false;
     };
 

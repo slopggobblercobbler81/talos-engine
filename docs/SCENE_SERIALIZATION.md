@@ -1,4 +1,4 @@
-# Scene Serialization System (`SceneSerializer` & `.talos` Format)
+# Scene Serialization System (`SceneSerializer` & `.talsc` Format)
 
 The **Scene Serialization System** sits inside the Scene & Entity Layer (Layer 3) and is responsible for persisting the world state to disk and reconstructing it on startup or on demand.
 
@@ -10,19 +10,19 @@ A frequent complaint in mainstream engines is how scene files are stored on disk
 * **Heavyweight YAML / GUID Noise:** Minor edits in complex YAML scene formats often rewrite dozens of lines or depend on opaque internal GUID references.
 * **Fragile Sub-Resource Indexing:** Deeply nested scene formats that rely on sequential sub-resource IDs and hierarchy paths break easily when two developers edit the same scene or when objects are reordered.
 
-Talos Engine solves this with the **`.talos` Flat Section Format**:
+Talos Engine solves this with the **`.talsc` Flat Section Format** (preserving `.talos` exclusively for the unified project manifest `project.talos` and engine settings):
 * Every entity is serialized as an independent, self-contained `[Entity]` block.
 * Properties are always written in a **strictly deterministic order** with two-decimal floating-point formatting (`0.00`).
 * Moving an entity in the Editor changes **only** its `transform.x` and `transform.y` lines in Git diffs, leaving the rest of the file completely untouched.
 
 ---
 
-## 2. Structure of a `.talos` Scene File
+## 2. Structure of a `.talsc` Scene File
 
 Each `[Entity]` block records the entity's identity and the state of its flat components using simple `key = value` pairs:
 
 ```ini
-# Talos Engine Scene File (v1)
+# Talos Engine Scene File (.talsc v1)
 # Human-readable, deterministic flat entity serialization
 
 [Entity]
@@ -100,14 +100,14 @@ audio.pan = 0.50
 
 ### Loading (`SceneSerializer::Load`)
 1. **Clean Slate Reset:** Calls `Scene::Clear()` to empty existing entities and reset the ID counter.
-2. **Single-Pass Line Parser:** Reads the `.talos` file line by line, stripping whitespace and ignoring `#` comments.
+2. **Single-Pass Line Parser:** Reads the `.talsc` file line by line, stripping whitespace and ignoring `#` comments.
 3. **ID Counter Synchronization (`Scene::AddEntity`):** As each parsed `[Entity]` block is committed to the `Scene`, `Scene::AddEntity` ensures that the internal `m_nextId` counter always stays strictly greater than the highest loaded `EntityID` (`m_nextId = max(m_nextId, entity.id + 1)`). This guarantees that creating new entities in the Editor after loading a file never produces duplicate IDs.
 
 ---
 
 ## 4. Unified Project File (`project.talos` & `ProjectSerializer`)
 
-Alongside individual scene files, `Scene::ProjectSerializer` (`engine/scene/project_serializer.h`) manages the unified project manifest (`project.talos`). It persists three deterministic flat sections:
+Alongside individual `.talsc` scene files, `Scene::ProjectSerializer` (`engine/scene/project_serializer.h`) manages the unified project manifest (`project.talos`). It persists three deterministic flat sections:
 
 ```ini
 # Talos Engine Unified Project File (v1)
@@ -121,7 +121,7 @@ windowHeight = 720
 targetFps = 60
 fullscreen = 0
 resizable = 1
-startScene = examples/scenes/main.talos
+startScene = examples/scenes/main.talsc
 
 [Audio]
 masterVolume = 1.00
@@ -140,15 +140,15 @@ action.pause = Escape,P
 ```
 
 ### High-Level Project Operations
-- **`ProjectSerializer::CreateNewProject(projectFilePath, config, scene, outSceneFilePath)`:** Sanitizes the configuration, populates a starter scene (`Player`, `Ground`, and `Banner`), saves the initial `.talos` scene relative to `project.talos`, applies audio/input/window settings to the live engine, and writes `project.talos`.
-- **`ProjectSerializer::OpenProject(projectFilePath, outConfig, scene, outSceneFilePath)`:** Loads `project.talos`, applies `[Project]`, `[Audio]`, and `[InputMap]` settings to `Window`, `AudioSystem`, and `InputMap`, resolves `startScene` relative to the project root, and loads the initial scene into `Scene` (or creates a starter scene if the file does not exist yet).
+- **`ProjectSerializer::CreateNewProject(projectFilePath, config, scene, outSceneFilePath)`:** Sanitizes the configuration, populates a starter scene (`Player`, `Ground`, and `Banner`), saves the initial `.talsc` scene relative to `project.talos`, applies audio/input/window settings to the live engine, and writes `project.talos`.
+- **`ProjectSerializer::OpenProject(projectFilePath, outConfig, scene, outSceneFilePath)`:** Loads `project.talos`, applies `[Project]`, `[Audio]`, and `[InputMap]` settings to `Window`, `AudioSystem`, and `InputMap`, resolves `startScene` relative to the project root, and loads the initial `.talsc` scene into `Scene` (or creates a starter scene if the file does not exist yet).
 - **`ProjectSerializer::SaveProject(projectFilePath, config, scene, activeSceneFilePath)`:** Captures live audio bus volumes and input bindings from the engine, writes `project.talos`, and saves the active `Scene` to disk.
 
 ---
 
 ## 5. Reusable Entity Templates (`.prefab` Files)
 
-`SceneSerializer` also supports saving and instantiating individual configured entities as standalone **`.prefab`** files (`examples/prefabs/*.prefab`). Both `.talos` scenes and `.prefab` templates share the exact same deterministic property writer and parser (`WriteEntityProperties` / `ParseEntityProperty`), except a `.prefab` file omits the scene-specific `id` line and uses a `[Prefab]` header block:
+`SceneSerializer` also supports saving and instantiating individual configured entities as standalone **`.prefab`** files (`examples/prefabs/*.prefab`). Both `.talsc` scenes and `.prefab` templates share the exact same deterministic property writer and parser (`WriteEntityProperties` / `ParseEntityProperty`), except a `.prefab` file omits the scene-specific `id` line and uses a `[Prefab]` header block:
 
 ```ini
 # Talos Engine Prefab File (v1)

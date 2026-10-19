@@ -70,7 +70,7 @@ TEST(RoundTrip_PreservesEntityData) {
     e.audio.pitch = 1.25f;
     e.audio.pan = 0.25f;
 
-    std::string path = (TempDir() / "roundtrip.talos").string();
+    std::string path = (TempDir() / "roundtrip.talsc").string();
     CHECK(SceneSerializer::Save(original, path));
 
     Scene loaded;
@@ -125,7 +125,7 @@ TEST(RoundTrip_PreservesEntityOrderAndIds) {
     original.CreateEntity("B");
     original.CreateEntity("C");
 
-    std::string path = (TempDir() / "order.talos").string();
+    std::string path = (TempDir() / "order.talsc").string();
     CHECK(SceneSerializer::Save(original, path));
 
     Scene loaded;
@@ -140,7 +140,7 @@ TEST(RoundTrip_PreservesEntityOrderAndIds) {
 TEST(Load_ReplacesPreviousSceneContents) {
     Scene source;
     source.CreateEntity("Only");
-    std::string path = (TempDir() / "replace.talos").string();
+    std::string path = (TempDir() / "replace.talsc").string();
     CHECK(SceneSerializer::Save(source, path));
 
     Scene target;
@@ -156,7 +156,7 @@ TEST(Load_NewEntitiesGetIdsAboveLoadedOnes) {
     Scene source;
     source.CreateEntity("A");
     source.CreateEntity("B");
-    std::string path = (TempDir() / "ids.talos").string();
+    std::string path = (TempDir() / "ids.talsc").string();
     CHECK(SceneSerializer::Save(source, path));
 
     Scene loaded;
@@ -171,11 +171,11 @@ TEST(Load_NewEntitiesGetIdsAboveLoadedOnes) {
 
 TEST(Load_MissingFileReturnsFalse) {
     Scene scene;
-    CHECK(!SceneSerializer::Load(scene, (TempDir() / "does_not_exist.talos").string()));
+    CHECK(!SceneSerializer::Load(scene, (TempDir() / "does_not_exist.talsc").string()));
 }
 
 TEST(Load_ClampsOutOfRangeValues) {
-    std::string path = (TempDir() / "clamp.talos").string();
+    std::string path = (TempDir() / "clamp.talsc").string();
     WriteText(path,
         "[Entity]\n"
         "id = 1\n"
@@ -207,7 +207,7 @@ TEST(Load_ClampsOutOfRangeValues) {
 }
 
 TEST(Load_ToleratesCommentsBlankLinesAndUnknownKeys) {
-    std::string path = (TempDir() / "tolerant.talos").string();
+    std::string path = (TempDir() / "tolerant.talsc").string();
     WriteText(path,
         "# comment\n"
         "stray = outside block\n"
@@ -228,7 +228,7 @@ TEST(Load_ToleratesCommentsBlankLinesAndUnknownKeys) {
 }
 
 TEST(Load_AcceptsLegacySortingKeysAndNamedColliderShape) {
-    std::string path = (TempDir() / "legacy.talos").string();
+    std::string path = (TempDir() / "legacy.talsc").string();
     WriteText(path,
         "[Entity]\n"
         "id = 1\n"
@@ -253,7 +253,7 @@ TEST(Load_AcceptsLegacySortingKeysAndNamedColliderShape) {
 
 TEST(Save_CreatesMissingParentDirectories) {
     fs::remove_all(TempDir() / "nested");
-    fs::path nested = TempDir() / "nested" / "deeper" / "scene.talos";
+    fs::path nested = TempDir() / "nested" / "deeper" / "scene.talsc";
 
     Scene scene;
     scene.CreateEntity("X");
@@ -263,7 +263,7 @@ TEST(Save_CreatesMissingParentDirectories) {
 
 TEST(Save_EmptySceneLoadsAsEmpty) {
     Scene empty;
-    std::string path = (TempDir() / "empty.talos").string();
+    std::string path = (TempDir() / "empty.talsc").string();
     CHECK(SceneSerializer::Save(empty, path));
 
     Scene loaded;
@@ -723,8 +723,8 @@ TEST(HierarchyReordering_MoveUpDownAndToIndexPreserveEntitiesAndPersistOrder) {
     // Moving to current index is a no-op returning false
     CHECK(!scene.MoveEntityToIndex(id2, 3));
 
-    // Save and reload scene to verify hierarchy order persists in .talos files
-    std::string path = (TempDir() / "reordered_hierarchy.talos").string();
+    // Save and reload scene to verify hierarchy order persists in .talsc files
+    std::string path = (TempDir() / "reordered_hierarchy.talsc").string();
     CHECK(SceneSerializer::Save(scene, path));
 
     Scene loaded;

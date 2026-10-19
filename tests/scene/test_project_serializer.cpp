@@ -37,7 +37,7 @@ TEST(MakeDefaultConfig_PopulatesDefaultsAndBuiltInActions) {
     CHECK_EQ(cfg.targetFps, 60);
     CHECK(!cfg.fullscreen);
     CHECK(cfg.resizable);
-    CHECK_EQ(cfg.startScene, std::string("examples/scenes/main.talos"));
+    CHECK_EQ(cfg.startScene, std::string("examples/scenes/main.talsc"));
     CHECK_NEAR(cfg.masterVolume, 1.0f, 1e-4f);
     CHECK_NEAR(cfg.sfxVolume, 1.0f, 1e-4f);
     CHECK_NEAR(cfg.musicVolume, 1.0f, 1e-4f);
@@ -53,7 +53,7 @@ TEST(RoundTrip_PreservesProjectAudioAndInputMapData) {
     original.targetFps = 144;
     original.fullscreen = true;
     original.resizable = false;
-    original.startScene = "scenes/level_01.talos";
+    original.startScene = "scenes/level_01.talsc";
     original.masterVolume = 0.85f;
     original.sfxVolume = 0.65f;
     original.musicVolume = 0.40f;
@@ -81,7 +81,7 @@ TEST(RoundTrip_PreservesProjectAudioAndInputMapData) {
     CHECK_EQ(loaded.targetFps, 144);
     CHECK(loaded.fullscreen);
     CHECK(!loaded.resizable);
-    CHECK_EQ(loaded.startScene, std::string("scenes/level_01.talos"));
+    CHECK_EQ(loaded.startScene, std::string("scenes/level_01.talsc"));
     CHECK_NEAR(loaded.masterVolume, 0.85f, 1e-4f);
     CHECK_NEAR(loaded.sfxVolume, 0.65f, 1e-4f);
     CHECK_NEAR(loaded.musicVolume, 0.40f, 1e-4f);
@@ -144,7 +144,7 @@ TEST(Load_ClampsOutOfRangeValuesAndAcceptsLegacyAliases) {
     CHECK_EQ(loaded.targetFps, 15);
     CHECK(loaded.fullscreen);
     CHECK(!loaded.resizable);
-    CHECK_EQ(loaded.startScene, std::string("examples/scenes/main.talos"));
+    CHECK_EQ(loaded.startScene, std::string("examples/scenes/main.talsc"));
     CHECK_NEAR(loaded.masterVolume, 1.0f, 1e-4f);
     CHECK_NEAR(loaded.sfxVolume, 0.0f, 1e-4f);
     CHECK_NEAR(loaded.musicVolume, 0.55f, 1e-4f);
@@ -177,12 +177,12 @@ TEST(Workflow_CreateSaveAndOpenProjectEndToEnd) {
     createCfg.windowWidth = 1600;
     createCfg.windowHeight = 900;
     createCfg.targetFps = 120;
-    createCfg.startScene = "scenes/start_world.talos";
+    createCfg.startScene = "scenes/start_world.talsc";
 
     Scene createdScene;
     CHECK(ProjectSerializer::CreateNewProject(createCfg, createdScene, projectPath, true));
     CHECK(fs::exists(projectPath));
-    CHECK(fs::exists(workDir / "scenes" / "start_world.talos"));
+    CHECK(fs::exists(workDir / "scenes" / "start_world.talsc"));
     CHECK_EQ(createdScene.GetEntities().size(), static_cast<size_t>(5));
     CHECK(createdScene.FindEntity("Player") != nullptr);
 
@@ -210,7 +210,7 @@ TEST(Workflow_CreateSaveAndOpenProjectEndToEnd) {
     CHECK_EQ(openedCfg.windowWidth, 1600);
     CHECK_EQ(openedCfg.windowHeight, 900);
     CHECK_EQ(openedCfg.targetFps, 120);
-    CHECK_EQ(openedCfg.startScene, std::string("scenes/start_world.talos"));
+    CHECK_EQ(openedCfg.startScene, std::string("scenes/start_world.talsc"));
     CHECK_NEAR(openedCfg.masterVolume, 0.70f, 1e-4f);
     CHECK_NEAR(openedCfg.sfxVolume, 0.50f, 1e-4f);
     CHECK_NEAR(openedCfg.musicVolume, 0.30f, 1e-4f);

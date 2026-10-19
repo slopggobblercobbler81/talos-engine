@@ -23,7 +23,7 @@ namespace Talos::Scene {
         int targetFps          = 60;
         bool fullscreen        = false;
         bool resizable         = true;
-        std::string startScene = "examples/scenes/main.talos";
+        std::string startScene = "examples/scenes/main.talsc";
 
         // Audio Bus Configuration ([Audio])
         float masterVolume     = 1.0f;

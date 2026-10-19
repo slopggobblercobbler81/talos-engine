@@ -227,7 +227,7 @@ namespace Talos::Scene {
             return false;
         }
 
-        out << "# Talos Engine Scene File (v1)\n";
+        out << "# Talos Engine Scene File (.talsc v1)\n";
         out << "# Human-readable, deterministic flat entity serialization\n\n";
         out << std::fixed << std::setprecision(2);
 

@@ -32,7 +32,7 @@ namespace Talos::Editor {
     public:
         Editor(int windowWidth,
                int windowHeight,
-               const std::string& sceneFilePath = "examples/scenes/demo_scene.talos",
+               const std::string& sceneFilePath = "examples/scenes/demo_scene.talsc",
                const std::string& projectFilePath = "examples/project.talos");
         ~Editor() = default;
 

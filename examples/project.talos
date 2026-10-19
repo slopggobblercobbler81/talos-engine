@@ -9,7 +9,7 @@ windowHeight = 780
 targetFps = 60
 fullscreen = 0
 resizable = 1
-startScene = examples/scenes/main.talos
+startScene = examples/scenes/main.talsc
 
 [Audio]
 masterVolume = 1.00

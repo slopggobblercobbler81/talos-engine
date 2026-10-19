@@ -106,7 +106,7 @@ namespace Talos::Scene {
         // and returns a reference so the caller can configure its components immediately.
         Entity& CreateEntity(const std::string& name, float x = 0.0f, float y = 0.0f);
 
-        // Inserts a fully constructed Entity (e.g., deserialized from a .talos scene file)
+        // Inserts a fully constructed Entity (e.g., deserialized from a .talsc scene file)
         // and advances the internal ID counter so future entities never collide in ID.
         Entity& AddEntity(const Entity& entity);
 

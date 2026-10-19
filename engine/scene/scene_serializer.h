@@ -1,4 +1,4 @@
-// Human-readable .talos scene save/load (SceneSerializer)
+// Human-readable .talsc scene and .prefab template save/load (SceneSerializer)
 #pragma once
 #include <string>
 #include "scene/scene.h"
@@ -8,8 +8,8 @@ namespace Talos::Scene {
     // =========================================================================
     // Scene Serialization Subsystem (Layer 3: Scene & Entity)
     // =========================================================================
-    // Saves and loads a Scene to/from disk using the human-readable '.talos'
-    // text format.
+    // Saves and loads a Scene to/from disk using the human-readable '.talsc'
+    // (Talos Scene) text format.
     //
     // Why a flat, deterministic section-based format?
     // Complex YAML or deeply nested scene files often produce noisy Git diffs

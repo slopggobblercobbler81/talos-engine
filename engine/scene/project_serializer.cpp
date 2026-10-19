@@ -80,7 +80,7 @@ namespace Talos::Scene {
 
         inOutConfig.startScene = Trim(inOutConfig.startScene);
         if (inOutConfig.startScene.empty()) {
-            inOutConfig.startScene = "examples/scenes/main.talos";
+            inOutConfig.startScene = "examples/scenes/main.talsc";
         }
 
         inOutConfig.masterVolume = std::max(0.0f, std::min(1.0f, inOutConfig.masterVolume));
@@ -92,7 +92,7 @@ namespace Talos::Scene {
                                                     const std::string& scenePath) {
         std::string trimmedScene = Trim(scenePath);
         if (trimmedScene.empty()) {
-            trimmedScene = "examples/scenes/main.talos";
+            trimmedScene = "examples/scenes/main.talsc";
         }
 
         std::filesystem::path sp(trimmedScene);

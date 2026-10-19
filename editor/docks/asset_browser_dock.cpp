@@ -31,9 +31,7 @@ namespace Talos::Editor {
         if (ext == ".png" || ext == ".bmp" || ext == ".jpg" || ext == ".jpeg") return AssetEntryKind::Texture;
         if (ext == ".wav" || ext == ".ogg" || ext == ".mp3") return AssetEntryKind::Audio;
         if (ext == ".prefab") return AssetEntryKind::Prefab;
-        if (ext == ".talos") {
-            return (p.filename().string() == "project.talos") ? AssetEntryKind::Other : AssetEntryKind::Scene;
-        }
+        if (ext == ".talsc") return AssetEntryKind::Scene;
         if (ext == ".lua") return AssetEntryKind::Script;
         return AssetEntryKind::Other;
     }

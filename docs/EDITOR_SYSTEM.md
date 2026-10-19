@@ -76,8 +76,8 @@ In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectD
   - **Initial Scene (`startScene`):** Editable relative path with quick buttons to **Use Active Editor Scene**, **Load Start Scene Now**, or **Save Active as Start Scene**.
   - **Subsystem Shortcuts:** Displays a live summary of `[Audio]` bus volumes and `[InputMap]` action count with one-click shortcuts to open the **Audio Mixer** or **Input Map** modals.
 * **`+ New Entity`, `Duplicate` (`Ctrl+D`), & `Delete` (`Delete`):** Creates a new entity at the viewport center, immediately clones the selected entity (`Scene::DuplicateEntity`) with a unique sequential name and `(16, 16)` pixel offset while selecting the clone, or deletes the selected entity—all backed by discrete Undo/Redo snapshots.
-* **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talos` scene and displays a confirmation toast in the toolbar.
-* **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talos` scene without restarting the executable.
+* **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talsc` scene and displays a confirmation toast in the toolbar.
+* **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talsc` scene without restarting the executable.
 
 ---
 
@@ -93,6 +93,6 @@ The bottom dock (`ConsoleDock` + `AssetBrowserDock`) hosts a two-tab header bar 
     - **Textures (`.png`, `.bmp`, `.jpg`):** Renders a live GPU thumbnail, native pixel dimensions, and VRAM footprint, with one-click `Assign Sprite` (onto the selected entity) and `+ New Sprite` (spawns a new textured entity in the scene) actions backed by Undo/Redo.
     - **Audio (`.wav`, `.ogg`, `.mp3`):** Displays format, sample rate (`Hz`), channels, and duration (`s`), live `[Play SFX]`, `[Play Music]`, and `[Stop]` preview controls, and one-click `Assign as SFX` / `Assign as Music` buttons for the selected entity.
     - **Prefabs (`.prefab`):** Displays a live text preview of the `[Prefab]` template and a one-click **`+ Instantiate in Scene`** button (`SceneSerializer::InstantiatePrefab`) that spawns a configured copy in the active scene with Undo/Redo support, automatic selection, and `(+16, +16)` position nudging when another entity occupies the exact same spot. When no asset is selected, a quick **`Save '<name>' as Prefab`** button is also offered for the active entity.
-    - **Scenes & Scripts (`.talos`, `.lua`):** Displays a live text preview of the file contents and a one-click `Open Scene in Editor` button for `.talos` scene files.
+    - **Scenes & Scripts (`.talsc`, `.lua`):** Displays a live text preview of the file contents and a one-click `Open Scene in Editor` button for `.talsc` scene files.
 
 

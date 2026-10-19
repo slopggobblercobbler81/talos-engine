@@ -33,7 +33,7 @@ int main() {
     // 2. World & Unified Project Initialization (Scene Layer)
     // =========================================================================
     // Open 'project.talos' (or create a default project and initial scene at
-    // 'examples/scenes/main.talos' on first launch), applying audio bus volumes
+    // 'examples/scenes/main.talsc' on first launch), applying audio bus volumes
     // and logical input action bindings.
     Scene world;
     if (hasExistingProjectFile) {

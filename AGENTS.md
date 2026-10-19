@@ -36,7 +36,7 @@ Rules and documentation index for AI agents working on **Talos Engine**.
    - `engine/scene/components.h` / `engine/scene/entity.h` (Data struct)
    - `engine/scene/scene.cpp` (Runtime update/render logic)
    - `editor/docks/inspector_dock.cpp` & the matching `editor/gui/editor_gui*.cpp` file (Inspector UI)
-   - `engine/scene/scene_serializer.cpp` (`.talos` save & load)
+   - `engine/scene/scene_serializer.cpp` (`.talsc` / `.prefab` save & load)
    - `editor/history/editor_undo_redo.cpp` (`AreEntityListsEqual` for Undo/Redo)
    - `tests/scene/test_scene_serializer.cpp` (add the field to the round-trip test)
 8. **Tests:**
@@ -114,7 +114,7 @@ Consult only the entry matching the system you are changing.
 
 ### Layer 3: Scene & Entities (`engine/scene/`)
 - [`docs/SCENE_AND_ENTITIES.md`](docs/SCENE_AND_ENTITIES.md) — Flat `Entity` and component data structures (`Transform`, `Sprite`, `Label`, `Collider2D`, `Camera`, `Script`) and `Scene` execution loop.
-- [`docs/SCENE_SERIALIZATION.md`](docs/SCENE_SERIALIZATION.md) — Human-readable `.talos` scene serialization format (`SceneSerializer`).
+- [`docs/SCENE_SERIALIZATION.md`](docs/SCENE_SERIALIZATION.md) — Human-readable `.talsc` scene serialization format (`SceneSerializer`).
 
 ### Layer 5: Visual Editor (`editor/`)
 - [`docs/EDITOR_SYSTEM.md`](docs/EDITOR_SYSTEM.md) — Modular `Editor` orchestrator, docks (`SceneTreeDock`, `InspectorDock`, `ConsoleDock`), toolbar, and viewport.
