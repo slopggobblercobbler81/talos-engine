@@ -5,6 +5,8 @@
 
 namespace Talos::Editor {
 
+    class AssetBrowserDock;
+
     // =========================================================================
     // First-Level Inspector Dock (Layer 5: Editor -> Docks Branch)
     // =========================================================================
@@ -17,7 +19,9 @@ namespace Talos::Editor {
                     int windowWidth,
                     int windowHeight,
                     Scene::EntityID selectedEntityId,
-                    EditorGui& gui);
+                    EditorGui& gui,
+                    AssetBrowserDock* assetBrowser = nullptr,
+                    std::string* outStatusMessage = nullptr);
 
     private:
         float m_scrollOffset = 0.0f;

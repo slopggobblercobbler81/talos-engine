@@ -143,3 +143,31 @@ action.pause = Escape,P
 - **`ProjectSerializer::CreateNewProject(projectFilePath, config, scene, outSceneFilePath)`:** Sanitizes the configuration, populates a starter scene (`Player`, `Ground`, and `Banner`), saves the initial `.talos` scene relative to `project.talos`, applies audio/input/window settings to the live engine, and writes `project.talos`.
 - **`ProjectSerializer::OpenProject(projectFilePath, outConfig, scene, outSceneFilePath)`:** Loads `project.talos`, applies `[Project]`, `[Audio]`, and `[InputMap]` settings to `Window`, `AudioSystem`, and `InputMap`, resolves `startScene` relative to the project root, and loads the initial scene into `Scene` (or creates a starter scene if the file does not exist yet).
 - **`ProjectSerializer::SaveProject(projectFilePath, config, scene, activeSceneFilePath)`:** Captures live audio bus volumes and input bindings from the engine, writes `project.talos`, and saves the active `Scene` to disk.
+
+---
+
+## 5. Reusable Entity Templates (`.prefab` Files)
+
+`SceneSerializer` also supports saving and instantiating individual configured entities as standalone **`.prefab`** files (`examples/prefabs/*.prefab`). Both `.talos` scenes and `.prefab` templates share the exact same deterministic property writer and parser (`WriteEntityProperties` / `ParseEntityProperty`), except a `.prefab` file omits the scene-specific `id` line and uses a `[Prefab]` header block:
+
+```ini
+# Talos Engine Prefab File (v1)
+# Reusable flat entity template (.prefab)
+
+[Prefab]
+name = Gold Coin
+tag = Coin
+active = 1
+transform.x = 480.00
+transform.y = 300.00
+transform.width = 40.00
+transform.height = 40.00
+...
+```
+
+### Prefab API (`SceneSerializer`)
+- **`SceneSerializer::SavePrefab(entity, filePath)`:** Automatically creates parent directories and writes all 7 component groups (`Transform`, `Sprite`, `Text`, `Collider`, `Movement`, `Camera`, `Audio`) of `entity` into a deterministic `.prefab` file.
+- **`SceneSerializer::LoadPrefab(filePath, outEntity)`:** Parses a `[Prefab]` block into `outEntity` while resetting `id = 0` and clearing transient runtime state (`frameTimer`, `currentX/Y`, `runtimeInitialized`, `runtimeStarted`).
+- **`SceneSerializer::InstantiatePrefab(scene, filePath, overrideX, overrideY, useOverridePosition)`:** Loads the `.prefab` template, resolves a conflict-free sequential name in `scene` (e.g., `"Gold Coin"`, `"Gold Coin_2"`, `"Gold Coin_3"`), optionally overrides the spawn coordinates `(transform.x, transform.y)`, assigns a fresh unique `EntityID`, and appends the instance to `scene`.
+- **`SceneSerializer::BuildPrefabPath(entityName, directory)`:** Normalizes an entity name into a clean lowercase snake_case `.prefab` path (e.g., `"Gold Coin"` $\rightarrow$ `"examples/prefabs/gold_coin.prefab"`).
+

@@ -547,4 +547,136 @@ TEST(DuplicateEntity_ClonesComponentsAndGeneratesUniqueIdsAndNames) {
     CHECK_EQ(scene.GetEntities().size(), static_cast<size_t>(4));
 }
 
+TEST(PrefabSaveLoadAndInstantiateRoundTrip) {
+    // 1. BuildPrefabPath normalization
+    CHECK_EQ(SceneSerializer::BuildPrefabPath("Gold Coin", "examples/prefabs"),
+             std::string("examples/prefabs/gold_coin.prefab"));
+    CHECK_EQ(SceneSerializer::BuildPrefabPath("  Enemy__Boss #1! ", "examples/prefabs/"),
+             std::string("examples/prefabs/enemy_boss_1.prefab"));
+    CHECK_EQ(SceneSerializer::BuildPrefabPath("   ", "examples/prefabs"),
+             std::string("examples/prefabs/entity.prefab"));
+
+    const std::string prefabPath = "build/test_tmp_scenes/prefabs/gold_coin.prefab";
+    std::error_code ec;
+    std::filesystem::remove_all("build/test_tmp_scenes/prefabs", ec);
+
+    // 2. Configure an entity with all 7 component groups and dirty transient runtime fields
+    Entity templateEntity;
+    templateEntity.id = 42;
+    templateEntity.name = "Gold Coin";
+    templateEntity.tag = "Coin";
+    templateEntity.active = true;
+    templateEntity.transform = {320.0f, 180.0f, 36.0f, 36.0f};
+
+    templateEntity.sprite.enabled = true;
+    templateEntity.sprite.texturePath = "examples/assets/textures/sheet.png";
+    templateEntity.sprite.color = {255, 215, 40, 255};
+    templateEntity.sprite.sortingLayer = 2;
+    templateEntity.sprite.zOrder = 7;
+    templateEntity.sprite.sourceW = 16.0f;
+    templateEntity.sprite.sourceH = 16.0f;
+    templateEntity.sprite.flipX = true;
+    templateEntity.sprite.frameCount = 4;
+    templateEntity.sprite.currentFrame = 2;
+    templateEntity.sprite.fps = 10.0f;
+    templateEntity.sprite.frameTimer = 0.75f; // Transient
+
+    templateEntity.text.enabled = true;
+    templateEntity.text.content = "+100";
+    templateEntity.text.fontSize = 16;
+    templateEntity.text.offsetY = -20.0f;
+
+    templateEntity.collider.enabled = true;
+    templateEntity.collider.shape = Talos::Physics::ColliderShape::Circle;
+    templateEntity.collider.radius = 18.0f;
+    templateEntity.collider.restitution = 0.4f;
+    templateEntity.collider.isSolid = false;
+    templateEntity.collider.isTrigger = true;
+
+    templateEntity.movement.enabled = true;
+    templateEntity.movement.speed = 120.0f;
+    templateEntity.movement.mass = 1.5f;
+
+    templateEntity.camera.enabled = true;
+    templateEntity.camera.zoom = 1.25f;
+    templateEntity.camera.runtimeInitialized = true; // Transient
+
+    templateEntity.audio.enabled = true;
+    templateEntity.audio.audioPath = "examples/assets/audio/coin.wav";
+    templateEntity.audio.playOnCollision = true;
+    templateEntity.audio.volume = 0.85f;
+    templateEntity.audio.runtimeStarted = true; // Transient
+
+    CHECK(SceneSerializer::SavePrefab(templateEntity, prefabPath));
+
+    // 3. LoadPrefab round-trip verification + transient reset
+    Entity loadedPrefab;
+    CHECK(SceneSerializer::LoadPrefab(prefabPath, loadedPrefab));
+    CHECK_EQ(loadedPrefab.id, static_cast<EntityID>(0));
+    CHECK_EQ(loadedPrefab.name, std::string("Gold Coin"));
+    CHECK_EQ(loadedPrefab.tag, std::string("Coin"));
+    CHECK(loadedPrefab.active);
+    CHECK_NEAR(loadedPrefab.transform.x, 320.0, 0.01);
+    CHECK_NEAR(loadedPrefab.transform.y, 180.0, 0.01);
+    CHECK_NEAR(loadedPrefab.transform.width, 36.0, 0.01);
+    CHECK_NEAR(loadedPrefab.transform.height, 36.0, 0.01);
+    CHECK(loadedPrefab.sprite.enabled);
+    CHECK_EQ(loadedPrefab.sprite.texturePath, std::string("examples/assets/textures/sheet.png"));
+    CHECK_EQ(loadedPrefab.sprite.sortingLayer, 2);
+    CHECK_EQ(loadedPrefab.sprite.zOrder, 7);
+    CHECK(loadedPrefab.sprite.flipX);
+    CHECK_EQ(loadedPrefab.sprite.frameCount, 4);
+    CHECK_NEAR(loadedPrefab.sprite.frameTimer, 0.0, 0.001);
+    CHECK(loadedPrefab.text.enabled);
+    CHECK_EQ(loadedPrefab.text.content, std::string("+100"));
+    CHECK(loadedPrefab.collider.enabled);
+    CHECK(loadedPrefab.collider.shape == Talos::Physics::ColliderShape::Circle);
+    CHECK_NEAR(loadedPrefab.collider.radius, 18.0, 0.01);
+    CHECK(loadedPrefab.collider.isTrigger);
+    CHECK(loadedPrefab.movement.enabled);
+    CHECK_NEAR(loadedPrefab.movement.speed, 120.0, 0.01);
+    CHECK(loadedPrefab.camera.enabled);
+    CHECK_NEAR(loadedPrefab.camera.zoom, 1.25, 0.01);
+    CHECK(!loadedPrefab.camera.runtimeInitialized);
+    CHECK(loadedPrefab.audio.enabled);
+    CHECK_EQ(loadedPrefab.audio.audioPath, std::string("examples/assets/audio/coin.wav"));
+    CHECK(loadedPrefab.audio.playOnCollision);
+    CHECK(!loadedPrefab.audio.runtimeStarted);
+
+    // 4. InstantiatePrefab into a Scene (sequential names, unique IDs, override coordinates)
+    Scene scene;
+    Entity* inst1 = SceneSerializer::InstantiatePrefab(scene, prefabPath);
+    CHECK(inst1 != nullptr);
+    if (!inst1) return;
+    EntityID id1 = inst1->id;
+    CHECK(id1 > 0);
+    CHECK_EQ(inst1->name, std::string("Gold Coin"));
+    CHECK_NEAR(inst1->transform.x, 320.0, 0.01);
+    CHECK_NEAR(inst1->transform.y, 180.0, 0.01);
+
+    Entity* inst2 = SceneSerializer::InstantiatePrefab(scene, prefabPath, 500.0f, 260.0f, true);
+    CHECK(inst2 != nullptr);
+    if (!inst2) return;
+    EntityID id2 = inst2->id;
+    CHECK(id2 != id1);
+    CHECK_EQ(inst2->name, std::string("Gold Coin_2"));
+    CHECK_NEAR(inst2->transform.x, 500.0, 0.01);
+    CHECK_NEAR(inst2->transform.y, 260.0, 0.01);
+
+    Entity* inst3 = SceneSerializer::InstantiatePrefab(scene, prefabPath);
+    CHECK(inst3 != nullptr);
+    if (!inst3) return;
+    CHECK(inst3->id != id1);
+    CHECK(inst3->id != id2);
+    CHECK_EQ(inst3->name, std::string("Gold Coin_3"));
+    CHECK_EQ(scene.GetEntities().size(), static_cast<size_t>(3));
+
+    // 5. Missing prefab file should fail cleanly without mutating the scene
+    CHECK(SceneSerializer::InstantiatePrefab(scene, "build/test_tmp_scenes/prefabs/missing.prefab") == nullptr);
+    CHECK_EQ(scene.GetEntities().size(), static_cast<size_t>(3));
+
+    std::filesystem::remove_all("build/test_tmp_scenes/prefabs", ec);
+}
+
 TEST_MAIN()
+

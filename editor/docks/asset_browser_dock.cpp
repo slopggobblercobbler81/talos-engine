@@ -30,6 +30,7 @@ namespace Talos::Editor {
 
         if (ext == ".png" || ext == ".bmp" || ext == ".jpg" || ext == ".jpeg") return AssetEntryKind::Texture;
         if (ext == ".wav" || ext == ".ogg" || ext == ".mp3") return AssetEntryKind::Audio;
+        if (ext == ".prefab") return AssetEntryKind::Prefab;
         if (ext == ".talos") {
             return (p.filename().string() == "project.talos") ? AssetEntryKind::Other : AssetEntryKind::Scene;
         }
@@ -39,6 +40,9 @@ namespace Talos::Editor {
 
     void AssetBrowserDock::SetCurrentDirectory(const std::string& dirPath) {
         std::error_code ec;
+        if (dirPath == "examples/prefabs" && !fs::exists(dirPath, ec)) {
+            fs::create_directories(dirPath, ec);
+        }
         m_currentDirectory = (fs::exists(dirPath, ec) && fs::is_directory(dirPath, ec))
             ? fs::path(dirPath).generic_string()
             : std::string("examples");
@@ -76,6 +80,7 @@ namespace Talos::Editor {
                 if (m_categoryFilter == AssetCategoryFilter::Textures && kind != AssetEntryKind::Texture) continue;
                 if (m_categoryFilter == AssetCategoryFilter::Audio    && kind != AssetEntryKind::Audio)   continue;
                 if (m_categoryFilter == AssetCategoryFilter::Scenes   && kind != AssetEntryKind::Scene)   continue;
+                if (m_categoryFilter == AssetCategoryFilter::Prefabs  && kind != AssetEntryKind::Prefab)  continue;
                 if (m_categoryFilter == AssetCategoryFilter::Scripts  && kind != AssetEntryKind::Script)  continue;
             }
 
@@ -105,6 +110,7 @@ namespace Talos::Editor {
             }
         }
         if (m_selectedEntryCache.kind == AssetEntryKind::Scene ||
+            m_selectedEntryCache.kind == AssetEntryKind::Prefab ||
             m_selectedEntryCache.kind == AssetEntryKind::Script ||
             m_selectedEntryCache.kind == AssetEntryKind::Other) {
             LoadTextPreview(relativePath);
@@ -139,6 +145,7 @@ namespace Talos::Editor {
             { "Textures", AssetCategoryFilter::Textures, 68.0f },
             { "Audio",    AssetCategoryFilter::Audio,    52.0f },
             { "Scenes",   AssetCategoryFilter::Scenes,   56.0f },
+            { "Prefabs",  AssetCategoryFilter::Prefabs,  60.0f },
             { "Scripts",  AssetCategoryFilter::Scripts,  58.0f }
         };
 
@@ -187,7 +194,7 @@ namespace Talos::Editor {
         if (dirLabel.size() > 24) dirLabel = "DIR: ..." + dirLabel.substr(dirLabel.size() - 18);
         Renderer2D::DrawLabel(dirLabel.c_str(), consoleX + 8.0f, bodyY + 6.0f, 13, { 145, 185, 235, 255 });
 
-        if (gui.DrawButton(consoleX + 8.0f, bodyY + 24.0f, folderColW - 16.0f, 22.0f, "[.. Up Folder]",
+        if (gui.DrawButton(consoleX + 8.0f, bodyY + 24.0f, folderColW - 16.0f, 21.0f, "[.. Up Folder]",
                            { 36, 40, 52, 255 }, { 54, 60, 78, 255 })) {
             fs::path p(m_currentDirectory);
             SetCurrentDirectory((p.has_parent_path() && p != fs::path("examples") && p != fs::path("."))
@@ -199,17 +206,18 @@ namespace Talos::Editor {
             { "examples (Root)", "examples" },
             { "assets/textures", "examples/assets/textures" },
             { "assets/audio",    "examples/assets/audio" },
-            { "scenes",          "examples/scenes" }
+            { "scenes",          "examples/scenes" },
+            { "prefabs",         "examples/prefabs" }
         };
-        float bmY = bodyY + 52.0f;
+        float bmY = bodyY + 50.0f;
         for (const auto& bm : bookmarks) {
             bool isCurrent = (m_currentDirectory == bm.path);
-            if (gui.DrawButton(consoleX + 8.0f, bmY, folderColW - 16.0f, 22.0f, bm.label,
+            if (gui.DrawButton(consoleX + 8.0f, bmY, folderColW - 16.0f, 21.0f, bm.label,
                                isCurrent ? ColorRGBA{ 44, 78, 128, 255 } : ColorRGBA{ 28, 31, 40, 255 },
                                { 58, 96, 152, 255 })) {
                 SetCurrentDirectory(bm.path);
             }
-            bmY += 25.0f;
+            bmY += 23.0f;
         }
 
         // Column 2: Scrollable Directory & Asset List
@@ -264,6 +272,8 @@ namespace Talos::Editor {
                     badge = "[AUD]"; badgeColor = { 85, 195, 255, 255 };
                 } else if (entry.kind == AssetEntryKind::Scene) {
                     badge = "[SCN]"; badgeColor = { 205, 140, 255, 255 };
+                } else if (entry.kind == AssetEntryKind::Prefab) {
+                    badge = "[PFB]"; badgeColor = { 105, 230, 195, 255 };
                 } else if (entry.kind == AssetEntryKind::Script) {
                     badge = "[LUA]"; badgeColor = { 255, 150, 85, 255 };
                 }
@@ -299,16 +309,33 @@ namespace Talos::Editor {
 
         // Column 3: Live Asset Preview & One-Click Assignment
         Renderer2D::DrawRect(prevColX + 1.0f, bodyY, previewColW - 1.0f, bodyH, { 20, 22, 28, 255 });
+        Scene::Entity* selectedEntity = scene.FindEntityById(inOutSelectedEntityId);
+        bool canAssign = (selectedEntity != nullptr && !isPlaying);
+
         const AssetEntry* sel = FindSelectedEntry();
         if (!sel) {
             Renderer2D::DrawLabel("ASSET PREVIEW", prevColX + 10.0f, bodyY + 8.0f, 13, { 145, 155, 175, 255 });
-            Renderer2D::DrawLabel("Select a texture, audio, or", prevColX + 10.0f, bodyY + 34.0f, 13, { 110, 116, 132, 255 });
-            Renderer2D::DrawLabel("scene file to preview & assign.", prevColX + 10.0f, bodyY + 52.0f, 13, { 110, 116, 132, 255 });
+            Renderer2D::DrawLabel("Select a texture, audio, prefab,", prevColX + 10.0f, bodyY + 32.0f, 13, { 110, 116, 132, 255 });
+            Renderer2D::DrawLabel("or scene file to preview & assign.", prevColX + 10.0f, bodyY + 50.0f, 13, { 110, 116, 132, 255 });
+            if (canAssign) {
+                std::string saveBtnLabel = "Save '" + selectedEntity->name + "' as Prefab";
+                if (saveBtnLabel.size() > 30) {
+                    saveBtnLabel = "Save Selected as Prefab";
+                }
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 86.0f, previewColW - 16.0f, 28.0f, saveBtnLabel.c_str(),
+                                   { 36, 108, 92, 255 }, { 50, 138, 118, 255 })) {
+                    std::string prefabPath = Scene::SceneSerializer::BuildPrefabPath(selectedEntity->name);
+                    if (Scene::SceneSerializer::SavePrefab(*selectedEntity, prefabPath)) {
+                        SetCurrentDirectory("examples/prefabs");
+                        SelectAsset(prefabPath);
+                        outStatusMessage = "Saved Prefab -> '" + prefabPath + "'";
+                    } else {
+                        outStatusMessage = "Failed to save Prefab '" + prefabPath + "'";
+                    }
+                }
+            }
             return;
         }
-
-        Scene::Entity* selectedEntity = scene.FindEntityById(inOutSelectedEntityId);
-        bool canAssign = (selectedEntity != nullptr && !isPlaying);
 
         if (sel->kind == AssetEntryKind::Texture) {
             float thumbBoxX = prevColX + 8.0f, thumbBoxY = bodyY + 8.0f, thumbBoxS = 68.0f;
@@ -439,6 +466,43 @@ namespace Talos::Editor {
                     outStatusMessage = "Opened scene '" + sel->relativePath + "'";
                 } else {
                     outStatusMessage = "Failed to load scene '" + sel->relativePath + "'";
+                }
+            }
+        } else if (sel->kind == AssetEntryKind::Prefab) {
+            Renderer2D::DrawLabel(sel->name.c_str(), prevColX + 8.0f, bodyY + 8.0f, 14, { 105, 230, 195, 255 });
+            float lineY = bodyY + 28.0f;
+            for (const auto& line : m_textPreviewLines) {
+                Renderer2D::DrawLabel(line.c_str(), prevColX + 8.0f, lineY, 12, { 145, 152, 170, 255 });
+                lineY += 14.0f;
+                if (lineY > bodyY + 92.0f) break;
+            }
+            if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, previewColW - 16.0f, 28.0f, "+ Instantiate in Scene",
+                               !isPlaying ? ColorRGBA{ 36, 118, 96, 255 } : ColorRGBA{ 34, 36, 44, 255 },
+                               !isPlaying ? ColorRGBA{ 50, 150, 122, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && !isPlaying) {
+                undoRedo.PushUndoState(scene, inOutSelectedEntityId,
+                                       gui.GetTextCursorPos(), gui.GetTextSelectionAnchor(), isPlaying);
+                Scene::Entity* inst = Scene::SceneSerializer::InstantiatePrefab(scene, sel->relativePath);
+                if (inst) {
+                    // Nudge position slightly if another entity already sits at the exact same coordinates
+                    for (int guard = 0; guard < 64; ++guard) {
+                        bool overlapped = false;
+                        for (const auto& existing : scene.GetEntities()) {
+                            if (existing.id == inst->id) continue;
+                            float dx = existing.transform.x - inst->transform.x;
+                            float dy = existing.transform.y - inst->transform.y;
+                            if (dx > -0.5f && dx < 0.5f && dy > -0.5f && dy < 0.5f) {
+                                overlapped = true;
+                                break;
+                            }
+                        }
+                        if (!overlapped) break;
+                        inst->transform.x += 16.0f;
+                        inst->transform.y += 16.0f;
+                    }
+                    inOutSelectedEntityId = inst->id;
+                    outStatusMessage = "Instantiated Prefab '" + sel->name + "' -> '" + inst->name + "'";
+                } else {
+                    outStatusMessage = "Failed to instantiate Prefab '" + sel->relativePath + "'";
                 }
             }
         } else {

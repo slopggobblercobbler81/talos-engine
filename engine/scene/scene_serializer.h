@@ -25,6 +25,28 @@ namespace Talos::Scene {
         // Clears 'scene' and populates it with entities parsed from 'filePath'.
         // Returns true on success, or false if the file does not exist or cannot be read.
         static bool Load(Scene& scene, const std::string& filePath);
+
+        // Saves a single configured 'entity' as a reusable '.prefab' template file at 'filePath'
+        // (creating parent folders if needed). Returns true on success.
+        static bool SavePrefab(const Entity& entity, const std::string& filePath);
+
+        // Loads a '.prefab' template file from 'filePath' into 'outEntity' (with id reset to 0
+        // and transient runtime fields cleared). Returns true on success.
+        static bool LoadPrefab(const std::string& filePath, Entity& outEntity);
+
+        // Loads a '.prefab' template from 'filePath', assigns a unique EntityID and sequential
+        // conflict-free name in 'scene', optionally overrides its world position when
+        // 'useOverridePosition' is true, and appends the new instance to 'scene'.
+        // Returns a pointer to the newly instantiated Entity in 'scene', or nullptr on failure.
+        static Entity* InstantiatePrefab(Scene& scene,
+                                         const std::string& filePath,
+                                         float overrideX = 0.0f,
+                                         float overrideY = 0.0f,
+                                         bool useOverridePosition = false);
+
+        // Builds a normalized file path (e.g., "examples/prefabs/gold_coin.prefab") from an entity name.
+        static std::string BuildPrefabPath(const std::string& entityName,
+                                           const std::string& directory = "examples/prefabs");
     };
 
 }

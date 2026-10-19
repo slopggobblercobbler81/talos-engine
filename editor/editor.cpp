@@ -353,7 +353,13 @@ namespace Talos::Editor {
         if (requestStopPlay)  StopPlayMode(scene);
 
         m_sceneTreeDock.Render(scene, m_windowHeight, m_selectedEntityId, m_gui);
-        m_inspectorDock.Render(scene, m_windowWidth, m_windowHeight, m_selectedEntityId, m_gui);
+
+        std::string inspectorStatus;
+        m_inspectorDock.Render(scene, m_windowWidth, m_windowHeight, m_selectedEntityId, m_gui,
+                               &m_assetBrowserDock, &inspectorStatus);
+        if (!inspectorStatus.empty()) {
+            m_toolbar.ShowStatusMessage(inspectorStatus, 2.0f);
+        }
 
         std::string bottomStatus;
         m_consoleDock.Render(m_windowWidth,

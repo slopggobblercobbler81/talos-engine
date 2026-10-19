@@ -1,7 +1,9 @@
 #include "editor/docks/inspector_dock.h"
+#include "editor/docks/asset_browser_dock.h"
 #include "audio/audio_system.h"
 #include "core/input.h"
 #include "renderer/renderer2d.h"
+#include "scene/scene_serializer.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -18,7 +20,9 @@ namespace Talos::Editor {
                                int windowWidth,
                                int windowHeight,
                                Scene::EntityID selectedEntityId,
-                               EditorGui& gui) {
+                               EditorGui& gui,
+                               AssetBrowserDock* assetBrowser,
+                               std::string* outStatusMessage) {
         float panelX = static_cast<float>(windowWidth) - RIGHT_PANEL_WIDTH;
         float panelH = static_cast<float>(windowHeight) - TOOLBAR_HEIGHT;
 
@@ -125,7 +129,24 @@ namespace Talos::Editor {
                 }
             }
         }
-        y += 28.0f;
+        y += 25.0f;
+
+        if (gui.DrawButton(x, y, w, 24.0f, "Save Entity as Prefab (.prefab)",
+                           { 36, 108, 92, 255 }, { 50, 138, 118, 255 })) {
+            std::string prefabPath = SceneSerializer::BuildPrefabPath(selected->name);
+            if (SceneSerializer::SavePrefab(*selected, prefabPath)) {
+                if (assetBrowser) {
+                    assetBrowser->Refresh();
+                    assetBrowser->SelectAsset(prefabPath);
+                }
+                if (outStatusMessage) {
+                    *outStatusMessage = "Saved Prefab -> '" + prefabPath + "'";
+                }
+            } else if (outStatusMessage) {
+                *outStatusMessage = "Failed to save Prefab '" + prefabPath + "'";
+            }
+        }
+        y += 30.0f;
 
         // 2. Transform Component (Fundamental component: always present on every entity)
         Renderer2D::DrawLine2D(x, y - 4.0f, x + w, y - 4.0f, { 42, 45, 56, 255 });

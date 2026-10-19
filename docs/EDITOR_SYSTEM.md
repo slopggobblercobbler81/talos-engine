@@ -39,7 +39,7 @@ When in **Edit Mode** (`!IsPlaying()`):
 
 To keep the Inspector clean and avoid showing inactive checkboxes for every possible capability on every object, newly created entities start with **only the fundamental `Transform 2D` component**. Optional components are attached on demand:
 
-1. **Identity & Lifecycle (Always Visible):** Direct `Active` checkbox, live-editable `Name` and `Tag` text fields, and quick preset tag buttons.
+1. **Identity & Lifecycle (Always Visible):** Direct `Active` checkbox, live-editable `Name` and `Tag` text fields, quick preset tag buttons, and a one-click **`Save Entity as Prefab (.prefab)`** button that exports the configured entity to `examples/prefabs/<name>.prefab` and focuses it in the Asset Browser.
 2. **Transform 2D (Fundamental, Always Present):** Direct sliders for `Pos X`, `Pos Y`, `Width`, and `Height`.
 3. **Attached Optional Components (Shown Only When Added):**
    - **Render Depth (`Sorting Layer` & `Z-Order`):** Automatically appears whenever a visual component (`Sprite 2D` or `Text Label`) is attached.
@@ -73,11 +73,13 @@ In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectD
 The bottom dock (`ConsoleDock` + `AssetBrowserDock`) hosts a two-tab header bar that lets the user switch between real-time engine diagnostics and visual project resource management:
 * **`Debug Console` Tab (`editor/docks/console_dock.h`):** Displays classified engine log messages (`[INFO]`, `[WARN]`, `[ERROR]`) with source file/line metadata, severity filter buttons, mouse-wheel scrolling, and a `Clear` button.
 * **`Asset Browser` Tab (`editor/docks/asset_browser_dock.h`):** Provides a 3-column visual explorer for project files:
-  - **Header Filter Bar:** Displays the active relative directory, category filter tabs (`All`, `Textures`, `Audio`, `Scenes`, `Scripts`), and a `Refresh` button.
-  - **Left Column (Folder Shortcuts):** Quick navigation buttons (`examples/`, `Textures`, `Audio`, `Scenes`, and `[.. Up Folder]`).
-  - **Center Column (Scrollable File List):** Lists subdirectories (`[DIR]`) and categorized project files (`[TEX]`, `[AUD]`, `[SCN]`, `[LUA]`, `[FILE]`) with human-readable byte sizes and mouse-wheel scrolling.
+  - **Header Filter Bar:** Displays the active relative directory, category filter tabs (`All`, `Textures`, `Audio`, `Prefabs`, `Scenes`, `Scripts`), and a `Refresh` button.
+  - **Left Column (Folder Shortcuts):** Quick navigation buttons (`examples/`, `textures`, `audio`, `prefabs`, `scenes`, and `[.. Up Folder]`).
+  - **Center Column (Scrollable File List):** Lists subdirectories (`[DIR]`) and categorized project files (`[TEX]`, `[AUD]`, `[PFB]`, `[SCN]`, `[LUA]`, `[FILE]`) with human-readable byte sizes and mouse-wheel scrolling.
   - **Right Column (Live Preview & One-Click Assignment):**
     - **Textures (`.png`, `.bmp`, `.jpg`):** Renders a live GPU thumbnail, native pixel dimensions, and VRAM footprint, with one-click `Assign Sprite` (onto the selected entity) and `+ New Sprite` (spawns a new textured entity in the scene) actions backed by Undo/Redo.
     - **Audio (`.wav`, `.ogg`, `.mp3`):** Displays format, sample rate (`Hz`), channels, and duration (`s`), live `[Play SFX]`, `[Play Music]`, and `[Stop]` preview controls, and one-click `Assign as SFX` / `Assign as Music` buttons for the selected entity.
+    - **Prefabs (`.prefab`):** Displays a live text preview of the `[Prefab]` template and a one-click **`+ Instantiate in Scene`** button (`SceneSerializer::InstantiatePrefab`) that spawns a configured copy in the active scene with Undo/Redo support, automatic selection, and `(+16, +16)` position nudging when another entity occupies the exact same spot. When no asset is selected, a quick **`Save '<name>' as Prefab`** button is also offered for the active entity.
     - **Scenes & Scripts (`.talos`, `.lua`):** Displays a live text preview of the file contents and a one-click `Open Scene in Editor` button for `.talos` scene files.
+
 

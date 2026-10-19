@@ -15,7 +15,8 @@ namespace Talos::Editor {
         Textures = 1,
         Audio    = 2,
         Scenes   = 3,
-        Scripts  = 4
+        Prefabs  = 4,
+        Scripts  = 5
     };
 
     // Classification of a discovered project file or folder
@@ -24,8 +25,9 @@ namespace Talos::Editor {
         Texture   = 1,
         Audio     = 2,
         Scene     = 3,
-        Script    = 4,
-        Other     = 5
+        Prefab    = 4,
+        Script    = 5,
+        Other     = 6
     };
 
     // Metadata for a single entry displayed in the Asset Browser list
