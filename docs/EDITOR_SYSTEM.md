@@ -31,6 +31,7 @@ When in **Edit Mode** (`!IsPlaying()`):
 * **Front-to-Back Hit Testing:** Clicking inside the central 2D viewport iterates backward through the entity list so visually topmost objects are selected first.
 * **Text-Only Entity Picking:** If an entity has its `SpriteComponent` disabled and only displays a `TextComponent` (such as a UI banner or title), the Editor dynamically calculates the bounding box of the text string using `Renderer2D::MeasureTextWidth` so text objects can be clicked and dragged just as easily as sprites.
 * **Smooth Drag-Offset Tracking:** When an entity is clicked, the Editor records `m_dragOffsetX = mouseX - entity.x` and `m_dragOffsetY = mouseY - entity.y`. While the mouse button remains held down, the entity follows the cursor smoothly without snapping its top-left corner to the cursor tip.
+* **Snap to Grid (`[G]` / Viewport HUD Toggle):** Toggling **`Snap: ON [G]`** in the bottom-left Viewport HUD bar (or pressing the `G` key in Edit Mode) snaps dragged entity coordinates `(x, y)` to the nearest grid multiple (`std::round(coord / gridStep) * gridStep`) with full Undo/Redo coalescing. Clicking the step badge (`40px`) cycles through standard 2D pixel grid steps (`8px`, `16px`, `32px`, `40px`, `64px`) and updates the visual infinite grid in real time.
 
 ---
 

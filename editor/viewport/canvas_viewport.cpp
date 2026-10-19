@@ -34,6 +34,41 @@ namespace Talos::Editor {
         return "Camera Reset (100%)";
     }
 
+    float CanvasViewport::SnapValue(float value, float step) {
+        if (step <= 0.0f) return value;
+        return std::round(value / step) * step;
+    }
+
+    std::string CanvasViewport::ToggleSnapToGrid() {
+        m_snapToGrid = !m_snapToGrid;
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Snap to Grid: %s (%.0fpx) [G]",
+                      m_snapToGrid ? "ON" : "OFF", m_gridStep);
+        return buf;
+    }
+
+    void CanvasViewport::SetGridStep(float step) {
+        m_gridStep = std::max(4.0f, std::min(256.0f, step));
+    }
+
+    std::string CanvasViewport::CycleGridStep() {
+        static constexpr float PRESET_STEPS[] = { 8.0f, 16.0f, 32.0f, 40.0f, 64.0f };
+        static constexpr int NUM_STEPS = 5;
+
+        int nextIdx = 0;
+        for (int i = 0; i < NUM_STEPS; ++i) {
+            if (std::fabs(m_gridStep - PRESET_STEPS[i]) < 0.5f) {
+                nextIdx = (i + 1) % NUM_STEPS;
+                break;
+            }
+        }
+        m_gridStep = PRESET_STEPS[nextIdx];
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Grid Step: %.0fpx (%s)",
+                      m_gridStep, m_snapToGrid ? "Snap ON" : "Snap OFF");
+        return buf;
+    }
+
     std::string CanvasViewport::FocusSelectedEntity(const Scene::Scene& scene,
                                                     Scene::EntityID selectedEntityId,
                                                     int windowWidth,
@@ -79,10 +114,10 @@ namespace Talos::Editor {
         float my = Input::GetMouseY();
         bool mouseInViewport = EditorGui::IsMouseOver(viewportX, viewportY, viewportW, viewportH);
 
-        // Protect the bottom-left Camera Overlay HUD bar from triggering viewport entity clicks
+        // Protect the bottom-left Camera & Grid Overlay HUD bar from triggering viewport entity clicks
         float hudX = viewportX + 12.0f;
         float hudY = static_cast<float>(windowHeight) - consoleHeight - 38.0f;
-        float hudW = 240.0f;
+        float hudW = 390.0f;
         float hudH = 28.0f;
         bool mouseOverCameraHud = EditorGui::IsMouseOver(hudX, hudY, hudW, hudH);
 
@@ -217,8 +252,14 @@ namespace Talos::Editor {
         if (m_isDraggingEntity && Input::IsMouseButtonDown(MouseButton::Left)) {
             Entity* selected = scene.FindEntityById(inOutSelectedEntityId);
             if (selected) {
-                selected->transform.x = worldMx - m_dragOffsetX;
-                selected->transform.y = worldMy - m_dragOffsetY;
+                float targetX = worldMx - m_dragOffsetX;
+                float targetY = worldMy - m_dragOffsetY;
+                if (m_snapToGrid && m_gridStep > 0.0f) {
+                    targetX = SnapValue(targetX, m_gridStep);
+                    targetY = SnapValue(targetY, m_gridStep);
+                }
+                selected->transform.x = targetX;
+                selected->transform.y = targetY;
             }
         }
     }
@@ -304,12 +345,16 @@ namespace Talos::Editor {
         m_camera.ScreenToWorld(vpLeft, vpTop, worldLeft, worldTop);
         m_camera.ScreenToWorld(vpRight, vpBottom, worldRight, worldBottom);
 
-        const float gridStep = 40.0f;
+        const float gridStep = std::max(8.0f, m_gridStep);
         float startX = std::floor(worldLeft / gridStep) * gridStep;
         float startY = std::floor(worldTop / gridStep) * gridStep;
 
-        ColorRGBA gridColor      = { 38, 39, 46, 255 };
-        ColorRGBA majorAxisColor = { 68, 74, 92, 255 };
+        ColorRGBA gridColor = m_snapToGrid
+            ? ColorRGBA{ 46, 54, 68, 255 }
+            : ColorRGBA{ 38, 39, 46, 255 };
+        ColorRGBA majorAxisColor = m_snapToGrid
+            ? ColorRGBA{ 82, 110, 145, 255 }
+            : ColorRGBA{ 68, 74, 92, 255 };
 
         for (float x = startX; x <= worldRight; x += gridStep) {
             bool isOriginAxis = (std::fabs(x) < 0.5f);
@@ -449,25 +494,42 @@ namespace Talos::Editor {
         float hudX = LEFT_PANEL_WIDTH + 12.0f;
         float hudY = static_cast<float>(windowHeight) - consoleHeight - 38.0f;
 
-        Renderer2D::DrawRect(hudX, hudY, 232.0f, 28.0f, { 20, 22, 28, 220 });
-        Renderer2D::DrawRectOutline(hudX, hudY, 232.0f, 28.0f, 1.0f, { 65, 70, 88, 220 });
+        Renderer2D::DrawRect(hudX, hudY, 386.0f, 28.0f, { 20, 22, 28, 220 });
+        Renderer2D::DrawRectOutline(hudX, hudY, 386.0f, 28.0f, 1.0f, { 65, 70, 88, 220 });
 
         char zoomBuf[32];
         std::snprintf(zoomBuf, sizeof(zoomBuf), "Zoom: %.0f%%", m_camera.zoom * 100.0f);
         Renderer2D::DrawLabel(zoomBuf, hudX + 10.0f, hudY + 6.0f, 14, { 210, 220, 240, 255 });
 
-        if (gui.DrawButton(hudX + 98.0f, hudY + 3.0f, 60.0f, 22.0f, "Reset",
+        if (gui.DrawButton(hudX + 98.0f, hudY + 3.0f, 58.0f, 22.0f, "Reset",
                            { 45, 50, 65, 255 }, { 65, 72, 94, 255 })) {
             outStatusMessage = ResetCamera();
         }
-        if (gui.DrawButton(hudX + 164.0f, hudY + 3.0f, 62.0f, 22.0f, "Focus [F]",
+        if (gui.DrawButton(hudX + 160.0f, hudY + 3.0f, 62.0f, 22.0f, "Focus [F]",
                            { 45, 85, 135, 255 }, { 60, 110, 175, 255 })) {
             outStatusMessage = FocusSelectedEntity(scene, selectedEntityId, windowWidth, windowHeight, consoleHeight);
         }
 
+        // Divider between Camera controls and Snap-to-Grid controls
+        Renderer2D::DrawLine2D(hudX + 229.0f, hudY + 4.0f, hudX + 229.0f, hudY + 24.0f, { 65, 70, 88, 220 });
+
+        if (gui.DrawButton(hudX + 236.0f, hudY + 3.0f, 88.0f, 22.0f,
+                           m_snapToGrid ? "Snap: ON [G]" : "Snap: OFF [G]",
+                           m_snapToGrid ? ColorRGBA{ 42, 138, 92, 255 } : ColorRGBA{ 45, 50, 65, 255 },
+                           m_snapToGrid ? ColorRGBA{ 56, 168, 112, 255 } : ColorRGBA{ 65, 72, 94, 255 })) {
+            outStatusMessage = ToggleSnapToGrid();
+        }
+
+        char stepLabel[24];
+        std::snprintf(stepLabel, sizeof(stepLabel), "%.0fpx", m_gridStep);
+        if (gui.DrawButton(hudX + 328.0f, hudY + 3.0f, 52.0f, 22.0f, stepLabel,
+                           { 45, 55, 76, 255 }, { 62, 78, 106, 255 })) {
+            outStatusMessage = CycleGridStep();
+        }
+
         Renderer2D::DrawLabel(
             "Pan: Right/Middle Drag or Space+Drag   |   Zoom: Mouse Wheel",
-            hudX + 244.0f, hudY + 7.0f, 14, { 125, 130, 148, 220 }
+            hudX + 398.0f, hudY + 7.0f, 14, { 125, 130, 148, 220 }
         );
     }
 

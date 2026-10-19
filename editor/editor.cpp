@@ -243,6 +243,11 @@ namespace Talos::Editor {
                     m_viewport.FocusSelectedEntity(scene, m_selectedEntityId, m_windowWidth, m_windowHeight, consoleH),
                     1.2f
                 );
+            } else if (Core::Input::IsKeyPressedOnce(Core::Key::G)) {
+                m_toolbar.ShowStatusMessage(
+                    m_viewport.ToggleSnapToGrid(),
+                    1.4f
+                );
             }
         }
 

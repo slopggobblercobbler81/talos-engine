@@ -72,12 +72,13 @@ Instead of drawing a fixed loop over window pixels, the Editor computes the visi
 ### 4. Zoom-Independent Gizmo Thickness
 Selection outlines and physics collider wireframes are drawn inside `BeginCamera2D`, meaning the GPU scales their geometry by `m_camera.zoom`. To prevent outlines from becoming overly thick when zoomed in or disappearing when zoomed out, stroke thickness is inversely scaled by `1.0f / m_camera.zoom`.
 
-### 5. Viewport Camera HUD Overlay
+### 5. Viewport Camera & Snap-to-Grid HUD Overlay
 A compact floating HUD bar in the bottom-left corner of the viewport displays:
-- Current **Camera Target** coordinates (`Cam: (X, Y)`).
 - Current **Zoom Percentage** (`Zoom: 100%`).
 - Interactive **`Reset`** button to restore `100%` zoom centered on the default canvas.
 - Interactive **`Focus [F]`** button (and `F` keyboard shortcut) to smoothly snap the camera target to the currently selected entity.
+- Interactive **`Snap: OFF/ON [G]`** toggle button (and `G` keyboard shortcut) to snap dragged entity positions to the reference grid.
+- Interactive **Grid Step (`40px`)** selector button that cycles through `8px`, `16px`, `32px`, `40px`, and `64px` steps, dynamically updating both the visual grid and entity drag snapping.
 
 ---
 

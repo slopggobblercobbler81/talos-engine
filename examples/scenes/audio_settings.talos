@@ -1,0 +1,7 @@
+# Talos Engine - Project Audio Volume Configuration
+# Values range from 0.00 (Mute) to 1.00 (100%)
+
+[Audio]
+masterVolume = 1
+sfxVolume = 0.55
+musicVolume = 0

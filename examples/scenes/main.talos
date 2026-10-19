@@ -55,6 +55,15 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 0
+audio.audioPath = 
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 
 [Entity]
 id = 2
@@ -70,14 +79,14 @@ sprite.texturePath = examples/assets/textures/sheet.png
 sprite.color = 255,255,255,255
 sprite.sortingLayer = 2
 sprite.zOrder = 10
-sprite.sourceX = 0.00
+sprite.sourceX = 64.00
 sprite.sourceY = 0.00
 sprite.sourceW = 64.00
 sprite.sourceH = 64.00
 sprite.flipX = 0
 sprite.flipY = 0
 sprite.frameCount = 4
-sprite.currentFrame = 0
+sprite.currentFrame = 1
 sprite.fps = 8.00
 sprite.loop = 1
 sprite.isPlaying = 1
@@ -110,6 +119,15 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 0
+audio.audioPath = 
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 
 [Entity]
 id = 3
@@ -165,6 +183,15 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 0
+audio.audioPath = 
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 
 [Entity]
 id = 4
@@ -220,6 +247,15 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 0
+audio.audioPath = 
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 
 [Entity]
 id = 5
@@ -275,4 +311,13 @@ camera.followSpeed = 8.00
 camera.zoom = 1.00
 camera.offsetX = 0.00
 camera.offsetY = 0.00
+audio.enabled = 0
+audio.audioPath = 
+audio.isMusic = 0
+audio.playOnStart = 1
+audio.loop = 0
+audio.playOnCollision = 0
+audio.volume = 1.00
+audio.pitch = 1.00
+audio.pan = 0.50
 

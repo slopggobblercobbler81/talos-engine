@@ -50,7 +50,7 @@ namespace Talos::Editor {
                          Scene::EntityID selectedEntityId,
                          bool isPlaying) const;
 
-        // Renders the bottom-left floating Camera Zoom/Reset/Focus HUD pill in Edit Mode.
+        // Renders the bottom-left floating Camera Zoom/Reset/Focus & Snap-to-Grid HUD pill in Edit Mode.
         void RenderCameraOverlay(const Scene::Scene& scene,
                                  int windowWidth,
                                  int windowHeight,
@@ -60,6 +60,17 @@ namespace Talos::Editor {
                                  std::string& outStatusMessage);
 
         const Renderer::Camera2DView& GetCamera() const { return m_camera; }
+
+        // Snap-to-Grid state & controls for dragging entities in the 2D Viewport
+        bool IsSnapToGridEnabled() const { return m_snapToGrid; }
+        void SetSnapToGrid(bool enabled) { m_snapToGrid = enabled; }
+        std::string ToggleSnapToGrid();
+
+        float GetGridStep() const { return m_gridStep; }
+        void SetGridStep(float step);
+        std::string CycleGridStep();
+
+        static float SnapValue(float value, float step);
 
     private:
         void RenderGrid(int windowWidth, int windowHeight, float consoleHeight) const;
@@ -77,6 +88,9 @@ namespace Talos::Editor {
         bool m_isDraggingEntity = false;
         float m_dragOffsetX = 0.0f;
         float m_dragOffsetY = 0.0f;
+
+        bool m_snapToGrid = false;
+        float m_gridStep = 40.0f;
     };
 
 }
