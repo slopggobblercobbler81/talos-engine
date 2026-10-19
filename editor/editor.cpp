@@ -304,7 +304,21 @@ namespace Talos::Editor {
 
         m_sceneTreeDock.Render(scene, m_windowHeight, m_selectedEntityId, m_gui);
         m_inspectorDock.Render(scene, m_windowWidth, m_windowHeight, m_selectedEntityId, m_gui);
-        m_consoleDock.Render(m_windowWidth, m_windowHeight, m_gui);
+
+        std::string bottomStatus;
+        m_consoleDock.Render(m_windowWidth,
+                             m_windowHeight,
+                             scene,
+                             m_selectedEntityId,
+                             m_sceneFilePath,
+                             m_isPlaying,
+                             m_gui,
+                             m_undoRedo,
+                             m_assetBrowserDock,
+                             bottomStatus);
+        if (!bottomStatus.empty()) {
+            m_toolbar.ShowStatusMessage(bottomStatus, 2.0f);
+        }
 
         // 4. Project Modal Dialogs (rendered on top of docks and viewport)
         if (m_projectDialog.IsOpen()) {

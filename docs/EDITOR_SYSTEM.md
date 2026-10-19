@@ -64,3 +64,18 @@ In **Edit Mode**, the Top Toolbar (`EditorToolbar`) and Project Modal (`ProjectD
 * **`Ctrl+S` Shortcut:** Saves the unified `project.talos` file along with the active `.talos` scene and displays a confirmation toast in the toolbar.
 * **`Save Scene` / `Load Scene`:** Invokes `Scene::SceneSerializer::Save` (also syncing `project.talos` subsystem state) and `Scene::SceneSerializer::Load` to hot-reload the active `.talos` scene without restarting the executable.
 
+---
+
+## 6. Bottom Dock Tab Switcher (`Debug Console` & `Asset Browser`)
+
+The bottom dock (`ConsoleDock` + `AssetBrowserDock`) hosts a two-tab header bar that lets the user switch between real-time engine diagnostics and visual project resource management:
+* **`Debug Console` Tab (`editor/docks/console_dock.h`):** Displays classified engine log messages (`[INFO]`, `[WARN]`, `[ERROR]`) with source file/line metadata, severity filter buttons, mouse-wheel scrolling, and a `Clear` button.
+* **`Asset Browser` Tab (`editor/docks/asset_browser_dock.h`):** Provides a 3-column visual explorer for project files:
+  - **Header Filter Bar:** Displays the active relative directory, category filter tabs (`All`, `Textures`, `Audio`, `Scenes`, `Scripts`), and a `Refresh` button.
+  - **Left Column (Folder Shortcuts):** Quick navigation buttons (`examples/`, `Textures`, `Audio`, `Scenes`, and `[.. Up Folder]`).
+  - **Center Column (Scrollable File List):** Lists subdirectories (`[DIR]`) and categorized project files (`[TEX]`, `[AUD]`, `[SCN]`, `[LUA]`, `[FILE]`) with human-readable byte sizes and mouse-wheel scrolling.
+  - **Right Column (Live Preview & One-Click Assignment):**
+    - **Textures (`.png`, `.bmp`, `.jpg`):** Renders a live GPU thumbnail, native pixel dimensions, and VRAM footprint, with one-click `Assign Sprite` (onto the selected entity) and `+ New Sprite` (spawns a new textured entity in the scene) actions backed by Undo/Redo.
+    - **Audio (`.wav`, `.ogg`, `.mp3`):** Displays format, sample rate (`Hz`), channels, and duration (`s`), live `[Play SFX]`, `[Play Music]`, and `[Stop]` preview controls, and one-click `Assign as SFX` / `Assign as Music` buttons for the selected entity.
+    - **Scenes & Scripts (`.talos`, `.lua`):** Displays a live text preview of the file contents and a one-click `Open Scene in Editor` button for `.talos` scene files.
+

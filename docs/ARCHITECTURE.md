@@ -137,7 +137,8 @@ talos-engine/
     ├── docks/                    # Branch: Docked Editor Panels
     │   ├── scene_tree_dock.h / .cpp
     │   ├── inspector_dock.h / .cpp
-    │   └── console_dock.h / .cpp
+    │   ├── console_dock.h / .cpp
+    │   └── asset_browser_dock.h / .cpp
     └── dialogs/                  # Branch: Project Modal Windows
         ├── input_map_dialog.h / .cpp
         └── project_dialog.h / .cpp

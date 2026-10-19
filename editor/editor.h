@@ -11,6 +11,7 @@
 #include "editor/docks/scene_tree_dock.h"
 #include "editor/docks/inspector_dock.h"
 #include "editor/docks/console_dock.h"
+#include "editor/docks/asset_browser_dock.h"
 #include "editor/dialogs/input_map_dialog.h"
 #include "editor/dialogs/project_dialog.h"
 
@@ -25,7 +26,7 @@ namespace Talos::Editor {
     //   - editor/history/  : Universal Undo/Redo & drag snapshot manager (EditorUndoRedo)
     //   - editor/toolbar/  : Top command bar & status banner (EditorToolbar)
     //   - editor/viewport/ : 2D Canvas Viewport (CanvasViewport) & F3 Telemetry (DiagnosticOverlay)
-    //   - editor/docks/    : Scene Tree, First-Level Inspector, and Debug Console docks
+    //   - editor/docks/    : Scene Tree, First-Level Inspector, Debug Console, and Asset Browser docks
     //   - editor/dialogs/  : Project modal dialogs (ProjectDialog, InputMapDialog)
     class Editor {
     public:
@@ -77,6 +78,7 @@ namespace Talos::Editor {
         SceneTreeDock     m_sceneTreeDock;
         InspectorDock     m_inspectorDock;
         ConsoleDock       m_consoleDock;
+        AssetBrowserDock  m_assetBrowserDock;
         ProjectDialog     m_projectDialog;
         InputMapDialog    m_inputMapDialog;
     };

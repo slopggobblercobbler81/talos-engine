@@ -16,13 +16,22 @@ namespace Talos::Editor {
         return m_consoleOpen ? CONSOLE_HEIGHT : CONSOLE_HEADER_HEIGHT;
     }
 
-    void ConsoleDock::Render(int windowWidth, int windowHeight, EditorGui& gui) {
+    void ConsoleDock::Render(int windowWidth,
+                             int windowHeight,
+                             Scene::Scene& scene,
+                             Scene::EntityID& inOutSelectedEntityId,
+                             std::string& inOutSceneFilePath,
+                             bool isPlaying,
+                             EditorGui& gui,
+                             EditorUndoRedo& undoRedo,
+                             AssetBrowserDock& assetBrowser,
+                             std::string& outStatusMessage) {
         float consoleX = LEFT_PANEL_WIDTH;
         float consoleW = static_cast<float>(windowWidth) - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
         float consoleH = GetPanelHeight();
         float consoleY = static_cast<float>(windowHeight) - consoleH;
 
-        // Console panel background & top divider border
+        // Bottom dock panel background & top divider border
         Renderer2D::DrawRect(consoleX, consoleY, consoleW, consoleH, { 18, 19, 24, 255 });
         Renderer2D::DrawLine2D(consoleX, consoleY, consoleX + consoleW, consoleY, { 58, 62, 76, 255 });
 
@@ -31,10 +40,49 @@ namespace Talos::Editor {
         Renderer2D::DrawLine2D(consoleX, consoleY + CONSOLE_HEADER_HEIGHT,
                                consoleX + consoleW, consoleY + CONSOLE_HEADER_HEIGHT, { 42, 45, 56, 255 });
 
-        // Title label
-        Renderer2D::DrawLabel("DEBUG CONSOLE", consoleX + 12.0f, consoleY + 6.0f, 15, { 155, 165, 185, 255 });
+        // Bottom panel tab switcher: [Debug Console] | [Asset Browser]
+        bool isConsoleTab = (m_activeTab == BottomDockTab::DebugConsole);
+        bool isAssetTab   = (m_activeTab == BottomDockTab::AssetBrowser);
 
-        // Counts by message classification type
+        if (gui.DrawButton(consoleX + 6.0f, consoleY + 3.0f, 112.0f, 22.0f, "Debug Console",
+                           isConsoleTab ? ColorRGBA{ 44, 78, 128, 255 } : ColorRGBA{ 30, 33, 42, 255 },
+                           { 58, 98, 156, 255 })) {
+            m_activeTab = BottomDockTab::DebugConsole;
+            m_consoleOpen = true;
+        }
+
+        if (gui.DrawButton(consoleX + 122.0f, consoleY + 3.0f, 112.0f, 22.0f, "Asset Browser",
+                           isAssetTab ? ColorRGBA{ 44, 78, 128, 255 } : ColorRGBA{ 30, 33, 42, 255 },
+                           { 58, 98, 156, 255 })) {
+            m_activeTab = BottomDockTab::AssetBrowser;
+            m_consoleOpen = true;
+            assetBrowser.Refresh();
+        }
+
+        float tabsEndX = consoleX + 238.0f;
+        float bodyY = consoleY + CONSOLE_HEADER_HEIGHT;
+        float bodyH = consoleH - CONSOLE_HEADER_HEIGHT;
+
+        if (isAssetTab) {
+            assetBrowser.RenderHeaderControls(consoleX, consoleY, consoleW, tabsEndX, gui, m_consoleOpen);
+            if (!m_consoleOpen) {
+                return;
+            }
+            assetBrowser.RenderBody(consoleX,
+                                    bodyY,
+                                    consoleW,
+                                    bodyH,
+                                    scene,
+                                    inOutSelectedEntityId,
+                                    inOutSceneFilePath,
+                                    isPlaying,
+                                    gui,
+                                    undoRedo,
+                                    outStatusMessage);
+            return;
+        }
+
+        // Counts by message classification type (Debug Console tab)
         size_t infoCount  = Core::Logger::GetCountByLevel(Core::LogLevel::Info);
         size_t warnCount  = Core::Logger::GetCountByLevel(Core::LogLevel::Warning);
         size_t errorCount = Core::Logger::GetCountByLevel(Core::LogLevel::Error);
@@ -46,7 +94,7 @@ namespace Talos::Editor {
         std::snprintf(warnBtnLabel, sizeof(warnBtnLabel), "WARN: %zu", warnCount);
         std::snprintf(errBtnLabel,  sizeof(errBtnLabel),  "ERROR: %zu", errorCount);
 
-        float filterX = consoleX + 148.0f;
+        float filterX = tabsEndX + 10.0f;
         if (gui.DrawButton(filterX, consoleY + 3.0f, 82.0f, 22.0f, infoBtnLabel,
                            m_showLogInfo ? ColorRGBA{ 38, 88, 138, 255 } : ColorRGBA{ 32, 35, 44, 255 },
                            { 52, 112, 172, 255 })) {
@@ -101,8 +149,6 @@ namespace Talos::Editor {
             m_lastLogCount = allEntries.size();
         }
 
-        float bodyY = consoleY + CONSOLE_HEADER_HEIGHT;
-        float bodyH = consoleH - CONSOLE_HEADER_HEIGHT;
         constexpr float rowHeight = 22.0f;
         int maxVisibleRows = std::max(1, static_cast<int>((bodyH - 6.0f) / rowHeight));
         int totalRows = static_cast<int>(filtered.size());
