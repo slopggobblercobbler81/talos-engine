@@ -8,6 +8,8 @@ function(talos_add_test name source)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
+talos_add_test(test_logger core/test_logger.cpp talos_core)
+talos_add_test(test_input_map core/test_input_map.cpp talos_core)
 talos_add_test(test_physics2d physics/test_physics2d.cpp talos_physics)
 talos_add_test(test_audio_system audio/test_audio_system.cpp talos_audio)
 talos_add_test(test_scene_serializer scene/test_scene_serializer.cpp talos_scene)
