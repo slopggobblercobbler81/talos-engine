@@ -122,3 +122,20 @@ Consult only the entry matching the system you are changing.
 - [`docs/TEXT_SELECTION_SYSTEM.md`](docs/TEXT_SELECTION_SYSTEM.md) — Interactive text field controller (`TextEditState`: caret, selection, clipboard, auto-scroll).
 - [`docs/DEBUG_CONSOLE_SYSTEM.md`](docs/DEBUG_CONSOLE_SYSTEM.md) — Real-time debug console dock (`ConsoleDock`) with severity filters.
 - [`docs/DIAGNOSTIC_OVERLAY_SYSTEM.md`](docs/DIAGNOSTIC_OVERLAY_SYSTEM.md) — Toggleable `[F3]` viewport diagnostic HUD (`DiagnosticOverlay`) and telemetry counters.
+
+---
+
+## 6. Specialized Layer Agents & Skills (`.agents/`)
+
+Each architectural layer and domain subsystem has a dedicated agent (`.agents/agents/`) and preloaded skill (`.agents/skills/`):
+
+| Agent | Layer / Module | Preloaded Skills | Scope |
+| :--- | :--- | :--- | :--- |
+| `talos-core` | Layer 1 (`engine/core/`) | `talos-core-layer` | `Window`, `delta`, `Input`, `InputMap`, `Logger` (`talos_core`) |
+| `talos-renderer` | Layer 2 (`engine/renderer/`) | `talos-renderer-layer`, `talos-component-workflow` | `Renderer2D`, texture/font cache, UV, sorting, `Camera2DData` (`talos_renderer`) |
+| `talos-physics` | Layer 2 (`engine/physics/`) | `talos-physics-layer`, `talos-component-workflow` | `Physics2D` shapes, overlap, manifolds, impulses, `test_physics2d` (`talos_physics`) |
+| `talos-audio` | Layer 2 (`engine/audio/`) | `talos-audio-layer`, `talos-component-workflow` | `AudioSystem`, WAV/OGG `Sound` cache, OGG/MP3/WAV `Music` streaming, `test_audio_system` (`talos_audio`) |
+| `talos-scene` | Layer 3 (`engine/scene/`) | `talos-scene-layer`, `talos-component-workflow` | Flat `Entity`/`components.h`, `Scene`, `AssetManager`, `SceneSerializer`, `ProjectSerializer` (`talos_scene`) |
+| `talos-scripting` | Layer 4 (`engine/scripting/`, `third_party/lua/`) | `talos-scripting-layer`, `talos-component-workflow` | Talos Lua VM fork (`TALOS_CHANGES.md`), C++ bindings, hooks, sandboxing |
+| `talos-editor` | Layer 5 (`editor/`) | `talos-editor-layer`, `talos-component-workflow` | `EditorNode`, docks, `EditorGui`, `CanvasViewport`, `DiagnosticOverlay`, `EditorUndoRedo`, dialogs |
+
