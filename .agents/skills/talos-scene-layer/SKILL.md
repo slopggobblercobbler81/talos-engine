@@ -16,7 +16,7 @@ description: >-
 - `engine/scene/asset_manager.{h,cpp}` — `AssetManager`: central resource registry for loading, caching, reusing, and freeing textures, audio, fonts, prefabs, and scripts.
 - `engine/scene/scene_serializer.{h,cpp}` — `SceneSerializer`: human-readable `.talsc` scene and `.prefab` template save/load.
 - `engine/scene/project_serializer.{h,cpp}` — `ProjectSerializer`: unified `project.talos` configuration and project workflow.
-- `tests/scene/test_scene_serializer.cpp`, `tests/scene/test_project_serializer.cpp`, `tests/scene/test_asset_manager.cpp` — Headless unit tests.
+- `tests/scene/test_scene.cpp`, `tests/scene/test_scene_serializer.cpp`, `tests/scene/test_project_serializer.cpp`, `tests/scene/test_asset_manager.cpp` — Headless unit tests.
 - Build target: `talos_scene` in `engine/CMakeLists.txt`.
 
 ## 2. Strict Architectural Constraints
