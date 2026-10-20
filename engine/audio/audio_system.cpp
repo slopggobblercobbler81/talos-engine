@@ -825,4 +825,26 @@ namespace Talos::Audio {
     std::size_t AudioSystem::GetTotalSoundMemoryBytes() { return s_TotalSoundMemoryBytes; }
     std::size_t AudioSystem::GetTotalMusicMemoryBytes() { return s_TotalMusicMemoryBytes; }
 
+    std::vector<std::string> AudioSystem::GetLoadedSoundPaths() {
+        std::vector<std::string> paths;
+        paths.reserve(s_SoundCache.size());
+        for (const auto& [path, entry] : s_SoundCache) {
+            (void)entry;
+            paths.push_back(path);
+        }
+        std::sort(paths.begin(), paths.end());
+        return paths;
+    }
+
+    std::vector<std::string> AudioSystem::GetLoadedMusicPaths() {
+        std::vector<std::string> paths;
+        paths.reserve(s_MusicCache.size());
+        for (const auto& [path, entry] : s_MusicCache) {
+            (void)entry;
+            paths.push_back(path);
+        }
+        std::sort(paths.begin(), paths.end());
+        return paths;
+    }
+
 } // namespace Talos::Audio

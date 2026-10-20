@@ -1,12 +1,55 @@
 #include "renderer/renderer2d.h"
 #include "core/logger.h"
 #include "raylib.h"
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
-#include <filesystem>
+#include <vector>
 
 namespace Talos::Renderer {
+
+    // Normalizes a resource file path (trims whitespace, converts '\' to '/', strips leading "./").
+    static std::string NormalizeResourceKey(const char* rawPath) {
+        if (!rawPath || rawPath[0] == '\0') {
+            return "";
+        }
+        std::string s(rawPath);
+        const auto first = s.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            return "";
+        }
+        const auto last = s.find_last_not_of(" \t\r\n");
+        s = s.substr(first, last - first + 1);
+
+        for (char& c : s) {
+            if (c == '\\') {
+                c = '/';
+            }
+        }
+        while (s.size() >= 2 && s[0] == '.' && s[1] == '/') {
+            s.erase(0, 2);
+        }
+        std::string collapsed;
+        collapsed.reserve(s.size());
+        bool prevSlash = false;
+        for (char c : s) {
+            if (c == '/') {
+                if (!prevSlash) {
+                    collapsed.push_back(c);
+                }
+                prevSlash = true;
+            } else {
+                collapsed.push_back(c);
+                prevSlash = false;
+            }
+        }
+        return collapsed;
+    }
 
     // =========================================================================
     // Internal Typography Cache (Private to Renderer2D)
@@ -18,6 +61,16 @@ namespace Talos::Renderer {
     static std::unordered_map<int, Font> s_fontCache;
     static std::string s_activeFontPath;
 
+    struct CachedCustomFont {
+        std::unordered_map<int, Font> sizeAtlases;
+        std::unordered_set<int> requestedSizes;
+        int defaultSize = 24;
+        size_t fileSizeBytes = 0;
+        bool uploadedToGpu = false;
+        bool valid = false;
+    };
+    static std::unordered_map<std::string, CachedCustomFont> s_customFontCache;
+
     // =========================================================================
     // Internal 2D Texture Cache (Private to Renderer2D)
     // =========================================================================
@@ -25,6 +78,7 @@ namespace Talos::Renderer {
     // GPU-resident Texture2D handle. Ensures each image file is decoded from disk and
     // uploaded to VRAM only once, even when shared across hundreds of scene entities.
     static std::unordered_map<std::string, Texture2D> s_textureCache;
+    static std::unordered_set<std::string> s_cpuOnlyTextures;
     static std::unordered_set<std::string> s_missingTexturePaths;
 
     // Locates a clean, modern sans-serif TrueType font on the host system.
@@ -46,11 +100,51 @@ namespace Talos::Renderer {
         return "";
     }
 
+    static bool IsValidFontExtension(const std::string& path) {
+        std::string ext = std::filesystem::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        return ext == ".ttf" || ext == ".otf";
+    }
+
+    static bool ValidateFontFileSignature(const std::string& path, size_t& outFileBytes) {
+        outFileBytes = 0;
+        if (!IsValidFontExtension(path)) {
+            return false;
+        }
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec) || std::filesystem::is_directory(path, ec)) {
+            return false;
+        }
+        std::ifstream in(path, std::ios::binary | std::ios::ate);
+        if (!in.is_open()) {
+            return false;
+        }
+        auto endPos = in.tellg();
+        if (endPos < 12) {
+            return false;
+        }
+        outFileBytes = static_cast<size_t>(endPos);
+        in.seekg(0, std::ios::beg);
+        unsigned char sig[4] = { 0, 0, 0, 0 };
+        in.read(reinterpret_cast<char*>(sig), 4);
+        if (!in.good()) {
+            return false;
+        }
+        // TrueType (0x00010000 or 'true'), OpenType ('OTTO'), or TTC ('ttcf')
+        const bool isTrueType = (sig[0] == 0x00 && sig[1] == 0x01 && sig[2] == 0x00 && sig[3] == 0x00) ||
+                                (sig[0] == 't'  && sig[1] == 'r'  && sig[2] == 'u'  && sig[3] == 'e');
+        const bool isOpenType = (sig[0] == 'O'  && sig[1] == 'T'  && sig[2] == 'T'  && sig[3] == 'O');
+        const bool isTtc      = (sig[0] == 't'  && sig[1] == 't'  && sig[2] == 'c'  && sig[3] == 'f');
+        return isTrueType || isOpenType || isTtc;
+    }
+
     // Retrieves (or rasterizes on first request) a crisp 1:1 native Font atlas for 'fontSize'.
     static Font GetFontForSize(int fontSize) {
         int clampedSize = (fontSize < 10) ? 10 : ((fontSize > 96) ? 96 : fontSize);
 
-        if (s_activeFontPath.empty()) {
+        if (s_activeFontPath.empty() || !IsWindowReady()) {
             return GetFontDefault();
         }
 
@@ -60,9 +154,41 @@ namespace Talos::Renderer {
         }
 
         // Rasterize the TrueType font at the exact pixel height and apply bilinear smoothing.
-        Font loadedFont = LoadFontEx(s_activeFontPath.c_str(), clampedSize, nullptr, 0);
+        Font loadedFont = ::LoadFontEx(s_activeFontPath.c_str(), clampedSize, nullptr, 0);
         SetTextureFilter(loadedFont.texture, TEXTURE_FILTER_BILINEAR);
         s_fontCache[clampedSize] = loadedFont;
+        return loadedFont;
+    }
+
+    static Font GetCustomFontForSize(const char* fontPath, int fontSize) {
+        std::string key = NormalizeResourceKey(fontPath);
+        if (key.empty()) {
+            return GetFontForSize(fontSize);
+        }
+        int clampedSize = (fontSize < 10) ? 10 : ((fontSize > 96) ? 96 : fontSize);
+
+        if (!Renderer2D::HasFont(key.c_str()) && !Renderer2D::LoadFont(key.c_str(), clampedSize)) {
+            return GetFontForSize(clampedSize);
+        }
+        if (!IsWindowReady()) {
+            return GetFontDefault();
+        }
+        auto it = s_customFontCache.find(key);
+        if (it == s_customFontCache.end()) {
+            return GetFontForSize(clampedSize);
+        }
+        auto sizeIt = it->second.sizeAtlases.find(clampedSize);
+        if (sizeIt != it->second.sizeAtlases.end() && sizeIt->second.texture.id != 0) {
+            return sizeIt->second;
+        }
+        Font loadedFont = ::LoadFontEx(key.c_str(), clampedSize, nullptr, 0);
+        if (loadedFont.texture.id == 0) {
+            return GetFontForSize(clampedSize);
+        }
+        SetTextureFilter(loadedFont.texture, TEXTURE_FILTER_BILINEAR);
+        it->second.sizeAtlases[clampedSize] = loadedFont;
+        it->second.requestedSizes.insert(clampedSize);
+        it->second.uploadedToGpu = true;
         return loadedFont;
     }
 
@@ -209,17 +335,29 @@ namespace Talos::Renderer {
         }
     }
 
-    // Internal helper: Retrieves a cached GPU texture or lazily loads it from disk on first request.
+    void Renderer2D::EnsureStarterAssetsExist() {
+        EnsureStarterTexturesExist();
+    }
+
+    // Internal helper: Retrieves a cached GPU texture (or CPU metadata entry in headless mode)
+    // or lazily loads it from disk on first request.
     static const Texture2D* GetOrLoadTexture(const char* texturePath) {
-        if (!texturePath || texturePath[0] == '\0') {
+        std::string key = NormalizeResourceKey(texturePath);
+        if (key.empty()) {
             return nullptr;
         }
 
-        std::string key(texturePath);
-
-        // 1. Return immediately if already resident in VRAM
+        // 1. Return immediately if already resident in cache (upgrading CPU-only entry if GPU is now ready)
         auto it = s_textureCache.find(key);
         if (it != s_textureCache.end()) {
+            if (IsWindowReady() && s_cpuOnlyTextures.find(key) != s_cpuOnlyTextures.end()) {
+                Texture2D gpuTex = ::LoadTexture(key.c_str());
+                if (gpuTex.id != 0) {
+                    SetTextureFilter(gpuTex, TEXTURE_FILTER_POINT);
+                    it->second = gpuTex;
+                    s_cpuOnlyTextures.erase(key);
+                }
+            }
             return &it->second;
         }
 
@@ -228,25 +366,52 @@ namespace Talos::Renderer {
             return nullptr;
         }
 
-        // 3. Check disk and upload to GPU if valid
-        if (!FileExists(texturePath)) {
+        // 3. Check disk and decode/upload if valid
+        if (!FileExists(key.c_str())) {
             s_missingTexturePaths.insert(key);
             TALOS_LOG_ERROR("Texture file not found on disk: '" + key + "'");
             return nullptr;
         }
 
-        Texture2D tex = LoadTexture(texturePath);
-        if (tex.id == 0) {
+        if (IsWindowReady()) {
+            Texture2D tex = ::LoadTexture(key.c_str());
+            if (tex.id == 0) {
+                s_missingTexturePaths.insert(key);
+                TALOS_LOG_ERROR("Failed to decode or upload texture to GPU: '" + key + "'");
+                return nullptr;
+            }
+
+            // Use nearest-neighbor (point) filtering so crisp pixel/2D sprites never blur when scaled.
+            SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+            auto inserted = s_textureCache.emplace(key, tex);
+            TALOS_LOG_INFO("Loaded 2D texture into VRAM: '" + key + "' (" +
+                           std::to_string(tex.width) + "x" + std::to_string(tex.height) + ")");
+            return &inserted.first->second;
+        }
+
+        // Headless fallback: decode image dimensions/format in CPU RAM for unit tests and pre-window validation
+        Image img = ::LoadImage(key.c_str());
+        if (img.data == nullptr || img.width <= 0 || img.height <= 0) {
+            if (img.data != nullptr) {
+                ::UnloadImage(img);
+            }
             s_missingTexturePaths.insert(key);
-            TALOS_LOG_ERROR("Failed to decode or upload texture to GPU: '" + key + "'");
+            TALOS_LOG_ERROR("Failed to decode texture image: '" + key + "'");
             return nullptr;
         }
 
-        // Use nearest-neighbor (point) filtering so crisp pixel/2D sprites never blur when scaled.
-        SetTextureFilter(tex, TEXTURE_FILTER_POINT);
-        auto inserted = s_textureCache.emplace(key, tex);
-        TALOS_LOG_INFO("Loaded 2D texture into VRAM: '" + key + "' (" +
-                       std::to_string(tex.width) + "x" + std::to_string(tex.height) + ")");
+        Texture2D metaTex = {};
+        metaTex.id      = 1;
+        metaTex.width   = img.width;
+        metaTex.height  = img.height;
+        metaTex.mipmaps = (img.mipmaps > 0) ? img.mipmaps : 1;
+        metaTex.format  = img.format;
+        ::UnloadImage(img);
+
+        s_cpuOnlyTextures.insert(key);
+        auto inserted = s_textureCache.emplace(key, metaTex);
+        TALOS_LOG_INFO("Loaded 2D texture metadata (headless): '" + key + "' (" +
+                       std::to_string(metaTex.width) + "x" + std::to_string(metaTex.height) + ")");
         return &inserted.first->second;
     }
 
@@ -270,18 +435,19 @@ namespace Talos::Renderer {
     }
 
     void Renderer2D::Shutdown() {
-        // Free all GPU texture atlases allocated by the TrueType font cache.
+        // Free all GPU texture atlases allocated by the default TrueType font cache.
         for (auto& pair : s_fontCache) {
-            UnloadFont(pair.second);
+            if (IsWindowReady()) {
+                ::UnloadFont(pair.second);
+            }
         }
         s_fontCache.clear();
 
+        // Free all custom project font atlases.
+        UnloadAllFonts();
+
         // Free all cached 2D sprite textures from GPU VRAM.
-        for (auto& pair : s_textureCache) {
-            UnloadTexture(pair.second);
-        }
-        s_textureCache.clear();
-        s_missingTexturePaths.clear();
+        UnloadAllTextures();
     }
 
     void Renderer2D::BeginFrame(ColorRGBA clearColor) {
@@ -399,6 +565,24 @@ namespace Talos::Renderer {
         DrawRectOutline(x, y, width, height, 1.5f, { 255, 80, 210, 255 });
     }
 
+    bool Renderer2D::LoadTexture(const char* texturePath) {
+        std::string key = NormalizeResourceKey(texturePath);
+        if (key.empty()) {
+            return false;
+        }
+        // Clear negative cache entry on explicit load so newly created files can be loaded
+        s_missingTexturePaths.erase(key);
+        return GetOrLoadTexture(key.c_str()) != nullptr;
+    }
+
+    bool Renderer2D::IsTextureLoaded(const char* texturePath) {
+        std::string key = NormalizeResourceKey(texturePath);
+        if (key.empty()) {
+            return false;
+        }
+        return s_textureCache.find(key) != s_textureCache.end();
+    }
+
     bool Renderer2D::HasTexture(const char* texturePath) {
         return GetOrLoadTexture(texturePath) != nullptr;
     }
@@ -413,6 +597,151 @@ namespace Talos::Renderer {
         outWidth  = 0;
         outHeight = 0;
         return false;
+    }
+
+    void Renderer2D::UnloadTexture(const char* texturePath) {
+        std::string key = NormalizeResourceKey(texturePath);
+        if (key.empty()) {
+            return;
+        }
+        s_missingTexturePaths.erase(key);
+        auto it = s_textureCache.find(key);
+        if (it == s_textureCache.end()) {
+            return;
+        }
+        bool isCpuOnly = (s_cpuOnlyTextures.find(key) != s_cpuOnlyTextures.end());
+        if (!isCpuOnly && IsWindowReady() && it->second.id != 0) {
+            ::UnloadTexture(it->second);
+        }
+        s_cpuOnlyTextures.erase(key);
+        s_textureCache.erase(it);
+        TALOS_LOG_INFO("Unloaded 2D texture from cache: '" + key + "'");
+    }
+
+    void Renderer2D::UnloadAllTextures() {
+        for (auto& pair : s_textureCache) {
+            bool isCpuOnly = (s_cpuOnlyTextures.find(pair.first) != s_cpuOnlyTextures.end());
+            if (!isCpuOnly && IsWindowReady() && pair.second.id != 0) {
+                ::UnloadTexture(pair.second);
+            }
+        }
+        s_textureCache.clear();
+        s_cpuOnlyTextures.clear();
+        s_missingTexturePaths.clear();
+    }
+
+    std::vector<std::string> Renderer2D::GetLoadedTexturePaths() {
+        std::vector<std::string> paths;
+        paths.reserve(s_textureCache.size());
+        for (const auto& pair : s_textureCache) {
+            paths.push_back(pair.first);
+        }
+        std::sort(paths.begin(), paths.end());
+        return paths;
+    }
+
+    bool Renderer2D::LoadFont(const char* fontPath, int defaultFontSize) {
+        std::string key = NormalizeResourceKey(fontPath);
+        if (key.empty()) {
+            return false;
+        }
+
+        int clampedSize = (defaultFontSize < 10) ? 10 : ((defaultFontSize > 96) ? 96 : defaultFontSize);
+
+        auto existing = s_customFontCache.find(key);
+        if (existing != s_customFontCache.end() && existing->second.valid) {
+            if (IsWindowReady() && existing->second.sizeAtlases.find(clampedSize) == existing->second.sizeAtlases.end()) {
+                Font f = ::LoadFontEx(key.c_str(), clampedSize, nullptr, 250);
+                if (f.texture.id != 0) {
+                    SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+                    existing->second.sizeAtlases[clampedSize] = f;
+                }
+            }
+            return true;
+        }
+
+        if (!IsValidFontExtension(key)) {
+            TALOS_LOG_ERROR("Unsupported font extension for '" + key + "' (expected .ttf or .otf)");
+            return false;
+        }
+
+        size_t fileBytes = 0;
+        if (!ValidateFontFileSignature(key, fileBytes)) {
+            TALOS_LOG_ERROR("Font file not found or invalid signature: '" + key + "'");
+            return false;
+        }
+
+        CachedCustomFont entry = {};
+        entry.valid = true;
+        entry.fileSizeBytes = fileBytes;
+
+        if (IsWindowReady()) {
+            Font f = ::LoadFontEx(key.c_str(), clampedSize, nullptr, 250);
+            if (f.texture.id == 0) {
+                TALOS_LOG_ERROR("Failed to rasterize TrueType/OpenType font: '" + key + "'");
+                return false;
+            }
+            SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+            entry.sizeAtlases[clampedSize] = f;
+        }
+
+        s_customFontCache[key] = std::move(entry);
+        TALOS_LOG_INFO("Loaded custom font into cache: '" + key + "'");
+        return true;
+    }
+
+    bool Renderer2D::HasFont(const char* fontPath) {
+        std::string key = NormalizeResourceKey(fontPath);
+        if (key.empty()) {
+            return false;
+        }
+        auto it = s_customFontCache.find(key);
+        return (it != s_customFontCache.end() && it->second.valid);
+    }
+
+    void Renderer2D::UnloadFont(const char* fontPath) {
+        std::string key = NormalizeResourceKey(fontPath);
+        if (key.empty()) {
+            return;
+        }
+        auto it = s_customFontCache.find(key);
+        if (it == s_customFontCache.end()) {
+            return;
+        }
+        if (IsWindowReady()) {
+            for (auto& atlasPair : it->second.sizeAtlases) {
+                if (atlasPair.second.texture.id != 0) {
+                    ::UnloadFont(atlasPair.second);
+                }
+            }
+        }
+        s_customFontCache.erase(it);
+        TALOS_LOG_INFO("Unloaded custom font from cache: '" + key + "'");
+    }
+
+    void Renderer2D::UnloadAllFonts() {
+        if (IsWindowReady()) {
+            for (auto& fontPair : s_customFontCache) {
+                for (auto& atlasPair : fontPair.second.sizeAtlases) {
+                    if (atlasPair.second.texture.id != 0) {
+                        ::UnloadFont(atlasPair.second);
+                    }
+                }
+            }
+        }
+        s_customFontCache.clear();
+    }
+
+    std::vector<std::string> Renderer2D::GetLoadedFontPaths() {
+        std::vector<std::string> paths;
+        paths.reserve(s_customFontCache.size());
+        for (const auto& pair : s_customFontCache) {
+            if (pair.second.valid) {
+                paths.push_back(pair.first);
+            }
+        }
+        std::sort(paths.begin(), paths.end());
+        return paths;
     }
 
     void Renderer2D::DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color) {
@@ -431,8 +760,34 @@ namespace Talos::Renderer {
         );
     }
 
+    void Renderer2D::DrawLabelEx(const char* fontPath, const char* text, float x, float y, int fontSize, ColorRGBA color) {
+        Font font = GetCustomFontForSize(fontPath, fontSize);
+        Vector2 position = { x, y };
+        DrawTextEx(
+            font,
+            text ? text : "",
+            position,
+            static_cast<float>(fontSize),
+            0.5f,
+            { color.r, color.g, color.b, color.a }
+        );
+    }
+
     int Renderer2D::MeasureTextWidth(const char* text, int fontSize) {
         Font font = GetFontForSize(fontSize);
+        Vector2 measured = MeasureTextEx(font, text, static_cast<float>(fontSize), 0.5f);
+        return static_cast<int>(measured.x);
+    }
+
+    int Renderer2D::MeasureTextWidthEx(const char* fontPath, const char* text, int fontSize) {
+        if (!text || text[0] == '\0') {
+            return 0;
+        }
+        if (!IsWindowReady()) {
+            int clampedSize = (fontSize < 10) ? 10 : ((fontSize > 96) ? 96 : fontSize);
+            return static_cast<int>(std::strlen(text)) * (clampedSize / 2);
+        }
+        Font font = GetCustomFontForSize(fontPath, fontSize);
         Vector2 measured = MeasureTextEx(font, text, static_cast<float>(fontSize), 0.5f);
         return static_cast<int>(measured.x);
     }
@@ -449,10 +804,11 @@ namespace Talos::Renderer {
     }
 
     size_t Renderer2D::GetTextureVRAMBytes(const char* texturePath) {
-        if (!texturePath || texturePath[0] == '\0') {
+        std::string key = NormalizeResourceKey(texturePath);
+        if (key.empty()) {
             return 0;
         }
-        auto it = s_textureCache.find(texturePath);
+        auto it = s_textureCache.find(key);
         if (it != s_textureCache.end()) {
             return ComputeTextureVRAMBytes(it->second);
         }
@@ -468,6 +824,27 @@ namespace Talos::Renderer {
         return 0;
     }
 
+    size_t Renderer2D::GetCustomFontVRAMBytes(const char* fontPath) {
+        std::string key = NormalizeResourceKey(fontPath);
+        if (key.empty()) {
+            return 0;
+        }
+        auto it = s_customFontCache.find(key);
+        if (it == s_customFontCache.end() || !it->second.valid) {
+            return 0;
+        }
+        size_t total = 0;
+        for (const auto& atlasPair : it->second.sizeAtlases) {
+            total += ComputeTextureVRAMBytes(atlasPair.second.texture);
+        }
+        if (total == 0) {
+            // In headless mode (or before any size atlas is uploaded), report the backing font file size
+            // or a standard 256x256 RGBA atlas estimate so memory telemetry is non-zero and deterministic.
+            return (it->second.fileSizeBytes > 0) ? it->second.fileSizeBytes : (256u * 256u * 4u);
+        }
+        return total;
+    }
+
     size_t Renderer2D::GetTotalTextureVRAMBytes() {
         size_t total = 0;
         for (const auto& pair : s_textureCache) {
@@ -481,11 +858,28 @@ namespace Talos::Renderer {
         for (const auto& pair : s_fontCache) {
             total += ComputeTextureVRAMBytes(pair.second.texture);
         }
+        for (const auto& fontPair : s_customFontCache) {
+            if (!fontPair.second.valid) {
+                continue;
+            }
+            size_t fontTotal = 0;
+            for (const auto& atlasPair : fontPair.second.sizeAtlases) {
+                fontTotal += ComputeTextureVRAMBytes(atlasPair.second.texture);
+            }
+            if (fontTotal == 0 && !IsWindowReady()) {
+                fontTotal = (fontPair.second.fileSizeBytes > 0) ? fontPair.second.fileSizeBytes : (256u * 256u * 4u);
+            }
+            total += fontTotal;
+        }
         return total;
     }
 
     size_t Renderer2D::GetCachedTextureCount() {
         return s_textureCache.size();
+    }
+
+    size_t Renderer2D::GetCachedFontCount() {
+        return s_customFontCache.size();
     }
 
 }

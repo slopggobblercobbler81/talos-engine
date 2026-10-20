@@ -5,6 +5,7 @@
 #include "renderer/renderer2d.h"
 #include "audio/audio_system.h"
 #include "scene/scene_serializer.h"
+#include "scene/asset_manager.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -30,6 +31,7 @@ namespace Talos::Editor {
 
         if (ext == ".png" || ext == ".bmp" || ext == ".jpg" || ext == ".jpeg") return AssetEntryKind::Texture;
         if (ext == ".wav" || ext == ".ogg" || ext == ".mp3") return AssetEntryKind::Audio;
+        if (ext == ".ttf" || ext == ".otf") return AssetEntryKind::Font;
         if (ext == ".prefab") return AssetEntryKind::Prefab;
         if (ext == ".talsc") return AssetEntryKind::Scene;
         if (ext == ".lua") return AssetEntryKind::Script;
@@ -77,6 +79,7 @@ namespace Talos::Editor {
             if (!isDir && m_categoryFilter != AssetCategoryFilter::All) {
                 if (m_categoryFilter == AssetCategoryFilter::Textures && kind != AssetEntryKind::Texture) continue;
                 if (m_categoryFilter == AssetCategoryFilter::Audio    && kind != AssetEntryKind::Audio)   continue;
+                if (m_categoryFilter == AssetCategoryFilter::Fonts    && kind != AssetEntryKind::Font)    continue;
                 if (m_categoryFilter == AssetCategoryFilter::Scenes   && kind != AssetEntryKind::Scene)   continue;
                 if (m_categoryFilter == AssetCategoryFilter::Prefabs  && kind != AssetEntryKind::Prefab)  continue;
                 if (m_categoryFilter == AssetCategoryFilter::Scripts  && kind != AssetEntryKind::Script)  continue;
@@ -139,12 +142,13 @@ namespace Talos::Editor {
                                                 float tabsEndX, EditorGui& gui, bool& inOutPanelOpen) {
         struct FilterDef { const char* label; AssetCategoryFilter filter; float width; };
         const FilterDef filters[] = {
-            { "All",      AssetCategoryFilter::All,      42.0f },
-            { "Textures", AssetCategoryFilter::Textures, 68.0f },
-            { "Audio",    AssetCategoryFilter::Audio,    52.0f },
-            { "Scenes",   AssetCategoryFilter::Scenes,   56.0f },
-            { "Prefabs",  AssetCategoryFilter::Prefabs,  60.0f },
-            { "Scripts",  AssetCategoryFilter::Scripts,  58.0f }
+            { "All",      AssetCategoryFilter::All,      40.0f },
+            { "Textures", AssetCategoryFilter::Textures, 66.0f },
+            { "Audio",    AssetCategoryFilter::Audio,    50.0f },
+            { "Fonts",    AssetCategoryFilter::Fonts,    50.0f },
+            { "Scenes",   AssetCategoryFilter::Scenes,   54.0f },
+            { "Prefabs",  AssetCategoryFilter::Prefabs,  58.0f },
+            { "Scripts",  AssetCategoryFilter::Scripts,  56.0f }
         };
 
         float curX = tabsEndX + 10.0f;
@@ -268,6 +272,8 @@ namespace Talos::Editor {
                     itemX += 20.0f;
                 } else if (entry.kind == AssetEntryKind::Audio) {
                     badge = "[AUD]"; badgeColor = { 85, 195, 255, 255 };
+                } else if (entry.kind == AssetEntryKind::Font) {
+                    badge = "[FNT]"; badgeColor = { 250, 205, 95, 255 };
                 } else if (entry.kind == AssetEntryKind::Scene) {
                     bool isActiveScene = (Scene::SceneSerializer::NormalizeScenePath(entry.relativePath) ==
                                           Scene::SceneSerializer::NormalizeScenePath(inOutSceneFilePath));
@@ -283,11 +289,15 @@ namespace Talos::Editor {
                 Renderer2D::DrawLabel(entry.name.c_str(), itemX + 46.0f, rowY + 4.0f, 14, { 230, 234, 242, 255 });
 
                 if (entry.kind != AssetEntryKind::Directory) {
-                    char sizeBuf[32];
-                    std::snprintf(sizeBuf, sizeof(sizeBuf), "%.1f KB", static_cast<float>(entry.fileSizeBytes) / 1024.0f);
+                    bool isCached = Scene::AssetManager::Has(entry.relativePath);
+                    char sizeBuf[48];
+                    std::snprintf(sizeBuf, sizeof(sizeBuf), "%s%.1f KB",
+                                  isCached ? "[CACHED] " : "",
+                                  static_cast<float>(entry.fileSizeBytes) / 1024.0f);
                     int sw = Renderer2D::MeasureTextWidth(sizeBuf, 12);
                     Renderer2D::DrawLabel(sizeBuf, listColX + rowW - static_cast<float>(sw) - 4.0f,
-                                          rowY + 5.0f, 12, { 130, 138, 156, 255 });
+                                          rowY + 5.0f, 12,
+                                          isCached ? ColorRGBA{ 125, 225, 165, 255 } : ColorRGBA{ 130, 138, 156, 255 });
                 }
                 rowY += rowHeight;
             }
@@ -315,9 +325,14 @@ namespace Talos::Editor {
 
         const AssetEntry* sel = FindSelectedEntry();
         if (!sel) {
-            Renderer2D::DrawLabel("ASSET PREVIEW", prevColX + 10.0f, bodyY + 8.0f, 13, { 145, 155, 175, 255 });
-            Renderer2D::DrawLabel("Select a texture, audio, prefab,", prevColX + 10.0f, bodyY + 32.0f, 13, { 110, 116, 132, 255 });
-            Renderer2D::DrawLabel("or scene file to preview & assign.", prevColX + 10.0f, bodyY + 50.0f, 13, { 110, 116, 132, 255 });
+            Scene::AssetStats stats = Scene::AssetManager::GetStats();
+            char statsLine[96];
+            std::snprintf(statsLine, sizeof(statsLine), "Asset Cache: %zu loaded (%.1f KB) | Hits: %llu",
+                          stats.totalCount, static_cast<float>(stats.totalBytes) / 1024.0f,
+                          static_cast<unsigned long long>(stats.totalCacheHits));
+            Renderer2D::DrawLabel("ASSET PREVIEW & CACHE", prevColX + 10.0f, bodyY + 8.0f, 13, { 145, 155, 175, 255 });
+            Renderer2D::DrawLabel(statsLine, prevColX + 10.0f, bodyY + 28.0f, 12, { 125, 210, 165, 255 });
+            Renderer2D::DrawLabel("Select any asset to preview, cache, or assign.", prevColX + 10.0f, bodyY + 48.0f, 12, { 110, 116, 132, 255 });
             if (canAssign) {
                 std::string saveBtnLabel = "Save '" + selectedEntity->name + "' as Prefab";
                 if (saveBtnLabel.size() > 30) {
@@ -389,6 +404,7 @@ namespace Talos::Editor {
                                canAssign ? ColorRGBA{ 54, 136, 92, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && canAssign) {
                 undoRedo.PushUndoState(scene, inOutSelectedEntityId,
                                        gui.GetTextCursorPos(), gui.GetTextSelectionAnchor(), isPlaying);
+                Scene::AssetManager::LoadTexture(sel->relativePath);
                 selectedEntity->sprite.enabled = true;
                 selectedEntity->sprite.texturePath = sel->relativePath;
                 selectedEntity->sprite.sourceX = 0.0f;
@@ -406,6 +422,7 @@ namespace Talos::Editor {
                                !isPlaying ? ColorRGBA{ 62, 112, 180, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && !isPlaying) {
                 undoRedo.PushUndoState(scene, inOutSelectedEntityId,
                                        gui.GetTextCursorPos(), gui.GetTextSelectionAnchor(), isPlaying);
+                Scene::AssetManager::LoadTexture(sel->relativePath);
                 std::string entName = fs::path(sel->name).stem().string() + "_" + std::to_string(m_spawnedSpriteCounter++);
                 Scene::Entity& created = scene.CreateEntity(entName);
                 created.transform.width  = (texW > 0) ? static_cast<float>(texW) : 64.0f;
@@ -435,10 +452,12 @@ namespace Talos::Editor {
             float thirdW = (previewColW - 24.0f) / 3.0f, playY = bodyY + 48.0f;
             if (gui.DrawButton(prevColX + 8.0f, playY, thirdW, 24.0f, "Play SFX",
                                { 38, 86, 136, 255 }, { 54, 112, 172, 255 })) {
+                Scene::AssetManager::LoadSound(sel->relativePath);
                 Audio::AudioSystem::PlaySound(sel->relativePath, 1.0f, 1.0f);
             }
             if (gui.DrawButton(prevColX + 12.0f + thirdW, playY, thirdW, 24.0f, "Play Music",
                                { 46, 78, 128, 255 }, { 64, 102, 164, 255 })) {
+                Scene::AssetManager::LoadMusic(sel->relativePath);
                 Audio::AudioSystem::PlayMusic(sel->relativePath, false, 1.0f, 1.0f);
             }
             if (gui.DrawButton(prevColX + 16.0f + thirdW * 2.0f, playY, thirdW, 24.0f, "Stop",
@@ -453,6 +472,7 @@ namespace Talos::Editor {
                                canAssign ? ColorRGBA{ 54, 136, 92, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && canAssign) {
                 undoRedo.PushUndoState(scene, inOutSelectedEntityId,
                                        gui.GetTextCursorPos(), gui.GetTextSelectionAnchor(), isPlaying);
+                Scene::AssetManager::LoadSound(sel->relativePath);
                 selectedEntity->audio.enabled = true;
                 selectedEntity->audio.audioPath = sel->relativePath;
                 selectedEntity->audio.isMusic = false;
@@ -464,6 +484,7 @@ namespace Talos::Editor {
                                canAssign ? ColorRGBA{ 82, 112, 182, 255 } : ColorRGBA{ 34, 36, 44, 255 }) && canAssign) {
                 undoRedo.PushUndoState(scene, inOutSelectedEntityId,
                                        gui.GetTextCursorPos(), gui.GetTextSelectionAnchor(), isPlaying);
+                Scene::AssetManager::LoadMusic(sel->relativePath);
                 selectedEntity->audio.enabled = true;
                 selectedEntity->audio.audioPath = sel->relativePath;
                 selectedEntity->audio.isMusic = true;
@@ -474,6 +495,26 @@ namespace Talos::Editor {
             Renderer2D::DrawLabel(selectedEntity ? ("Target: " + selectedEntity->name).c_str()
                                                  : "Target: (Select an entity in Scene Tree)",
                                   prevColX + 8.0f, bodyY + 114.0f, 12, { 130, 138, 156, 255 });
+        } else if (sel->kind == AssetEntryKind::Font) {
+            Renderer2D::DrawLabel(sel->name.c_str(), prevColX + 8.0f, bodyY + 8.0f, 14, { 250, 205, 95, 255 });
+            bool isLoaded = Scene::AssetManager::HasFont(sel->relativePath);
+            Renderer2D::DrawLabel(isLoaded ? "Status: Cached in Font Registry" : "Status: On Disk (Not Cached)",
+                                  prevColX + 8.0f, bodyY + 28.0f, 12,
+                                  isLoaded ? ColorRGBA{ 130, 235, 170, 255 } : ColorRGBA{ 150, 156, 175, 255 });
+            Renderer2D::DrawLabelEx("The quick brown fox 0123456789", sel->relativePath.c_str(),
+                                    prevColX + 8.0f, bodyY + 52.0f, 15, { 235, 240, 250, 255 });
+            float halfW = (previewColW - 22.0f) * 0.5f;
+            if (gui.DrawButton(prevColX + 8.0f, bodyY + 94.0f, halfW, 26.0f, "Cache Font",
+                               { 42, 108, 78, 255 }, { 56, 138, 100, 255 })) {
+                if (Scene::AssetManager::LoadFont(sel->relativePath)) {
+                    outStatusMessage = "Cached font '" + sel->name + "' in AssetManager";
+                }
+            }
+            if (gui.DrawButton(prevColX + 14.0f + halfW, bodyY + 94.0f, halfW, 26.0f, "Unload Font",
+                               { 112, 46, 52, 255 }, { 144, 60, 68, 255 })) {
+                Scene::AssetManager::UnloadFont(sel->relativePath);
+                outStatusMessage = "Unloaded font '" + sel->name + "' from AssetManager";
+            }
         } else if (sel->kind == AssetEntryKind::Scene) {
             bool isActiveScene = (Scene::SceneSerializer::NormalizeScenePath(sel->relativePath) ==
                                   Scene::SceneSerializer::NormalizeScenePath(inOutSceneFilePath));
@@ -495,6 +536,7 @@ namespace Talos::Editor {
                         Scene::SceneSerializer::Save(scene, inOutSceneFilePath);
                     }
                     if (scene.ChangeScene(sel->relativePath, false)) {
+                        Scene::AssetManager::PreloadSceneAssets(scene);
                         inOutSceneFilePath = scene.GetSceneFilePath();
                         inOutSelectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
                         undoRedo.Clear();
@@ -531,6 +573,7 @@ namespace Talos::Editor {
                                    isActiveScene ? "Reload Scene Live (Play)" : "Switch Scene Live (Play)",
                                    { 40, 118, 86, 255 }, { 54, 148, 108, 255 })) {
                     if (scene.ChangeScene(sel->relativePath, false)) {
+                        Scene::AssetManager::PreloadSceneAssets(scene);
                         inOutSceneFilePath = scene.GetSceneFilePath();
                         inOutSelectedEntityId = scene.GetEntities().empty() ? 0 : scene.GetEntities().front().id;
                         outStatusMessage = "Switched live to scene '" + inOutSceneFilePath + "'";
@@ -582,6 +625,21 @@ namespace Talos::Editor {
             for (const auto& line : m_textPreviewLines) {
                 Renderer2D::DrawLabel(line.c_str(), prevColX + 8.0f, lineY, 12, { 145, 152, 170, 255 });
                 lineY += 15.0f;
+                if (lineY > bodyY + 92.0f) break;
+            }
+            if (sel->kind == AssetEntryKind::Script) {
+                float halfW = (previewColW - 22.0f) * 0.5f;
+                if (gui.DrawButton(prevColX + 8.0f, bodyY + 104.0f, halfW, 26.0f, "Cache Script",
+                                   { 42, 108, 78, 255 }, { 56, 138, 100, 255 })) {
+                    if (Scene::AssetManager::LoadScript(sel->relativePath)) {
+                        outStatusMessage = "Cached script '" + sel->name + "' in AssetManager";
+                    }
+                }
+                if (gui.DrawButton(prevColX + 14.0f + halfW, bodyY + 104.0f, halfW, 26.0f, "Unload Script",
+                                   { 112, 46, 52, 255 }, { 144, 60, 68, 255 })) {
+                    Scene::AssetManager::UnloadScript(sel->relativePath);
+                    outStatusMessage = "Unloaded script '" + sel->name + "' from AssetManager";
+                }
             }
         }
     }

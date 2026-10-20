@@ -2,6 +2,8 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
+#include <string>
+#include <vector>
 
 namespace Talos::Renderer {
 
@@ -116,26 +118,71 @@ namespace Talos::Renderer {
                                float sourceW = 0.0f, float sourceH = 0.0f,
                                bool flipX = false, bool flipY = false);
 
+        // Generates built-in starter .png textures in "examples/assets/textures/" if absent.
+        // Safe to call in both windowed runtime and headless test environments.
+        static void EnsureStarterAssetsExist();
+
+        // Explicitly loads and caches 'texturePath' into VRAM (or reuses it if already loaded).
+        // Returns true if the texture is valid and cached, or false if the file is missing/invalid.
+        static bool LoadTexture(const char* texturePath);
+
+        // Returns true if 'texturePath' is currently resident in the texture cache without triggering a disk load.
+        static bool IsTextureLoaded(const char* texturePath);
+
         // Returns true if 'texturePath' points to a valid texture that is either already
         // cached in VRAM or exists on disk and can be loaded into the texture cache.
         static bool HasTexture(const char* texturePath);
+
+        // Releases a single cached 2D texture from VRAM and removes it from the texture cache.
+        static void UnloadTexture(const char* texturePath);
+
+        // Releases all cached 2D sprite textures from VRAM and clears the texture cache.
+        static void UnloadAllTextures();
+
+        // Returns a sorted list of all normalized texture file paths currently resident in the cache.
+        static std::vector<std::string> GetLoadedTexturePaths();
 
         // Queries the native pixel dimensions (outWidth, outHeight) of a valid 2D texture.
         // Returns true if the texture was found/loaded, or false if unavailable.
         static bool GetTextureSize(const char* texturePath, int& outWidth, int& outHeight);
 
+        // Explicitly loads and caches a custom TrueType/OpenType font (.ttf / .otf) at 'fontSize'.
+        // Returns true if the font file is valid and cached, or false otherwise.
+        static bool LoadFont(const char* fontPath, int fontSize = 24);
+
+        // Returns true if 'fontPath' is currently resident in the custom font cache.
+        static bool HasFont(const char* fontPath);
+
+        // Releases all cached GPU glyph atlases associated with 'fontPath'.
+        static void UnloadFont(const char* fontPath);
+
+        // Releases all custom TrueType/OpenType fonts loaded via LoadFont().
+        static void UnloadAllFonts();
+
+        // Returns a sorted list of all custom font file paths currently resident in the cache.
+        static std::vector<std::string> GetLoadedFontPaths();
+
         // Renders anti-aliased TrueType text at the given top-left coordinates and pixel height.
         static void DrawLabel(const char* text, float x, float y, int fontSize, ColorRGBA color);
+
+        // Renders anti-aliased TrueType text using a specific custom 'fontPath' (or the default font if empty).
+        static void DrawLabelEx(const char* fontPath, const char* text, float x, float y, int fontSize, ColorRGBA color);
 
         // Computes the rendered pixel width of a TrueType text string at a given font size.
         // Used for centering labels inside buttons and positioning text cursors.
         static int MeasureTextWidth(const char* text, int fontSize);
+
+        // Computes the rendered pixel width of 'text' using a specific custom 'fontPath' (or the default font if empty).
+        static int MeasureTextWidthEx(const char* fontPath, const char* text, int fontSize);
 
         // =====================================================================
         // Diagnostic & Memory Profiling Queries (VRAM)
         // =====================================================================
         // Returns the exact GPU VRAM footprint in bytes of a cached 2D texture (0 if not loaded).
         static size_t GetTextureVRAMBytes(const char* texturePath);
+
+        // Returns the exact GPU VRAM footprint in bytes of a custom cached font across its rasterized sizes.
+        static size_t GetCustomFontVRAMBytes(const char* fontPath);
 
         // Returns the exact GPU VRAM footprint in bytes of the TrueType font atlas for 'fontSize'.
         static size_t GetFontAtlasVRAMBytes(int fontSize);
@@ -148,6 +195,9 @@ namespace Talos::Renderer {
 
         // Returns the number of unique 2D textures currently resident in GPU VRAM.
         static size_t GetCachedTextureCount();
+
+        // Returns the number of custom TrueType/OpenType font assets currently cached.
+        static size_t GetCachedFontCount();
     };
 
 }

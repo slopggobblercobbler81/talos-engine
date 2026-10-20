@@ -5,6 +5,7 @@
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"
 #include "scene/project_serializer.h"
+#include "scene/asset_manager.h"
 #include "editor/editor.h"
 
 int main() {
@@ -28,6 +29,7 @@ int main() {
     Window::SetTargetFrameRate(projectConfig.targetFps);
     Renderer2D::Init();
     AudioSystem::Init();
+    AssetManager::Init();
 
     // =========================================================================
     // 2. World & Unified Project Initialization (Scene Layer)
@@ -48,6 +50,7 @@ int main() {
         }
         ProjectSerializer::SaveProject(projectConfig, nullptr, DEFAULT_PROJECT_PATH, "", true);
     }
+    AssetManager::PreloadSceneAssets(world);
 
     // Ensure a second starter scene ('examples/scenes/arena.talsc') exists out-of-the-box
     // so multi-scene switching can be tested immediately in the Editor and Play Mode.
@@ -94,8 +97,9 @@ int main() {
     }
 
     // =========================================================================
-    // 5. Engine Shutdown (Audio, Renderer & Core Layers)
+    // 5. Engine Shutdown (AssetManager, Audio, Renderer & Core Layers)
     // =========================================================================
+    AssetManager::Shutdown();
     AudioSystem::Shutdown();
     Renderer2D::Shutdown();
     Window::Close();

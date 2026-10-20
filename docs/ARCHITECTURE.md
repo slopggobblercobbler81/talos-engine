@@ -94,7 +94,7 @@ Every frame executes a deterministic, strictly ordered pipeline across layers:
 
 Each engine layer is built as a static library (`engine/CMakeLists.txt`): `talos_core`, `talos_renderer` (-> core), `talos_physics`, `talos_audio` (-> core), and `talos_scene` (-> core, renderer, physics, audio). The editor executable links against them. raylib is linked `PRIVATE` only to `talos_core`, `talos_renderer`, and `talos_audio`, so no other target can see its headers.
 
-Unit tests live in `tests/` (mirroring `engine/`) and run with `ctest --test-dir build --output-on-failure`. They use a minimal in-repo harness (`tests/test_framework.h`) and need no window or GPU. Disable with `-DTALOS_BUILD_TESTS=OFF`. Covered so far: `Physics2D` (overlap, manifolds, impulse resolution), `AudioSystem` (device lifecycle, in-memory WAV/OGG `Sound` cache, streaming OGG/MP3/WAV `Music`), `SceneSerializer` (round-trip, clamping, legacy keys, error handling), and `ProjectSerializer` (`project.talos` round-trip, clamping, legacy keys, and end-to-end Create/Save/Open workflow).
+Unit tests live in `tests/` (mirroring `engine/`) and run with `ctest --test-dir build --output-on-failure`. They use a minimal in-repo harness (`tests/test_framework.h`) and need no window or GPU. Disable with `-DTALOS_BUILD_TESTS=OFF`. Covered so far: `Physics2D` (overlap, manifolds, impulse resolution), `AudioSystem` (device lifecycle, in-memory WAV/OGG `Sound` cache, streaming OGG/MP3/WAV `Music`), `SceneSerializer` (round-trip, clamping, legacy keys, error handling), `ProjectSerializer` (`project.talos` round-trip, clamping, legacy keys, and end-to-end Create/Save/Open workflow), and `AssetManager` (central resource registry for textures, sounds, music, fonts, prefabs, and scripts, cache reuse, and scene preload/unload).
 
 Within each architectural layer, subsystems follow a **Godot-style modular tree organization** (`Central Orchestrator -> Specialized Branches`) to prevent monolithic files:
 
@@ -107,7 +107,7 @@ talos-engine/
 │   │   ├── input_map.h / .cpp        # Logical actions & .talos InputMap persistence
 │   │   └── logger.h / .cpp           # Classified debug logger ([INFO], [WARN], [ERROR])
 │   ├── renderer/                     # Layer 2: Rendering Subsystem
-│   │   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture cache
+│   │   └── renderer2d.h / .cpp       # Exclusive 2D draw call submission & GPU texture/font cache
 │   ├── physics/                      # Layer 2: Physics Subsystem
 │   │   └── physics2d.h / .cpp        # 2D AABB overlap & movement resolution
 │   ├── audio/                        # Layer 2: Audio Subsystem
@@ -115,7 +115,8 @@ talos-engine/
 │   ├── scene/                        # Layer 3: Scene & Entity Layer
 │   │   ├── entity.h                  # Flat zero-inheritance Entity & Component structs
 │   │   ├── scene.h / .cpp            # World state & per-component telemetry counters
-│   │   ├── scene_serializer.h / .cpp # Human-readable .talos scene persistence
+│   │   ├── asset_manager.h / .cpp    # Central resource registry (textures, audio, fonts, prefabs, scripts)
+│   │   ├── scene_serializer.h / .cpp # Human-readable .talsc / .prefab persistence
 │   │   └── project_serializer.h / .cpp # Unified project.talos persistence & workflow
 └── editor/                       # Layer 5: Visual Editor (EditorNode + Branches)
     ├── main.cpp                  # Engine bootstrap & main loop

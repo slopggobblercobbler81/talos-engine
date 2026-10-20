@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #ifdef PlaySound
 #undef PlaySound
@@ -139,6 +140,8 @@ namespace Talos::Audio {
         static std::size_t GetActiveMusicStreamCount();
         static std::size_t GetTotalSoundMemoryBytes();
         static std::size_t GetTotalMusicMemoryBytes();
+        static std::vector<std::string> GetLoadedSoundPaths();
+        static std::vector<std::string> GetLoadedMusicPaths();
     };
 
 } // namespace Talos::Audio

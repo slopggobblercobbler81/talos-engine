@@ -1,4 +1,6 @@
+// Human-readable .talsc scene and .prefab template save/load (SceneSerializer)
 #include "scene/scene_serializer.h"
+#include "scene/asset_manager.h"
 #include "core/logger.h"
 #include <fstream>
 #include <sstream>
@@ -331,7 +333,9 @@ namespace Talos::Scene {
         out << std::fixed << std::setprecision(2);
         out << "[Prefab]\n";
         WriteEntityProperties(out, entity, false);
+        out.close();
 
+        AssetManager::CachePrefab(filePath, entity);
         TALOS_LOG_INFO("Prefab saved to '" + filePath + "' ('" + entity.name + "')");
         return true;
     }
@@ -399,6 +403,7 @@ namespace Talos::Scene {
         parsedEntity.camera.runtimeInitialized = false;
         parsedEntity.audio.runtimeStarted = false;
 
+        AssetManager::CachePrefab(filePath, parsedEntity);
         outEntity = parsedEntity;
         return true;
     }
@@ -408,8 +413,18 @@ namespace Talos::Scene {
                                                float overrideX,
                                                float overrideY,
                                                bool useOverridePosition) {
+        std::error_code ec;
+        if (filePath.empty() || !std::filesystem::exists(filePath, ec)) {
+            AssetManager::UnloadPrefab(filePath);
+            TALOS_LOG_WARN("Prefab file not found or could not be opened: '" + filePath + "'");
+            return nullptr;
+        }
+
         Entity prefabEntity;
-        if (!LoadPrefab(filePath, prefabEntity)) {
+        const Entity* cachedTemplate = AssetManager::GetPrefab(filePath);
+        if (cachedTemplate != nullptr) {
+            prefabEntity = *cachedTemplate;
+        } else if (!LoadPrefab(filePath, prefabEntity)) {
             return nullptr;
         }
 
